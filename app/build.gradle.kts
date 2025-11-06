@@ -56,7 +56,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
 
     implementation("com.google.dagger:hilt-android:2.57.2")
-
+    implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
+    
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
