@@ -3,9 +3,15 @@ package com.events.app.ui
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import com.events.app.ui.components.AppTopBar
 import com.events.app.ui.viewmodels.EventsScreen
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -13,14 +19,20 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
-            // Убрали EventsAppTheme, чтобы избежать ошибок
-            androidx.compose.material3.Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = androidx.compose.material3.MaterialTheme.colorScheme.background  // Оставьте, если MaterialTheme импортирован, или удалите color для простоты
-            ) {
-                EventsScreen()  // Вывод главной страницы с мероприятиями
+            MaterialTheme {
+                Scaffold(
+                    modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),  // Это остаётся для системных баров
+                    topBar = { AppTopBar() },
+                    content = { paddingValues ->  // innerPadding здесь
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.background
+                        ) {
+                            EventsScreen(paddingValues)  // Передаём paddingValues в EventsScreen
+                        }
+                    }
+                )
             }
         }
     }
