@@ -19,6 +19,7 @@ fun DrawerContent(
     val routes = listOf(
         NavigationRoute.Main,
         NavigationRoute.Events,
+        NavigationRoute.Account,
         NavigationRoute.Settings
     )
 
@@ -31,12 +32,19 @@ fun DrawerContent(
                 label = { Text(route.title) },
                 selected = currentRoute == route.route,
                 onClick = {
-                    navController.navigate(route.route) {
-                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+                    if (currentRoute == route.route) {
+                        scope.launch { drawerState.close() }
+                    } else {
+                        val popped = navController.popBackStack(route.route, inclusive = false)
+                        if (!popped) {
+                            navController.navigate(route.route) {
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                        scope.launch { drawerState.close() }
                     }
-                    scope.launch { drawerState.close() }
                 },
                 modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
             )

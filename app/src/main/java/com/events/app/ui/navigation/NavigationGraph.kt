@@ -12,6 +12,7 @@ import com.events.app.ui.views.events.EventsScreen
 import com.events.app.ui.views.main.MainScreen
 import com.events.app.ui.views.main.MainViewModel
 import com.events.app.ui.views.settings.SettingsScreen
+import com.events.app.ui.views.user.AccountScreen
 
 // Функция, позволяющая динамически переходить между
 // экранами приложения
@@ -39,6 +40,11 @@ fun NavigationGraph(
         // Настройки
         composable(NavigationRoute.Settings.route) {
             SettingsScreen()
+        }
+
+        // Аккаунт пользователя
+        composable(NavigationRoute.Account.route) {
+            AccountScreen()
         }
     }
 }

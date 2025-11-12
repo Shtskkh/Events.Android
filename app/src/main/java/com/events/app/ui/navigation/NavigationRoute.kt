@@ -22,6 +22,11 @@ sealed class NavigationRoute(
         route = "settings",
         title = "Настройки"
     )
+
+    object Account : NavigationRoute(
+        route = "account",
+        title = "Аккаунт"
+    )
 }
 
 // Функция получения названия экрана по его пути
@@ -30,6 +35,7 @@ fun getTitleForRoute(route: String): String {
         NavigationRoute.Main.route -> NavigationRoute.Main.title
         NavigationRoute.Events.route -> NavigationRoute.Events.title
         NavigationRoute.Settings.route -> NavigationRoute.Settings.title
+        NavigationRoute.Account.route -> NavigationRoute.Account.title
         else -> "Приложение"
     }
 }

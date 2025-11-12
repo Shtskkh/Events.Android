@@ -15,7 +15,8 @@ fun AppTopBar(
     title: String,
     scrollBehavior: TopAppBarScrollBehavior,
     drawerScope: CoroutineScope,
-    drawerState: DrawerState
+    drawerState: DrawerState,
+    onNavigationToAccount: () -> Unit = {}
     ) {
 
     CenterAlignedTopAppBar(  // Используем CenterAligned для лучшего центрирования
@@ -39,7 +40,7 @@ fun AppTopBar(
             }
         },
         actions = {
-            IconButton(onClick = { /* TODO: Добавьте действие */ }) {
+            IconButton(onClick = onNavigationToAccount) {
                 Icon(
                     imageVector = Icons.Default.AccountCircle,
                     contentDescription = "Профиль"

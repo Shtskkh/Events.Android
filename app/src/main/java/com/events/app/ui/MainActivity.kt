@@ -16,6 +16,7 @@ import androidx.navigation.compose.rememberNavController
 import com.events.app.ui.components.AppTopBar
 import com.events.app.ui.components.DrawerContent
 import com.events.app.ui.navigation.NavigationGraph
+import com.events.app.ui.navigation.NavigationRoute
 import com.events.app.ui.navigation.getTitleForRoute
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -58,7 +59,17 @@ class MainActivity : ComponentActivity() {
                     }
                 ) {
                     Scaffold(
-                        topBar = { AppTopBar(routeTitle, scrollBehavior, scope, drawerState) },
+                        topBar = {
+                            AppTopBar(
+                                routeTitle, scrollBehavior, scope, drawerState,
+                                onNavigationToAccount = {
+                                    navController.navigate(NavigationRoute.Account.route) {
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            )
+                        },
                         modifier = Modifier
                             .fillMaxSize()
                             .nestedScroll(scrollBehavior.nestedScrollConnection),
