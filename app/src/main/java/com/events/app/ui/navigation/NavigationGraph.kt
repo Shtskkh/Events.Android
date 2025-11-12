@@ -10,6 +10,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.events.app.ui.views.main.MainScreen
 import com.events.app.ui.views.main.MainViewModel
+import com.events.app.ui.views.settings.SettingsScreen
 
 // Функция, позволяющая динамически переходить между
 // экранами приложения
@@ -27,6 +28,11 @@ fun NavigationGraph(
         composable(NavigationRoute.Main.route) {
             val viewModel = hiltViewModel<MainViewModel>()
             MainScreen(viewModel)
+        }
+
+        // Настройки
+        composable(NavigationRoute.Settings.route) {
+            SettingsScreen()
         }
     }
 }

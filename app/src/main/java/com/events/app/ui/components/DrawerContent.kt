@@ -18,6 +18,7 @@ fun DrawerContent(
     // Здесь прописываются пути для бокового меню
     val routes = listOf(
         NavigationRoute.Main,
+        NavigationRoute.Settings,
     )
 
     val scope = rememberCoroutineScope()
