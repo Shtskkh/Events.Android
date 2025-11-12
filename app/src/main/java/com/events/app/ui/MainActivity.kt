@@ -6,7 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.core.view.WindowCompat
@@ -46,7 +45,6 @@ class MainActivity : ComponentActivity() {
                     .enterAlwaysScrollBehavior(rememberTopAppBarState())
 
                 val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-                val scope = rememberCoroutineScope()
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
@@ -61,12 +59,9 @@ class MainActivity : ComponentActivity() {
                     Scaffold(
                         topBar = {
                             AppTopBar(
-                                routeTitle, scrollBehavior, scope, drawerState,
+                                routeTitle, scrollBehavior, drawerState,
                                 onNavigationToAccount = {
-                                    navController.navigate(NavigationRoute.Account.route) {
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
+                                    navController.navigate(NavigationRoute.Account.route)
                                 }
                             )
                         },

@@ -5,8 +5,8 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.style.TextOverflow
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -14,10 +14,11 @@ import kotlinx.coroutines.launch
 fun AppTopBar(
     title: String,
     scrollBehavior: TopAppBarScrollBehavior,
-    drawerScope: CoroutineScope,
     drawerState: DrawerState,
-    onNavigationToAccount: () -> Unit = {}
+    onNavigationToAccount: () -> Unit
     ) {
+
+    val scope = rememberCoroutineScope()
 
     CenterAlignedTopAppBar(  // Используем CenterAligned для лучшего центрирования
         title = {
@@ -29,7 +30,7 @@ fun AppTopBar(
         },
         navigationIcon = {
             IconButton(onClick = {
-                drawerScope.launch {
+                scope.launch {
                     drawerState.open()
                 }
             }) {
