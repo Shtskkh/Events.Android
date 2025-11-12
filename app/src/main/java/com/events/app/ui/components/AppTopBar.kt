@@ -3,25 +3,18 @@ package com.events.app.ui.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppTopBar() {
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())  // Для фиксации при скролле
+fun AppTopBar(title: String, scrollBehavior: TopAppBarScrollBehavior) {
 
     CenterAlignedTopAppBar(  // Используем CenterAligned для лучшего центрирования
         title = {
             Text(
-                text = "Главная",
+                text = title,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis  // Если текст длинный, обрезает
             )
@@ -42,6 +35,6 @@ fun AppTopBar() {
                 )
             }
         },
-        scrollBehavior = scrollBehavior  // Фиксирует бар при скролле
+        scrollBehavior = scrollBehavior
     )
 }
