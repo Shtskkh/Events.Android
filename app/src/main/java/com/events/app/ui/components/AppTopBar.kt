@@ -6,10 +6,17 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppTopBar(title: String, scrollBehavior: TopAppBarScrollBehavior) {
+fun AppTopBar(
+    title: String,
+    scrollBehavior: TopAppBarScrollBehavior,
+    drawerScope: CoroutineScope,
+    drawerState: DrawerState
+    ) {
 
     CenterAlignedTopAppBar(  // Используем CenterAligned для лучшего центрирования
         title = {
@@ -20,7 +27,11 @@ fun AppTopBar(title: String, scrollBehavior: TopAppBarScrollBehavior) {
             )
         },
         navigationIcon = {
-            IconButton(onClick = { /* TODO: Добавьте действие */ }) {
+            IconButton(onClick = {
+                drawerScope.launch {
+                    drawerState.open()
+                }
+            }) {
                 Icon(
                     imageVector = Icons.Default.Menu,
                     contentDescription = "Меню"
