@@ -13,6 +13,11 @@ sealed class NavigationRoute(
         title = "Главная"
     )
 
+    object Events : NavigationRoute(
+        route = "events",
+        title = "Мероприятия"
+    )
+
     object Settings : NavigationRoute(
         route = "settings",
         title = "Настройки"
@@ -23,6 +28,7 @@ sealed class NavigationRoute(
 fun getTitleForRoute(route: String): String {
     return when (route) {
         NavigationRoute.Main.route -> NavigationRoute.Main.title
+        NavigationRoute.Events.route -> NavigationRoute.Events.title
         NavigationRoute.Settings.route -> NavigationRoute.Settings.title
         else -> "Приложение"
     }

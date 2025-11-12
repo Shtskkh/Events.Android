@@ -8,6 +8,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.events.app.ui.views.events.EventsScreen
 import com.events.app.ui.views.main.MainScreen
 import com.events.app.ui.views.main.MainViewModel
 import com.events.app.ui.views.settings.SettingsScreen
@@ -28,6 +29,11 @@ fun NavigationGraph(
         composable(NavigationRoute.Main.route) {
             val viewModel = hiltViewModel<MainViewModel>()
             MainScreen(viewModel)
+        }
+
+        // Все мероприятия
+        composable(NavigationRoute.Events.route) {
+            EventsScreen()
         }
 
         // Настройки
