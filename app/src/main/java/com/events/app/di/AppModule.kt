@@ -1,8 +1,8 @@
 package com.events.app.di
 
 import com.events.app.data.LocalDataSource
-import com.events.app.domain.repository.EventRepository
-import com.events.app.domain.repository.EventRepositoryImpl
+import com.events.app.domain.repositories.events.EventRepository
+import com.events.app.domain.repositories.events.EventRepositoryImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

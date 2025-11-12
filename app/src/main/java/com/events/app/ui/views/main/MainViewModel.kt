@@ -1,9 +1,9 @@
-package com.events.app.ui.viewmodels
+package com.events.app.ui.views.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.events.app.domain.model.Event
-import com.events.app.domain.usecase.GetEventsUseCase
+import com.events.app.domain.models.events.Event
+import com.events.app.domain.usecases.events.GetEventsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,7 +12,7 @@ import javax.inject.Inject
 import android.util.Log  // Добавь сверху
 
 @HiltViewModel
-class EventsViewModel @Inject constructor(
+class MainViewModel @Inject constructor(
     private val getEventsUseCase: GetEventsUseCase
 ) : ViewModel() {
 

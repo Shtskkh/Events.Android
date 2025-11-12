@@ -12,7 +12,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.events.app.ui.components.AppTopBar
-import com.events.app.ui.viewmodels.EventsScreen
+import com.events.app.ui.views.main.MainScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxSize(),
                             color = MaterialTheme.colorScheme.background
                         ) {
-                            EventsScreen(paddingValues)  // Передаём paddingValues в EventsScreen
+                            MainScreen(paddingValues)  // Передаём paddingValues в EventsScreen
                         }
                     }
                 )

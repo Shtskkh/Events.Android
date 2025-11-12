@@ -1,6 +1,6 @@
 package com.events.app.data
 
-import com.events.app.domain.model.Event
+import com.events.app.domain.models.events.Event
 import java.time.LocalDateTime
 
 class LocalDataSource {

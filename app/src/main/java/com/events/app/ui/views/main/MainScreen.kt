@@ -1,4 +1,4 @@
-package com.events.app.ui.viewmodels
+package com.events.app.ui.views.main
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,22 +10,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.hilt.navigation.compose.hiltViewModel
 import java.time.format.DateTimeFormatter
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.events.app.ui.components.AssignedEventCard
 
 @Composable
-fun EventsScreen(
+fun MainScreen (
     innerPadding: PaddingValues,
-    viewModel: EventsViewModel = hiltViewModel()
+    viewModel: MainViewModel = viewModel() // Теперь не нужно писать hiltViewModel
 ) {
     val events = viewModel.events.collectAsState().value
 
@@ -85,7 +85,7 @@ fun EventsScreen(
                         "Завершено: ${if (event.isFinished) "Да" else "Нет"}",
                 modifier = Modifier.padding(16.dp)
             )
-            Divider()
+            HorizontalDivider()
         }
     }
 }
