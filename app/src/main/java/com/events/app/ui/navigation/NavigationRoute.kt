@@ -8,6 +8,11 @@ sealed class NavigationRoute(
     val title: String,
     val icon: ImageVector? = null,
 ) {
+    object Login : NavigationRoute(
+        route = "login",
+        title = "Вход"
+    )
+
     object Main : NavigationRoute(
         route = "main",
         title = "Главная"
@@ -32,6 +37,7 @@ sealed class NavigationRoute(
 // Функция получения названия экрана по его пути
 fun getTitleForRoute(route: String): String {
     return when (route) {
+        NavigationRoute.Login.route -> NavigationRoute.Login.title
         NavigationRoute.Main.route -> NavigationRoute.Main.title
         NavigationRoute.Events.route -> NavigationRoute.Events.title
         NavigationRoute.Settings.route -> NavigationRoute.Settings.title

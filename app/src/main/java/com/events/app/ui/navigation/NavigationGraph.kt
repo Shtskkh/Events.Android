@@ -4,10 +4,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.events.app.ui.views.auth.LoginScreen
 import com.events.app.ui.views.events.EventsScreen
 import com.events.app.ui.views.main.MainScreen
 import com.events.app.ui.views.main.MainViewModel
@@ -20,12 +21,17 @@ import com.events.app.ui.views.user.AccountScreen
 fun NavigationGraph(
     navController: NavHostController,
     innerPadding: PaddingValues,
+    startDestination: String
 ) {
     NavHost(
         navController = navController,
-        startDestination = NavigationRoute.Main.route,
+        startDestination = startDestination,
         modifier = Modifier.padding(innerPadding)
     ) {
+        composable(NavigationRoute.Login.route) {
+            LoginScreen(navController)
+        }
+
         // Главная страница
         composable(NavigationRoute.Main.route) {
             val viewModel = hiltViewModel<MainViewModel>()

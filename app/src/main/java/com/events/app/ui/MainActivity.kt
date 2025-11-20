@@ -4,12 +4,18 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.events.app.ui.components.AppTopBar
@@ -17,6 +23,7 @@ import com.events.app.ui.components.DrawerContent
 import com.events.app.ui.navigation.NavigationGraph
 import com.events.app.ui.navigation.NavigationRoute
 import com.events.app.ui.navigation.getTitleForRoute
+import com.events.app.ui.views.auth.AuthViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -33,46 +40,55 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
+                val authViewModel: AuthViewModel = hiltViewModel()
+                val isAuthenticated by authViewModel.isAuthenticated.collectAsState(initial = false)
+
                 val navController = rememberNavController()
                 val currentBackStackEntry = navController.currentBackStackEntryAsState().value
-                val currentRoute = currentBackStackEntry?.destination?.route ?: "main"
+                val currentRoute = currentBackStackEntry?.destination?.route ?: "login"
 
-                // Название передаётся в AppTopBar динамически
-                val routeTitle = getTitleForRoute(currentRoute)
+                val startDestination = if (isAuthenticated) NavigationRoute.Main.route else NavigationRoute.Login.route
 
-                // Топ бар скрывается, пока пользователь не потянет вверх
-                val scrollBehavior = TopAppBarDefaults
-                    .enterAlwaysScrollBehavior(rememberTopAppBarState())
+                if (currentRoute == NavigationRoute.Login.route) {
+                    NavigationGraph(
+                        navController = navController,
+                        innerPadding = PaddingValues(0.dp),
+                        startDestination = startDestination
+                    )
+                } else {
+                    val routeTitle = getTitleForRoute(currentRoute)
+                    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
+                    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
-                val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-
-                ModalNavigationDrawer(
-                    drawerState = drawerState,
-                    drawerContent = {
-                        DrawerContent(
-                            drawerState = drawerState,
-                            navController = navController,
-                            currentRoute = routeTitle,
-                        )
-                    }
-                ) {
-                    Scaffold(
-                        topBar = {
-                            AppTopBar(
-                                routeTitle, scrollBehavior, drawerState,
-                                onNavigationToAccount = {
-                                    navController.navigate(NavigationRoute.Account.route)
-                                }
+                    ModalNavigationDrawer(
+                        drawerState = drawerState,
+                        drawerContent = {
+                            DrawerContent(
+                                drawerState = drawerState,
+                                navController = navController,
+                                currentRoute = currentRoute,
                             )
-                        },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .nestedScroll(scrollBehavior.nestedScrollConnection),
-                    ) { innerPadding ->
-                        NavigationGraph(
-                            navController,
-                            innerPadding
-                        )
+                        }
+                    ) {
+                        Scaffold(
+                            topBar = {
+                                AppTopBar(
+                                    routeTitle, scrollBehavior, drawerState,
+                                    onNavigationToAccount = {
+                                        navController.navigate(NavigationRoute.Account.route)
+                                    }
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .nestedScroll(scrollBehavior.nestedScrollConnection),
+                        ) { innerPadding ->
+                            NavigationGraph(
+                                navController = navController,
+                                innerPadding = innerPadding,
+                                startDestination = startDestination
+                            )
+                        }
                     }
                 }
             }
