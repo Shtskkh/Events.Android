@@ -4,10 +4,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.events.app.ui.views.auth.AuthViewModel
 import com.events.app.ui.views.auth.LoginScreen
 import com.events.app.ui.views.events.EventsScreen
 import com.events.app.ui.views.main.MainScreen
@@ -29,7 +30,8 @@ fun NavigationGraph(
         modifier = Modifier.padding(innerPadding)
     ) {
         composable(NavigationRoute.Login.route) {
-            LoginScreen(navController)
+            val viewModel = hiltViewModel<AuthViewModel>()
+            LoginScreen(navController, viewModel)
         }
 
         // Главная страница

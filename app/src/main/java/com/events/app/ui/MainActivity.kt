@@ -9,13 +9,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.events.app.ui.components.AppTopBar
@@ -40,14 +39,18 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                val authViewModel: AuthViewModel = hiltViewModel()
+                val authViewModel = hiltViewModel<AuthViewModel>()
                 val isAuthenticated by authViewModel.isAuthenticated.collectAsState(initial = false)
 
                 val navController = rememberNavController()
                 val currentBackStackEntry = navController.currentBackStackEntryAsState().value
                 val currentRoute = currentBackStackEntry?.destination?.route ?: "login"
 
-                val startDestination = if (isAuthenticated) NavigationRoute.Main.route else NavigationRoute.Login.route
+                val startDestination = if (isAuthenticated) {
+                    NavigationRoute.Main.route
+                } else {
+                    NavigationRoute.Login.route
+                }
 
                 if (currentRoute == NavigationRoute.Login.route) {
                     NavigationGraph(
