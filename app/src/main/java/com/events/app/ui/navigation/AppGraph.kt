@@ -18,6 +18,7 @@ import com.events.app.ui.views.events.EventsScreen
 import com.events.app.ui.views.main.MainScreen
 import com.events.app.ui.views.main.MainViewModel
 import com.events.app.ui.views.settings.SettingsScreen
+import com.events.app.ui.views.settings.SettingsViewModel
 import com.events.app.ui.views.user.AccountScreen
 
 /*
@@ -71,13 +72,14 @@ fun AppGraph(
 
             // Настройки
             composable<NavigationRoute.Settings> {
+                val viewModel = hiltViewModel<SettingsViewModel>()
                 AppTopBar(
                     title = "Настройки",
                     scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(),
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
-                    SettingsScreen()
+                    SettingsScreen(viewModel)
                 }
             }
 
