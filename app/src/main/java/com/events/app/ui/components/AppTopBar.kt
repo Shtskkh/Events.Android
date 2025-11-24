@@ -1,5 +1,7 @@
 package com.events.app.ui.components
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Menu
@@ -15,39 +17,44 @@ fun AppTopBar(
     title: String,
     scrollBehavior: TopAppBarScrollBehavior,
     drawerState: DrawerState,
-    onNavigationToAccount: () -> Unit
-    ) {
+    onNavigationToAccount: () -> Unit,
+    content: @Composable () -> Unit
+) {
 
     val scope = rememberCoroutineScope()
 
-    CenterAlignedTopAppBar(  // Используем CenterAligned для лучшего центрирования
-        title = {
-            Text(
-                text = title,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis  // Если текст длинный, обрезает
-            )
-        },
-        navigationIcon = {
-            IconButton(onClick = {
-                scope.launch {
-                    drawerState.open()
+    Column {
+        CenterAlignedTopAppBar(  // Используем CenterAligned для лучшего центрирования
+            title = {
+                Text(
+                    text = title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis  // Если текст длинный, обрезает
+                )
+            },
+            navigationIcon = {
+                IconButton(onClick = {
+                    scope.launch {
+                        drawerState.open()
+                    }
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Меню"
+                    )
                 }
-            }) {
-                Icon(
-                    imageVector = Icons.Default.Menu,
-                    contentDescription = "Меню"
-                )
-            }
-        },
-        actions = {
-            IconButton(onClick = onNavigationToAccount) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = "Профиль"
-                )
-            }
-        },
-        scrollBehavior = scrollBehavior
-    )
+            },
+            actions = {
+                IconButton(onClick = onNavigationToAccount) {
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "Профиль"
+                    )
+                }
+            },
+            scrollBehavior = scrollBehavior
+        )
+
+        content()
+    }
 }

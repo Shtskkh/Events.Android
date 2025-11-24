@@ -59,7 +59,10 @@ fun DrawerContent(
                 onClick = { closeDrawer() },
             )
 
-            HorizontalDivider()
+            HorizontalDivider(
+                modifier = Modifier
+                    .padding(8.dp)
+            )
 
             DrawerNavItem(
                 route = NavigationRoute.Account,
@@ -105,14 +108,17 @@ private fun DrawerNavItem(
         label = { Text(itemText) },
         selected = selected,
         onClick = {
-            onClick()
-            navController.navigate(route) {
-                popUpTo(navController.graph.startDestinationId) {
-                    saveState = true
+            val popped = navController.popBackStack(route, inclusive = false)
+            if (!popped) {
+                navController.navigate(route) {
+                    popUpTo(navController.graph.startDestinationId) {
+                        saveState = true
+                    }
+                    launchSingleTop = true
+                    restoreState = true
                 }
-                launchSingleTop = true
-                restoreState = true
             }
+            onClick()
         },
         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
     )
