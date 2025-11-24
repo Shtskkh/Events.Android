@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.events.app.ui.navigation.NavigationRoute
-import com.events.app.ui.navigation.getNavItemForRoute
 import com.events.app.ui.navigation.getTitleForRoute
 import kotlinx.coroutines.launch
 
@@ -99,7 +98,6 @@ private fun DrawerNavItem(
     navController: NavController,
     onClick: () -> Unit
 ) {
-    val navItem = getNavItemForRoute(route)
     val itemText = getTitleForRoute(route)
 
     val selected = currentRoute == route::class.qualifiedName
