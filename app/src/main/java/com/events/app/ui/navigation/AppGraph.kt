@@ -25,7 +25,6 @@ fun AppGraph(
 ) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    rememberCoroutineScope()
 
     AppDrawer(
         drawerState = drawerState,
@@ -56,17 +55,5 @@ fun AppGraph(
                 AccountScreen()
             }
         }
-    }
-}
-
-// Функция получения названия экрана по его пути
-@Composable
-fun getTitleForRoute(currentRoute: NavigationRoute?): String {
-    return when (currentRoute) {
-        is NavigationRoute.Main -> "Главная"
-        is NavigationRoute.Events -> "Мероприятия"
-        is NavigationRoute.Settings -> "Настройки"
-        is NavigationRoute.Account -> "Аккаунт"
-        else -> "Приложение"
     }
 }
