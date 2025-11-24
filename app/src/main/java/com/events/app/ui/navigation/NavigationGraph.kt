@@ -29,29 +29,29 @@ fun NavigationGraph(
         startDestination = startDestination,
         modifier = Modifier.padding(innerPadding)
     ) {
-        composable(NavigationRoute.Login.route) {
+        composable(NavItem.Login.route) {
             val viewModel = hiltViewModel<AuthViewModel>()
             LoginScreen(navController, viewModel)
         }
 
         // Главная страница
-        composable(NavigationRoute.Main.route) {
+        composable(NavItem.Main.route) {
             val viewModel = hiltViewModel<MainViewModel>()
             MainScreen(viewModel)
         }
 
         // Все мероприятия
-        composable(NavigationRoute.Events.route) {
+        composable(NavItem.Events.route) {
             EventsScreen()
         }
 
         // Настройки
-        composable(NavigationRoute.Settings.route) {
+        composable(NavItem.Settings.route) {
             SettingsScreen()
         }
 
         // Аккаунт пользователя
-        composable(NavigationRoute.Account.route) {
+        composable(NavItem.Account.route) {
             AccountScreen()
         }
     }

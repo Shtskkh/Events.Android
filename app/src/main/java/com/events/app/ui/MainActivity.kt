@@ -20,7 +20,7 @@ import androidx.navigation.compose.rememberNavController
 import com.events.app.ui.components.AppTopBar
 import com.events.app.ui.components.DrawerContent
 import com.events.app.ui.navigation.NavigationGraph
-import com.events.app.ui.navigation.NavigationRoute
+import com.events.app.ui.navigation.NavItem
 import com.events.app.ui.navigation.getTitleForRoute
 import com.events.app.ui.theme.EventsTheme
 import com.events.app.ui.views.auth.AuthViewModel
@@ -48,12 +48,12 @@ class MainActivity : ComponentActivity() {
                 val currentRoute = currentBackStackEntry?.destination?.route ?: "login"
 
                 val startDestination = if (isAuthenticated) {
-                    NavigationRoute.Main.route
+                    NavItem.Main.route
                 } else {
-                    NavigationRoute.Login.route
+                    NavItem.Login.route
                 }
 
-                if (currentRoute == NavigationRoute.Login.route) {
+                if (currentRoute == NavItem.Login.route) {
                     NavigationGraph(
                         navController = navController,
                         innerPadding = PaddingValues(0.dp),
@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
                                 AppTopBar(
                                     routeTitle, scrollBehavior, drawerState,
                                     onNavigationToAccount = {
-                                        navController.navigate(NavigationRoute.Account.route)
+                                        navController.navigate(NavItem.Account.route)
                                     }
                                 )
                             },

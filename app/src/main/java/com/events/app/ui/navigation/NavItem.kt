@@ -2,33 +2,33 @@ package com.events.app.ui.navigation
 
 import androidx.compose.ui.graphics.vector.ImageVector
 
-// Класс для пути в приложении
-sealed class NavigationRoute(
+// Класс для элементов навигации
+sealed class NavItem(
     val route: String,
     val title: String,
     val icon: ImageVector? = null,
 ) {
-    object Login : NavigationRoute(
+    object Login : NavItem(
         route = "login",
-        title = "Вход"
+        title = "Вход",
     )
 
-    object Main : NavigationRoute(
+    object Main : NavItem(
         route = "main",
         title = "Главная"
     )
 
-    object Events : NavigationRoute(
+    object Events : NavItem(
         route = "events",
         title = "Мероприятия"
     )
 
-    object Settings : NavigationRoute(
+    object Settings : NavItem(
         route = "settings",
         title = "Настройки"
     )
 
-    object Account : NavigationRoute(
+    object Account : NavItem(
         route = "account",
         title = "Аккаунт"
     )
@@ -37,11 +37,11 @@ sealed class NavigationRoute(
 // Функция получения названия экрана по его пути
 fun getTitleForRoute(route: String): String {
     return when (route) {
-        NavigationRoute.Login.route -> NavigationRoute.Login.title
-        NavigationRoute.Main.route -> NavigationRoute.Main.title
-        NavigationRoute.Events.route -> NavigationRoute.Events.title
-        NavigationRoute.Settings.route -> NavigationRoute.Settings.title
-        NavigationRoute.Account.route -> NavigationRoute.Account.title
+        NavItem.Login.route -> NavItem.Login.title
+        NavItem.Main.route -> NavItem.Main.title
+        NavItem.Events.route -> NavItem.Events.title
+        NavItem.Settings.route -> NavItem.Settings.title
+        NavItem.Account.route -> NavItem.Account.title
         else -> "Приложение"
     }
 }

@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
-import com.events.app.ui.navigation.NavigationRoute
+import com.events.app.ui.navigation.NavItem
 import kotlinx.coroutines.launch
 
 @Composable
@@ -17,10 +17,10 @@ fun DrawerContent(
 ) {
     // Здесь прописываются пути для бокового меню
     val routes = listOf(
-        NavigationRoute.Main,
-        NavigationRoute.Events,
-        NavigationRoute.Account,
-        NavigationRoute.Settings
+        NavItem.Main,
+        NavItem.Events,
+        NavItem.Account,
+        NavItem.Settings
     )
 
     val scope = rememberCoroutineScope()
