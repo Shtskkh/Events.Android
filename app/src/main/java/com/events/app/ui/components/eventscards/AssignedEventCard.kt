@@ -1,4 +1,4 @@
-package com.events.app.ui.components
+package com.events.app.ui.components.eventscards
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

@@ -11,8 +11,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.events.app.domain.models.events.Event
-import com.events.app.ui.components.AssignedEventCard
-import com.events.app.ui.components.UpcomingEventCard
+import com.events.app.ui.components.eventscards.AssignedEventCard
+import com.events.app.ui.components.eventscards.UpcomingEventCard
 
 @Composable
 fun MainScreen(

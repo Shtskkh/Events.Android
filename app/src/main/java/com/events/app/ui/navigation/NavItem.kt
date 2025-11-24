@@ -33,15 +33,3 @@ sealed class NavItem(
         title = "Аккаунт"
     )
 }
-
-// Функция получения названия экрана по его пути
-fun getTitleForRoute(route: String): String {
-    return when (route) {
-        NavItem.Login.route -> NavItem.Login.title
-        NavItem.Main.route -> NavItem.Main.title
-        NavItem.Events.route -> NavItem.Events.title
-        NavItem.Settings.route -> NavItem.Settings.title
-        NavItem.Account.route -> NavItem.Account.title
-        else -> "Приложение"
-    }
-}

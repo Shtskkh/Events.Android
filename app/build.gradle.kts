@@ -6,6 +6,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -38,8 +39,8 @@ android {
     }
 }
 
-kotlin{
-    compilerOptions{
+kotlin {
+    compilerOptions {
         jvmTarget = JvmTarget.fromTarget("21")
     }
 }
@@ -60,7 +61,10 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
     implementation("androidx.compose.material3:material3:1.4.0") // Для Scaffold, TopAppBar и MaterialTheme
     implementation("androidx.compose.material:material-icons-core:1.7.8") // Для базовых иконок
-    implementation("androidx.compose.material:material-icons-extended:1.7.8") // Для расширенных иконок
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
+    implementation("androidx.compose.runtime:runtime:1.9.5") // Для расширенных иконок
+
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0") // Для сериализация
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

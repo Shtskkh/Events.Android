@@ -8,11 +8,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
 
 @Composable
 fun LoginScreen(
-    navController: NavController,
     viewModel: AuthViewModel
 ) {
     var email by remember { mutableStateOf("") }
@@ -25,6 +23,7 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
         TextField(
             value = email,
             onValueChange = { email = it },
@@ -32,7 +31,9 @@ fun LoginScreen(
             trailingIcon = { if (email.isNotEmpty()) IconButton(onClick = { email = "" }) { Text("×") } },
             modifier = Modifier.fillMaxWidth()
         )
+
         Spacer(modifier = Modifier.height(16.dp))
+
         TextField(
             value = password,
             onValueChange = { password = it },
@@ -41,14 +42,13 @@ fun LoginScreen(
             trailingIcon = { if (password.isNotEmpty()) IconButton(onClick = { password = "" }) { Text("×") } },
             modifier = Modifier.fillMaxWidth()
         )
+
         Spacer(modifier = Modifier.height(32.dp))
+
         Button(
             onClick = {
                 if (email.isNotEmpty() && password.isNotEmpty()) {
-                    viewModel.setAuthenticated(true)
-                    navController.navigate("main") {
-                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                    }
+                    viewModel.login(email, password)
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -56,19 +56,7 @@ fun LoginScreen(
         ) {
             Text("Войти", color = Color.White)
         }
+
         Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = {
-                viewModel.setAuthenticated(true)
-                navController.navigate("main") {
-                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-            contentPadding = PaddingValues(0.dp)
-        ) {
-            Text("Войти без регистрации", color = MaterialTheme.colorScheme.primary)
-        }
     }
 }

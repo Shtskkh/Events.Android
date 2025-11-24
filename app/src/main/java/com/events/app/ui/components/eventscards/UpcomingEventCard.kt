@@ -1,4 +1,4 @@
-package com.events.app.ui.components
+package com.events.app.ui.components.eventscards
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,7 +39,12 @@ fun UpcomingEventCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)  // Удвоенная высота для пропорций как на макете
-                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))  // Закругление только сверху, плотно к краям карточки
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = 16.dp,
+                            topEnd = 16.dp
+                        )
+                    )  // Закругление только сверху, плотно к краям карточки
                     .background(Color.White)
             )
             Spacer(modifier = Modifier.height(8.dp))
