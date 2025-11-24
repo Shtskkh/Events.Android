@@ -22,6 +22,7 @@ import com.events.app.ui.components.DrawerContent
 import com.events.app.ui.navigation.NavigationGraph
 import com.events.app.ui.navigation.NavigationRoute
 import com.events.app.ui.navigation.getTitleForRoute
+import com.events.app.ui.theme.EventsTheme
 import com.events.app.ui.views.auth.AuthViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -38,7 +39,7 @@ class MainActivity : ComponentActivity() {
         insetsController.isAppearanceLightStatusBars = true
 
         setContent {
-            MaterialTheme {
+            EventsTheme {
                 val authViewModel = hiltViewModel<AuthViewModel>()
                 val isAuthenticated by authViewModel.isAuthenticated.collectAsState(initial = false)
 

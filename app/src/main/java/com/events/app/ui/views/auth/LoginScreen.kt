@@ -52,7 +52,7 @@ fun LoginScreen(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF673AB7)) // Фиолетовый как на скрине
+            colors = ButtonDefaults.buttonColors()
         ) {
             Text("Войти", color = Color.White)
         }
@@ -68,7 +68,7 @@ fun LoginScreen(
             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
             contentPadding = PaddingValues(0.dp)
         ) {
-            Text("Войти без регистрации", color = Color(0xFF673AB7))
+            Text("Войти без регистрации", color = MaterialTheme.colorScheme.primary)
         }
     }
 }
