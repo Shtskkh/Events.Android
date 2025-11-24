@@ -7,6 +7,8 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.launch
 
@@ -14,7 +16,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AppTopBar(
     title: String,
-    scrollBehavior: TopAppBarScrollBehavior,
+    scrollBehavior: TopAppBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(),
     drawerState: DrawerState,
     onNavigationToAccount: () -> Unit,
     content: @Composable () -> Unit
@@ -22,7 +24,9 @@ fun AppTopBar(
 
     val scope = rememberCoroutineScope()
 
-    Column {
+    Column(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
+    ) {
         CenterAlignedTopAppBar(  // Используем CenterAligned для лучшего центрирования
             title = {
                 Text(

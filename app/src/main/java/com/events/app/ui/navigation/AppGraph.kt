@@ -5,6 +5,7 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
@@ -30,7 +31,6 @@ fun AppGraph(
 ) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scrollState = rememberScrollState()
 
     fun navToAccount() {
         navController.navigate(NavigationRoute.Account)
@@ -49,7 +49,6 @@ fun AppGraph(
                 val viewModel = hiltViewModel<MainViewModel>()
                 AppTopBar(
                     title = "Главная",
-                    scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(),
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
@@ -61,7 +60,6 @@ fun AppGraph(
             composable<NavigationRoute.Events> {
                 AppTopBar(
                     title = "Мероприятия",
-                    scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(),
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
@@ -74,7 +72,6 @@ fun AppGraph(
                 val viewModel = hiltViewModel<SettingsViewModel>()
                 AppTopBar(
                     title = "Настройки",
-                    scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(),
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
@@ -86,7 +83,6 @@ fun AppGraph(
             composable<NavigationRoute.Account> {
                 AppTopBar(
                     title = "Аккаунт",
-                    scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(),
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {

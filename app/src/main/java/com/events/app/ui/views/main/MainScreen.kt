@@ -56,10 +56,10 @@ fun MainScreen(
             )
         }
 
-        // Блок "Завершённые мероприятия"
+        // Блок "Завершённые"
         item {
             EventSection(
-                title = "Завершённые мероприятия",
+                title = "Завершённые",
                 events = completedEvents.take(5),
                 cardComposable = { event -> AssignedEventCard(event = event, onCardClick = {}) },
                 onViewAllClick = { /* TODO: переход ко всем завершённым */ }
