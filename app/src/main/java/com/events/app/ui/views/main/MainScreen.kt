@@ -60,7 +60,7 @@ fun MainScreen(
         item {
             EventSection(
                 title = "Завершённые",
-                events = completedEvents.take(5),
+                events = completedEvents.take(2),
                 cardComposable = { event -> AssignedEventCard(event = event, onCardClick = {}) },
                 onViewAllClick = { /* TODO: переход ко всем завершённым */ }
             )
