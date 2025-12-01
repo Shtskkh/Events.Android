@@ -33,4 +33,7 @@ sealed interface NavigationRoute {
         }
         val route = "$ROUTE/$id"
     }
+
+    @Serializable
+    data object Filters : NavigationRoute  // Новый маршрут для фильтров
 }

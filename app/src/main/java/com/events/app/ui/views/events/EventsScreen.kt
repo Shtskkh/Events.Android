@@ -34,7 +34,8 @@ fun EventsScreen(
     viewModel: EventsViewModel = hiltViewModel(),
     drawerState: DrawerState,
     onNavigationToAccount: () -> Unit,
-    onEventClick: (Int) -> Unit
+    onEventClick: (Int) -> Unit,
+    onFiltersClick: () -> Unit  // Новый параметр для открытия фильтров
 ) {
     val displayedEvents by viewModel.displayedEvents.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
@@ -56,7 +57,8 @@ fun EventsScreen(
                 title = "Мероприятия",
                 scrollBehavior = scrollBehavior,
                 drawerState = drawerState,
-                onNavigationToAccount = onNavigationToAccount
+                onNavigationToAccount = onNavigationToAccount,
+                onFiltersClick = onFiltersClick  // Передача клика на фильтры
             ) {
             }
         }

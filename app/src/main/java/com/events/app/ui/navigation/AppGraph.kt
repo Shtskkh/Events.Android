@@ -14,9 +14,11 @@ import androidx.navigation.navArgument
 import com.events.app.domain.models.users.User
 import com.events.app.ui.components.appbar.AppTopBar
 import com.events.app.ui.components.appbar.EventDetailsTopBar
+import com.events.app.ui.components.appbar.FiltersTopBar
 import com.events.app.ui.components.drawers.AppDrawer
 import com.events.app.ui.views.events.EventDetailsScreen
 import com.events.app.ui.views.events.EventsScreen
+import com.events.app.ui.views.events.FiltersScreen
 import com.events.app.ui.views.main.MainScreen
 import com.events.app.ui.views.main.MainViewModel
 import com.events.app.ui.views.settings.SettingsScreen
@@ -43,6 +45,10 @@ fun AppGraph(
         navController.navigate(NavigationRoute.EventDetails(id).route)
     }
 
+    fun navToFilters() {
+        navController.navigate(NavigationRoute.Filters)
+    }
+
     AppDrawer(
         drawerState = drawerState,
         navController = navController,
@@ -59,10 +65,7 @@ fun AppGraph(
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
-                    MainScreen(
-                        viewModel = viewModel,
-                        onEventClick = { id -> navToEventDetails(id) }  // Добавлен клик для открытия деталей
-                    )
+                    MainScreen(viewModel = viewModel, onEventClick = { id -> navToEventDetails(id) })
                 }
             }
 
@@ -71,7 +74,8 @@ fun AppGraph(
                 EventsScreen(
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
-                    onEventClick = { id -> navToEventDetails(id) }
+                    onEventClick = { id -> navToEventDetails(id) },
+                    onFiltersClick = { navToFilters() }  // Новый параметр для перехода к фильтрам
                 )
             }
 
@@ -113,6 +117,19 @@ fun AppGraph(
                     onBack = { navController.popBackStack() }
                 ) {
                     EventDetailsScreen(eventId = eventId)
+                }
+            }
+
+            // Фильтры (новый маршрут)
+            composable<NavigationRoute.Filters> {
+                val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+                FiltersTopBar(
+                    title = "Фильтры",
+                    scrollBehavior = scrollBehavior,
+                    onBack = { navController.popBackStack() },
+                    onResetAll = { /* Заглушка: логика сброса фильтров */ }
+                ) {
+                    FiltersScreen()
                 }
             }
         }
