@@ -16,7 +16,8 @@ import com.events.app.ui.components.eventscards.UpcomingEventCard
 
 @Composable
 fun MainScreen(
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    onEventClick: (Int) -> Unit = {}  // Новый параметр для клика на событие
 ) {
     val events = viewModel.events.collectAsState().value
 
@@ -41,7 +42,7 @@ fun MainScreen(
             EventSection(
                 title = "Назначенные вам",
                 events = listOfNotNull(assignedEvent),
-                cardComposable = { event -> AssignedEventCard(event = event, onCardClick = {}) },
+                cardComposable = { event -> AssignedEventCard(event = event, onCardClick = { onEventClick(event.id) }) },  // Передача клика
                 onViewAllClick = { /* TODO: переход ко всем назначенным */ }
             )
         }
@@ -51,7 +52,7 @@ fun MainScreen(
             EventSection(
                 title = "Ближайшие",
                 events = upcomingEvents.take(5),
-                cardComposable = { event -> UpcomingEventCard(event = event,) },
+                cardComposable = { event -> UpcomingEventCard(event = event, onClick = { onEventClick(event.id) }) },  // Передача клика
                 onViewAllClick = { /* TODO: переход ко всем предстоящим */ }
             )
         }
@@ -61,7 +62,7 @@ fun MainScreen(
             EventSection(
                 title = "Завершённые",
                 events = completedEvents.take(2),
-                cardComposable = { event -> AssignedEventCard(event = event, onCardClick = {}) },
+                cardComposable = { event -> AssignedEventCard(event = event, onCardClick = { onEventClick(event.id) }) },  // Передача клика
                 onViewAllClick = { /* TODO: переход ко всем завершённым */ }
             )
         }

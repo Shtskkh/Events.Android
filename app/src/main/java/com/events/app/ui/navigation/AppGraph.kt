@@ -59,7 +59,10 @@ fun AppGraph(
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
-                    MainScreen(viewModel)
+                    MainScreen(
+                        viewModel = viewModel,
+                        onEventClick = { id -> navToEventDetails(id) }  // Добавлен клик для открытия деталей
+                    )
                 }
             }
 
@@ -107,7 +110,7 @@ fun AppGraph(
                     scrollBehavior = scrollBehavior,
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
-                    onBack = { navController.popBackStack() }  // Кнопка "Назад" возвращает к списку
+                    onBack = { navController.popBackStack() }
                 ) {
                     EventDetailsScreen(eventId = eventId)
                 }

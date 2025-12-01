@@ -19,7 +19,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun AssignedEventCard(
     event: Event?,
-    onCardClick: () -> Unit
+    onCardClick: () -> Unit = {}
 ) {
     if (event == null) return
 
@@ -27,7 +27,7 @@ fun AssignedEventCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clickable { onCardClick() },
+            .clickable { onCardClick() },  // Клик на всей карточке открывает детали
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
