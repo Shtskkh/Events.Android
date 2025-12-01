@@ -51,7 +51,7 @@ fun MainScreen(
             EventSection(
                 title = "Ближайшие",
                 events = upcomingEvents.take(5),
-                cardComposable = { event -> UpcomingEventCard(event = event) },
+                cardComposable = { event -> UpcomingEventCard(event = event,) },
                 onViewAllClick = { /* TODO: переход ко всем предстоящим */ }
             )
         }

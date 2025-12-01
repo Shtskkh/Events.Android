@@ -33,7 +33,8 @@ import com.events.app.ui.components.eventscards.UpcomingEventCard
 fun EventsScreen(
     viewModel: EventsViewModel = hiltViewModel(),
     drawerState: DrawerState,
-    onNavigationToAccount: () -> Unit
+    onNavigationToAccount: () -> Unit,
+    onEventClick: (Int) -> Unit
 ) {
     val displayedEvents by viewModel.displayedEvents.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
@@ -68,7 +69,7 @@ fun EventsScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             items(displayedEvents) { event ->
-                UpcomingEventCard(event = event)
+                UpcomingEventCard(event = event, onClick = { onEventClick(event.id) })
                 Spacer(modifier = Modifier.height(8.dp))
             }
             if (hasMore) {

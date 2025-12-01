@@ -18,13 +18,13 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UpcomingEventCard(
-    event: Event
+    event: Event,
+    onClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable { /* Заглушка: клик по карточке, не ведёт никуда */ },
+            .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp) // Меньше elevation для плоского вида как на скрине
@@ -84,7 +84,7 @@ fun UpcomingEventCard(
                         color = Color.Gray
                     )
                     Button(
-                        onClick = { /* Заглушка: клик по кнопке, не ведёт никуда */ },
+                        onClick = onClick,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = Color.White
