@@ -2,8 +2,8 @@ package com.events.app.ui.components.appbar
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -17,7 +17,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +25,7 @@ fun EventDetailsTopBar(
     scrollBehavior: TopAppBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(),
     drawerState: DrawerState,
     onNavigationToAccount: () -> Unit,
+    onBack: () -> Unit = {},  // Новый параметр для кнопки "Назад"
     content: @Composable () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -42,14 +42,10 @@ fun EventDetailsTopBar(
                 )
             },
             navigationIcon = {
-                IconButton(onClick = {
-                    scope.launch {
-                        drawerState.open()
-                    }
-                }) {
+                IconButton(onClick = onBack) {  // Кнопка "Назад" вместо меню
                     Icon(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription = "Меню"
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Назад"
                     )
                 }
             },

@@ -101,12 +101,13 @@ fun AppGraph(
                 arguments = listOf(navArgument(NavigationRoute.EventDetails.ARG_ID) { type = NavType.IntType })
             ) { backStackEntry ->
                 val eventId = backStackEntry.arguments?.getInt(NavigationRoute.EventDetails.ARG_ID) ?: 0
-                val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()  // Добавь, если нужно скролл
+                val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
                 EventDetailsTopBar(
                     title = "Детали мероприятия",
                     scrollBehavior = scrollBehavior,
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
+                    onBack = { navController.popBackStack() }  // Кнопка "Назад" возвращает к списку
                 ) {
                     EventDetailsScreen(eventId = eventId)
                 }
