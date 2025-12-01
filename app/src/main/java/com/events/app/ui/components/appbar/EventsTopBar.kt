@@ -1,10 +1,10 @@
 package com.events.app.ui.components.appbar
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -15,6 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.DrawerState
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.Alignment
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,7 +26,7 @@ fun EventsTopBar(
     scrollBehavior: TopAppBarScrollBehavior,
     drawerState: DrawerState,
     onNavigationToAccount: () -> Unit,
-    onFiltersClick: () -> Unit = {},  // Новый параметр для фильтров
+    onFiltersClick: () -> Unit = {},
     content: @Composable () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
@@ -50,11 +52,14 @@ fun EventsTopBar(
             }
         },
         actions = {
-            IconButton(onClick = onFiltersClick) {  // Кнопка фильтров
-                Icon(
-                    imageVector = Icons.Default.FilterList,
-                    contentDescription = "Фильтры"
-                )
+            TextButton(onClick = onFiltersClick) {  // Прозрачная кнопка с надписью "Фильтры" и иконкой
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Фильтры")
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = "Фильтры"
+                    )
+                }
             }
             IconButton(onClick = onNavigationToAccount) {
                 Icon(

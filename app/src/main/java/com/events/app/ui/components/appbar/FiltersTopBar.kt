@@ -22,7 +22,7 @@ fun FiltersTopBar(
     title: String,
     scrollBehavior: TopAppBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(),
     onBack: () -> Unit = {},
-    onResetAll: () -> Unit = {},  // Заглушка для "Сбросить все"
+    onResetAll: () -> Unit = {},
     content: @Composable () -> Unit
 ) {
     Column(
@@ -45,7 +45,7 @@ fun FiltersTopBar(
                 }
             },
             actions = {
-                TextButton(onClick = onResetAll) {
+                TextButton(onClick = onResetAll) {  // Кнопка "Сбросить все" с таким же размером, как "Фильтры"
                     Text("Сбросить все")
                 }
             },
