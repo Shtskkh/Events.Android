@@ -25,15 +25,10 @@ sealed interface NavigationRoute {
     data object Account : NavigationRoute
 
     @Serializable
-    data class EventDetails(val id: Int) : NavigationRoute {
-        companion object {
-            private const val ROUTE = "eventDetails"
-            const val ARG_ID = "id"
-            val routeTemplate = "$ROUTE/{$ARG_ID}"
-        }
-        val route = "$ROUTE/$id"
-    }
+    data class EventDetails(
+        val id: Int
+    ) : NavigationRoute
 
     @Serializable
-    data object Filters : NavigationRoute  // Новый маршрут для фильтров
+    data object Filters : NavigationRoute
 }

@@ -2,15 +2,12 @@ package com.events.app.ui.navigation
 
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
+import androidx.navigation.toRoute
 import com.events.app.domain.models.users.User
 import com.events.app.ui.components.appbar.AppTopBar
 import com.events.app.ui.components.appbar.EventDetailsTopBar
@@ -20,16 +17,13 @@ import com.events.app.ui.views.events.EventDetailsScreen
 import com.events.app.ui.views.events.EventsScreen
 import com.events.app.ui.views.events.FiltersScreen
 import com.events.app.ui.views.main.MainScreen
-import com.events.app.ui.views.main.MainViewModel
 import com.events.app.ui.views.settings.SettingsScreen
-import com.events.app.ui.views.settings.SettingsViewModel
 import com.events.app.ui.views.user.AccountScreen
 
 /*
 * Навигация приложения.
 */
 @OptIn(ExperimentalMaterial3Api::class)
-@Suppress("UNUSED_PARAMETER")
 @Composable
 fun AppGraph(
     user: User
@@ -42,57 +36,75 @@ fun AppGraph(
     }
 
     fun navToEventDetails(id: Int) {
-        navController.navigate(NavigationRoute.EventDetails(id).route)
+        navController.navigate(NavigationRoute.EventDetails(id))
     }
 
     fun navToFilters() {
         navController.navigate(NavigationRoute.Filters)
     }
 
-    AppDrawer(
-        drawerState = drawerState,
+    fun navBack() {
+        navController.popBackStack()
+    }
+
+    NavHost(
         navController = navController,
+        startDestination = NavigationRoute.Main
     ) {
-        NavHost(
-            navController = navController,
-            startDestination = NavigationRoute.Main
-        ) {
-            // Главная страница
-            composable<NavigationRoute.Main> {
-                val viewModel = hiltViewModel<MainViewModel>()
+        // Главная страница
+        composable<NavigationRoute.Main> {
+            AppDrawer(
+                drawerState = drawerState,
+                navController = navController,
+            ) {
                 AppTopBar(
                     title = "Главная",
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
-                    MainScreen(viewModel = viewModel, onEventClick = { id -> navToEventDetails(id) })
+                    MainScreen(
+                        onEventClick = { id -> navToEventDetails(id) })
                 }
             }
+        }
 
-            // Все мероприятия
-            composable<NavigationRoute.Events> {
+        // Все мероприятия
+        composable<NavigationRoute.Events> {
+            AppDrawer(
+                drawerState = drawerState,
+                navController = navController,
+            ) {
                 EventsScreen(
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
                     onEventClick = { id -> navToEventDetails(id) },
-                    onFiltersClick = { navToFilters() }  // Новый параметр для перехода к фильтрам
+                    onFiltersClick = { navToFilters() }
                 )
             }
+        }
 
-            // Настройки
-            composable<NavigationRoute.Settings> {
-                val viewModel = hiltViewModel<SettingsViewModel>()
+        // Настройки
+        composable<NavigationRoute.Settings> {
+            AppDrawer(
+                drawerState = drawerState,
+                navController = navController,
+            ) {
                 AppTopBar(
                     title = "Настройки",
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
-                    SettingsScreen(viewModel)
+                    SettingsScreen()
                 }
             }
+        }
 
-            // Аккаунт пользователя
-            composable<NavigationRoute.Account> {
+        // Аккаунт пользователя
+        composable<NavigationRoute.Account> {
+            AppDrawer(
+                drawerState = drawerState,
+                navController = navController,
+            ) {
                 AppTopBar(
                     title = "Аккаунт",
                     drawerState = drawerState,
@@ -101,36 +113,26 @@ fun AppGraph(
                     AccountScreen()
                 }
             }
+        }
 
-            // Детали мероприятия
-            composable(
-                route = NavigationRoute.EventDetails.routeTemplate,
-                arguments = listOf(navArgument(NavigationRoute.EventDetails.ARG_ID) { type = NavType.IntType })
-            ) { backStackEntry ->
-                val eventId = backStackEntry.arguments?.getInt(NavigationRoute.EventDetails.ARG_ID) ?: 0
-                val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-                EventDetailsTopBar(
-                    title = "Детали мероприятия",
-                    scrollBehavior = scrollBehavior,
-                    drawerState = drawerState,
-                    onNavigationToAccount = { navToAccount() },
-                    onBack = { navController.popBackStack() }
-                ) {
-                    EventDetailsScreen(eventId = eventId)
-                }
+        // Детали мероприятия
+        composable<NavigationRoute.EventDetails> { backStackEntry ->
+            val details: NavigationRoute.EventDetails = backStackEntry.toRoute()
+            EventDetailsTopBar(
+                onNavigationToAccount = { navToAccount() },
+                onBack = { navBack() }
+            ) {
+                EventDetailsScreen(eventId = details.id)
             }
+        }
 
-            // Фильтры (новый маршрут)
-            composable<NavigationRoute.Filters> {
-                val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-                FiltersTopBar(
-                    title = "Фильтры",
-                    scrollBehavior = scrollBehavior,
-                    onBack = { navController.popBackStack() },
-                    onResetAll = { /* Заглушка: логика сброса фильтров */ }
-                ) {
-                    FiltersScreen()
-                }
+        // Фильтры
+        composable<NavigationRoute.Filters> {
+            FiltersTopBar(
+                onBack = { navBack() },
+                onResetAll = { /* Заглушка: логика сброса фильтров */ }
+            ) {
+                FiltersScreen()
             }
         }
     }

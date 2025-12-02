@@ -3,14 +3,7 @@ package com.events.app.ui.components.appbar
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -19,7 +12,6 @@ import androidx.compose.ui.text.style.TextOverflow
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FiltersTopBar(
-    title: String,
     scrollBehavior: TopAppBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(),
     onBack: () -> Unit = {},
     onResetAll: () -> Unit = {},
@@ -31,7 +23,7 @@ fun FiltersTopBar(
         CenterAlignedTopAppBar(
             title = {
                 Text(
-                    text = title,
+                    text = "Фильтры",
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
