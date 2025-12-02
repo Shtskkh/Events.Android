@@ -9,7 +9,7 @@ import androidx.navigation.NavController
 fun AppDrawer(
     drawerState: DrawerState,
     navController: NavController,
-    content: @Composable () -> Unit
+    innerContent: @Composable () -> Unit
 ) {
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -21,6 +21,6 @@ fun AppDrawer(
             )
         }
     ) {
-        content()
+        innerContent()
     }
 }

@@ -11,6 +11,7 @@ import androidx.navigation.toRoute
 import com.events.app.domain.models.users.User
 import com.events.app.ui.components.appbar.AppTopBar
 import com.events.app.ui.components.appbar.EventDetailsTopBar
+import com.events.app.ui.components.appbar.EventsTopBar
 import com.events.app.ui.components.appbar.FiltersTopBar
 import com.events.app.ui.components.drawers.AppDrawer
 import com.events.app.ui.views.events.EventDetailsScreen
@@ -74,12 +75,15 @@ fun AppGraph(
                 drawerState = drawerState,
                 navController = navController,
             ) {
-                EventsScreen(
+                EventsTopBar(
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
-                    onEventClick = { id -> navToEventDetails(id) },
-                    onFiltersClick = { navToFilters() }
-                )
+                    onFiltersClick = { navToFilters() },
+                ) {
+                    EventsScreen(
+                        onEventClick = { id -> navToEventDetails(id) },
+                    )
+                }
             }
         }
 

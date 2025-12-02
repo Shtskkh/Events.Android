@@ -27,12 +27,12 @@ fun AppTopBar(
     Column(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
     ) {
-        CenterAlignedTopAppBar(  // Используем CenterAligned для лучшего центрирования
+        CenterAlignedTopAppBar(
             title = {
                 Text(
                     text = title,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis  // Если текст длинный, обрезает
+                    overflow = TextOverflow.Ellipsis
                 )
             },
             navigationIcon = {

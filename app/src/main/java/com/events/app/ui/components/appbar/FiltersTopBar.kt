@@ -12,11 +12,13 @@ import androidx.compose.ui.text.style.TextOverflow
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FiltersTopBar(
-    scrollBehavior: TopAppBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(),
     onBack: () -> Unit = {},
     onResetAll: () -> Unit = {},
     content: @Composable () -> Unit
 ) {
+
+    val scrollBehavior: TopAppBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
     Column(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
     ) {
@@ -37,7 +39,7 @@ fun FiltersTopBar(
                 }
             },
             actions = {
-                TextButton(onClick = onResetAll) {  // Кнопка "Сбросить все" с таким же размером, как "Фильтры"
+                TextButton(onClick = onResetAll) {
                     Text("Сбросить все")
                 }
             },

@@ -11,5 +11,4 @@ fun FiltersScreen() {
         text = "Здесь будут фильтры (пока пусто)",
         modifier = Modifier.fillMaxSize()
     )
-    // Позже добавьте категории, логику и т.д.
 }
