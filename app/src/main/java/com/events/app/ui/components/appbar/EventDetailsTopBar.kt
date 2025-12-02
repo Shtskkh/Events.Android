@@ -26,7 +26,7 @@ fun EventDetailsTopBar(
         CenterAlignedTopAppBar(
             title = {
                 Text(
-                    text = "Мероприятия",
+                    text = "Мероприятие",
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
