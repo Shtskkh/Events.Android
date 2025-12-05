@@ -1,4 +1,4 @@
-package com.events.app.ui.views.events
+package com.events.app.ui.views.eventsfilter
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text

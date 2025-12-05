@@ -14,9 +14,9 @@ import com.events.app.ui.components.appbar.EventDetailsTopBar
 import com.events.app.ui.components.appbar.EventsTopBar
 import com.events.app.ui.components.appbar.FiltersTopBar
 import com.events.app.ui.components.drawers.AppDrawer
-import com.events.app.ui.views.events.EventDetailsScreen
+import com.events.app.ui.views.eventdetail.EventDetailsScreen
 import com.events.app.ui.views.events.EventsScreen
-import com.events.app.ui.views.events.FiltersScreen
+import com.events.app.ui.views.eventsfilter.FiltersScreen
 import com.events.app.ui.views.main.MainScreen
 import com.events.app.ui.views.settings.SettingsScreen
 import com.events.app.ui.views.user.AccountScreen

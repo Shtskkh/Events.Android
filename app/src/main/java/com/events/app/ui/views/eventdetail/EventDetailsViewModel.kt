@@ -1,4 +1,4 @@
-package com.events.app.ui.views.events
+package com.events.app.ui.views.eventdetail
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
