@@ -2,7 +2,10 @@ package com.events.app.ui.views.main
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
@@ -10,13 +13,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.events.app.domain.models.events.Event
 import com.events.app.ui.components.eventscards.AssignedEventCard
 import com.events.app.ui.components.eventscards.UpcomingEventCard
 
 @Composable
 fun MainScreen(
-    viewModel: MainViewModel
+    viewModel: MainViewModel = hiltViewModel(),
+    onEventClick: (Int) -> Unit = {}  // Новый параметр для клика на событие
 ) {
     val events = viewModel.events.collectAsState().value
 
@@ -41,7 +46,11 @@ fun MainScreen(
             EventSection(
                 title = "Назначенные вам",
                 events = listOfNotNull(assignedEvent),
-                cardComposable = { event -> AssignedEventCard(event = event, onCardClick = {}) },
+                cardComposable = { event ->
+                    AssignedEventCard(
+                        event = event,
+                        onCardClick = { onEventClick(event.id) })
+                },  // Передача клика
                 onViewAllClick = { /* TODO: переход ко всем назначенным */ }
             )
         }
@@ -51,17 +60,25 @@ fun MainScreen(
             EventSection(
                 title = "Ближайшие",
                 events = upcomingEvents.take(5),
-                cardComposable = { event -> UpcomingEventCard(event = event) },
+                cardComposable = { event ->
+                    UpcomingEventCard(
+                        event = event,
+                        onClick = { onEventClick(event.id) })
+                },  // Передача клика
                 onViewAllClick = { /* TODO: переход ко всем предстоящим */ }
             )
         }
 
-        // Блок "Завершённые мероприятия"
+        // Блок "Завершённые"
         item {
             EventSection(
-                title = "Завершённые мероприятия",
-                events = completedEvents.take(5),
-                cardComposable = { event -> AssignedEventCard(event = event, onCardClick = {}) },
+                title = "Завершённые",
+                events = completedEvents.take(2),
+                cardComposable = { event ->
+                    AssignedEventCard(
+                        event = event,
+                        onCardClick = { onEventClick(event.id) })
+                },  // Передача клика
                 onViewAllClick = { /* TODO: переход ко всем завершённым */ }
             )
         }

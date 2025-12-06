@@ -23,4 +23,12 @@ sealed interface NavigationRoute {
 
     @Serializable
     data object Account : NavigationRoute
+
+    @Serializable
+    data class EventDetails(
+        val id: Int
+    ) : NavigationRoute
+
+    @Serializable
+    data object Filters : NavigationRoute
 }

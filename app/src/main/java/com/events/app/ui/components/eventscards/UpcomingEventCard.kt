@@ -18,16 +18,17 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UpcomingEventCard(
-    event: Event
+    event: Event,
+    onClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .clickable { /* Заглушка: клик по карточке, не ведёт никуда */ },
+            .clickable { onClick() },  // Клик на всей карточке открывает детали
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp) // Меньше elevation для плоского вида как на скрине
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
             modifier = Modifier
@@ -38,13 +39,13 @@ fun UpcomingEventCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(160.dp)  // Удвоенная высота для пропорций как на макете
+                    .height(160.dp)
                     .clip(
                         RoundedCornerShape(
                             topStart = 16.dp,
                             topEnd = 16.dp
                         )
-                    )  // Закругление только сверху, плотно к краям карточки
+                    )
                     .background(Color.White)
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -53,7 +54,7 @@ fun UpcomingEventCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp),  // Отступы слева/справа для текста как на макете
+                    .padding(horizontal = 12.dp),
                 horizontalAlignment = Alignment.Start
             ) {
                 Text(
@@ -67,12 +68,12 @@ fun UpcomingEventCard(
                 Text(
                     text = event.description,
                     style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,  // Как на макете, обрезка для компактности
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Row для даты слева и кнопки справа (выравнивание по краям как на макете)
+                // Row для даты слева и кнопки справа
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -84,18 +85,18 @@ fun UpcomingEventCard(
                         color = Color.Gray
                     )
                     Button(
-                        onClick = { /* Заглушка: клик по кнопке, не ведёт никуда */ },
+                        onClick = onClick,  // Кнопка "Открыть" тоже открывает детали (дублирует клик на карточке)
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = Color.White
                         ),
-                        shape = RoundedCornerShape(50) // Круглые углы как на скрине
+                        shape = RoundedCornerShape(50)
                     ) {
                         Text("Открыть")
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp)) // Нижний отступ внутри карточки
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }

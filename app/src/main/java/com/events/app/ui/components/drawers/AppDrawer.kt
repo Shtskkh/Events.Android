@@ -1,7 +1,6 @@
 package com.events.app.ui.components.drawers
 
 import androidx.compose.material3.DrawerState
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavController
@@ -10,7 +9,7 @@ import androidx.navigation.NavController
 fun AppDrawer(
     drawerState: DrawerState,
     navController: NavController,
-    content: @Composable () -> Unit
+    innerContent: @Composable () -> Unit
 ) {
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -22,6 +21,6 @@ fun AppDrawer(
             )
         }
     ) {
-        content()
+        innerContent()
     }
 }
