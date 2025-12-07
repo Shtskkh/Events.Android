@@ -4,13 +4,7 @@ package com.events.app.ui.components.drawers
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.DrawerState
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.NavigationDrawerItemDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -20,8 +14,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.events.app.ui.navigation.NavItem
 import com.events.app.ui.navigation.NavigationRoute
-import com.events.app.ui.navigation.getTitleForRoute
 import kotlinx.coroutines.launch
 
 @Composable
@@ -45,14 +39,20 @@ fun DrawerContent(
         ) {
 
             DrawerNavItem(
-                route = NavigationRoute.Main,
+                route = NavItem.Main.route,
+                label = NavItem.Main.title,
+                iconOutlined = NavItem.Main.iconOutlined,
+                iconSelected = NavItem.Main.iconSelected,
                 currentRoute = currentRoute,
                 navController = navController,
                 onClick = { closeDrawer() },
             )
 
             DrawerNavItem(
-                route = NavigationRoute.Events,
+                route = NavItem.Events.route,
+                label = NavItem.Events.title,
+                iconOutlined = NavItem.Events.iconOutlined,
+                iconSelected = NavItem.Events.iconSelected,
                 currentRoute = currentRoute,
                 navController = navController,
                 onClick = { closeDrawer() },
@@ -64,14 +64,20 @@ fun DrawerContent(
             )
 
             DrawerNavItem(
-                route = NavigationRoute.Account,
+                route = NavItem.Account.route,
+                label = NavItem.Account.title,
+                iconOutlined = NavItem.Account.iconOutlined,
+                iconSelected = NavItem.Account.iconSelected,
                 currentRoute = currentRoute,
                 navController = navController,
                 onClick = { closeDrawer() },
             )
 
             DrawerNavItem(
-                route = NavigationRoute.Settings,
+                route = NavItem.Settings.route,
+                label = NavItem.Settings.title,
+                iconOutlined = NavItem.Settings.iconOutlined,
+                iconSelected = NavItem.Settings.iconSelected,
                 currentRoute = currentRoute,
                 navController = navController,
                 onClick = { closeDrawer() },
@@ -81,7 +87,7 @@ fun DrawerContent(
         Spacer(modifier = Modifier.weight(1f))
 
         Text(
-            text = "Версия 0.2.0",
+            text = "Версия 0.3.0",
             modifier = Modifier
                 .padding(16.dp)
                 .align(Alignment.CenterHorizontally),
@@ -94,17 +100,25 @@ fun DrawerContent(
 @Composable
 private fun DrawerNavItem(
     route: NavigationRoute,
+    label: String,
     currentRoute: String?,
+    iconOutlined: @Composable (() -> Unit)? = null,
+    iconSelected: @Composable (() -> Unit)? = null,
     navController: NavController,
     onClick: () -> Unit
 ) {
-    val itemText = getTitleForRoute(route)
-
     val selected = currentRoute == route::class.qualifiedName
 
     NavigationDrawerItem(
-        label = { Text(itemText) },
+        label = { Text(label) },
         selected = selected,
+        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+        icon = {
+            if (selected) {
+                iconSelected?.invoke()
+            } else
+                iconOutlined?.invoke()
+        },
         onClick = {
             val popped = navController.popBackStack(route, inclusive = false)
             if (!popped) {
@@ -117,7 +131,6 @@ private fun DrawerNavItem(
                 }
             }
             onClick()
-        },
-        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+        }
     )
 }
