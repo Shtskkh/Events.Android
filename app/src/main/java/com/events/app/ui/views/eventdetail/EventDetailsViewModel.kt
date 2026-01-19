@@ -21,11 +21,11 @@ class EventDetailsViewModel @Inject constructor(
     val event = _event.asStateFlow()
 
     init {
-        val eventId = savedStateHandle.get<Int>("id") ?: 0  // Изменено на "id" — совпадает с вашим NavigationRoute
+        val eventId = savedStateHandle.get<Int>("id") ?: 0  // Извлечение id из навигации
         loadEvent(eventId)
     }
 
-    private fun loadEvent(eventId: Int) {
+    fun loadEvent(eventId: Int) {  // Сделали публичным для вызова извне, если нужно
         viewModelScope.launch {
             val allEvents = getEventsUseCase()
             _event.value = allEvents.find { it.id == eventId }

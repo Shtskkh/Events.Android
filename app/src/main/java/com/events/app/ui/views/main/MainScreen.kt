@@ -28,17 +28,17 @@ fun MainScreen(
     // Предстоящее назначенное (одно)
     val assignedEvent = events
         .filter { !it.isFinished }
-        .minByOrNull { it.date }
+        .minByOrNull { it.startDate }
 
     // Ближайшие предстоящие
     val upcomingEvents = events
         .filter { !it.isFinished }
-        .sortedBy { it.date }
+        .sortedBy { it.startDate }
 
     // Завершённые (descending для недавних сверху)
     val completedEvents = events
         .filter { it.isFinished }
-        .sortedByDescending { it.date }
+        .sortedByDescending { it.startDate }
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         // Блок "Назначенные вам" (использует AssignedEventCard, но только одну)

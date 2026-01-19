@@ -52,7 +52,7 @@ fun AssignedEventCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = event.date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")),
+                    text = event.startDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")),  // Замена date на startDate
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.Gray
                 )
