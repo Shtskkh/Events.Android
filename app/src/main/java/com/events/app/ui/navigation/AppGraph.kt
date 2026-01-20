@@ -14,6 +14,7 @@ import com.events.app.ui.components.appbar.EventDetailsTopBar
 import com.events.app.ui.components.appbar.EventsTopBar
 import com.events.app.ui.components.appbar.FiltersTopBar
 import com.events.app.ui.components.drawers.AppDrawer
+import com.events.app.ui.views.createevent.CreateEventScreen
 import com.events.app.ui.views.eventdetail.EventDetailsScreen
 import com.events.app.ui.views.events.EventsScreen
 import com.events.app.ui.views.eventsfilter.FiltersScreen
@@ -83,6 +84,22 @@ fun AppGraph(
                     EventsScreen(
                         onEventClick = { id -> navToEventDetails(id) },
                     )
+                }
+            }
+        }
+
+        // Создать мероприятие
+        composable<NavigationRoute.CreateEvent> {
+            AppDrawer(
+                drawerState = drawerState,
+                navController = navController,
+            ) {
+                AppTopBar(
+                    title = "Создать мероприятие",
+                    drawerState = drawerState,
+                    onNavigationToAccount = { navToAccount() },
+                ) {
+                    CreateEventScreen()
                 }
             }
         }

@@ -59,7 +59,7 @@ fun MainScreen(
         item {
             EventSection(
                 title = "Ближайшие",
-                events = upcomingEvents.take(5),
+                events = upcomingEvents.take(3),
                 cardComposable = { event ->
                     UpcomingEventCard(
                         event = event,
@@ -73,7 +73,7 @@ fun MainScreen(
         item {
             EventSection(
                 title = "Завершённые",
-                events = completedEvents.take(2),
+                events = completedEvents.take(3),
                 cardComposable = { event ->
                     AssignedEventCard(
                         event = event,

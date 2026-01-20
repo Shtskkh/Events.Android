@@ -2,10 +2,12 @@ package com.events.app.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
@@ -38,6 +40,13 @@ sealed class NavItem(
         iconSelected = { Icon(Icons.Filled.Event, "Мероприятия") }
     )
 
+    object CreateEvent : NavItem(
+        route = NavigationRoute.CreateEvent,
+        title = "Создать мероприятие",
+        iconOutlined = { Icon(Icons.Outlined.Add, "Создать мероприятие") },
+        iconSelected = { Icon(Icons.Filled.Add, "Создать мероприятие") }
+    )
+
     object Settings : NavItem(
         route = NavigationRoute.Settings,
         title = "Настройки",
@@ -51,4 +60,5 @@ sealed class NavItem(
         iconOutlined = { Icon(Icons.Outlined.AccountCircle, "Аккаунт") },
         iconSelected = { Icon(Icons.Filled.AccountCircle, "Аккаунт") }
     )
+
 }

@@ -19,6 +19,9 @@ sealed interface NavigationRoute {
     data object Events : NavigationRoute
 
     @Serializable
+    data object CreateEvent : NavigationRoute
+
+    @Serializable
     data object Settings : NavigationRoute
 
     @Serializable
@@ -31,4 +34,5 @@ sealed interface NavigationRoute {
 
     @Serializable
     data object Filters : NavigationRoute
+
 }
