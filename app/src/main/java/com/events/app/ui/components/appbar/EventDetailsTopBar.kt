@@ -13,11 +13,11 @@ import androidx.compose.ui.text.style.TextOverflow
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventDetailsTopBar(
+    title: String = "Детали мероприятия",  // Новый параметр с дефолтным значением
     onNavigationToAccount: () -> Unit,
     onBack: () -> Unit,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit  // Оставляем как есть
 ) {
-
     val scrollBehavior: TopAppBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
     Column(
@@ -26,7 +26,7 @@ fun EventDetailsTopBar(
         CenterAlignedTopAppBar(
             title = {
                 Text(
-                    text = "Мероприятие",
+                    text = title,  // Теперь используем переданный title
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -42,7 +42,7 @@ fun EventDetailsTopBar(
             actions = {
                 IconButton(onClick = onNavigationToAccount) {
                     Icon(
-                        imageVector = Icons.Default.AccountCircle,
+                        imageVector = Icons.Filled.AccountCircle,
                         contentDescription = "Профиль"
                     )
                 }

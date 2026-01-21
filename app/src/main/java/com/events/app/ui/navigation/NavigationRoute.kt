@@ -22,6 +22,9 @@ sealed interface NavigationRoute {
     data object CreateEvent : NavigationRoute
 
     @Serializable
+    data object CreateEventStep2 : NavigationRoute
+
+    @Serializable
     data object Settings : NavigationRoute
 
     @Serializable

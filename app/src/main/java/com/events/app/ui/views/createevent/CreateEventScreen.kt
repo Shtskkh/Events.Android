@@ -1,7 +1,6 @@
 package com.events.app.ui.views.createevent
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -29,13 +28,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun CreateEventScreen() {
+fun CreateEventScreen(onNext: () -> Unit = {}) {
     // Локальное состояние для полей (не сохраняется в базу)
     var title by remember { mutableStateOf("") }
     var announcement by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
 
-    // Scroll для длинного экрана
     val scrollState = rememberScrollState()
 
     Column(
@@ -51,7 +49,8 @@ fun CreateEventScreen() {
             onValueChange = { title = it },
             label = { Text("Название мероприятия") },
             maxLines = 2,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Введите название") }
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -61,27 +60,27 @@ fun CreateEventScreen() {
             onValueChange = { announcement = it },
             label = { Text("Анонс (краткое описание)") },
             maxLines = 3,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Краткий анонс для привлечения внимания") }
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Поле для полного описания
         TextField(
             value = description,
             onValueChange = { description = it },
             label = { Text("Полное описание") },
             maxLines = 10,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Подробное описание мероприятия") }
         )
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Плейсхолдер для картинки
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(200.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clip(RoundedCornerShape(8.dp)),
+                .background(MaterialTheme.colorScheme.surfaceVariant)  // Светло-серый фон, как у полей ввода
+                .clip(RoundedCornerShape(8.dp)),  // Закруглённые углы
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -93,7 +92,7 @@ fun CreateEventScreen() {
 
         // Кнопка "Продолжить"
         Button(
-            onClick = { /* TODO: Навигация на второй экран позже */ },
+            onClick = onNext,
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
