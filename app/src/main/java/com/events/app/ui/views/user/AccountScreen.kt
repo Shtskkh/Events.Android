@@ -34,14 +34,14 @@ fun AccountScreen() {
         horizontalAlignment = Alignment.Start,  // Выравнивание по левому краю
         verticalArrangement = Arrangement.Top
     ) {
-        // Аватар с силуэтом человека (увеличен для пропорций 2/5 ширины)
+        // Аватар с силуэтом человека
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
             Box(
                 modifier = Modifier
-                    .weight(2f)  // 2/5 ширины
+                    .weight(2f)
                     .aspectRatio(1f)  // Квадратный для пропорций
                     .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),  // Светлый фон в стиле темы
                 contentAlignment = Alignment.Center
@@ -57,7 +57,7 @@ fun AccountScreen() {
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(
-                modifier = Modifier.weight(3f)  // Оставшиеся 3/5 для текста
+                modifier = Modifier.weight(3f)
             ) {
                 // Имя пользователя
                 Text(
