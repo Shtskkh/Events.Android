@@ -20,11 +20,18 @@ class EventsViewModel @Inject constructor(
     private val _displayedEvents = MutableStateFlow<List<Event>>(emptyList())
     val displayedEvents = _displayedEvents.asStateFlow()
 
-    private val _hasMore = MutableStateFlow(true)
+    private val _hasMore = MutableStateFlow(false)
     val hasMore = _hasMore.asStateFlow()
 
-    private var currentIndex = 0
-    private val pageSize = 5
+    // Новые состояния для ошибок и загрузки
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error = _error.asStateFlow()
+
+    private var currentPage = 1
+    private val pageSize = 20
 
     init {
         loadEvents()
@@ -32,25 +39,56 @@ class EventsViewModel @Inject constructor(
 
     private fun loadEvents() {
         viewModelScope.launch {
-            val loadedEvents = getEventsUseCase()
-            _allEvents.value = loadedEvents
-            loadMore()  // Загружаем первую порцию
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val loadedEvents = getEventsUseCase(size = pageSize, page = currentPage)
+                _allEvents.value = loadedEvents
+                _displayedEvents.value = loadedEvents
+                // Если вернулось меньше чем pageSize — значит страниц больше нет
+                _hasMore.value = loadedEvents.size >= pageSize
+            } catch (e: retrofit2.HttpException) {
+                if (e.code() == 404) {
+                    // 404 = просто нет данных, это не ошибка
+                    _displayedEvents.value = emptyList()
+                    _hasMore.value = false
+                } else {
+                    _error.value = "Ошибка сервера: ${e.code()}"
+                }
+            } catch (e: Exception) {
+                _error.value = "Нет соединения с сервером"
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 
     fun loadMore() {
+        if (_isLoading.value || !_hasMore.value) return
         viewModelScope.launch {
-            val allEvents = _allEvents.value
-            if (currentIndex >= allEvents.size) {
-                _hasMore.value = false
-                return@launch
+            _isLoading.value = true
+            try {
+                currentPage++
+                val nextEvents = getEventsUseCase(size = pageSize, page = currentPage)
+                if (nextEvents.isEmpty()) {
+                    _hasMore.value = false
+                } else {
+                    _displayedEvents.value = _displayedEvents.value + nextEvents
+                    _hasMore.value = nextEvents.size >= pageSize
+                }
+            } catch (e: retrofit2.HttpException) {
+                if (e.code() == 404) {
+                    _hasMore.value = false
+                } else {
+                    _error.value = "Ошибка загрузки: ${e.code()}"
+                }
+                currentPage-- // откатываем страницу при ошибке
+            } catch (e: Exception) {
+                _error.value = "Нет соединения"
+                currentPage--
+            } finally {
+                _isLoading.value = false
             }
-
-            val endIndex = min(currentIndex + pageSize, allEvents.size)
-            val nextEvents = allEvents.subList(currentIndex, endIndex)
-            _displayedEvents.value += nextEvents
-            currentIndex = endIndex
-            _hasMore.value = currentIndex < allEvents.size
         }
     }
 }

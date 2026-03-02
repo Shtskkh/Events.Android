@@ -32,7 +32,7 @@ sealed interface NavigationRoute {
 
     @Serializable
     data class EventDetails(
-        val id: Int
+        val id: String   // было Int — меняем на String
     ) : NavigationRoute
 
     @Serializable

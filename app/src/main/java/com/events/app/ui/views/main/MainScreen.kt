@@ -21,27 +21,23 @@ import com.events.app.ui.components.eventscards.UpcomingEventCard
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
-    onEventClick: (Int) -> Unit = {}  // Новый параметр для клика на событие
+    onEventClick: (String) -> Unit = {}  // Int → String (UUID)
 ) {
     val events = viewModel.events.collectAsState().value
 
-    // Предстоящее назначенное (одно)
     val assignedEvent = events
         .filter { !it.isFinished }
         .minByOrNull { it.startDate }
 
-    // Ближайшие предстоящие
     val upcomingEvents = events
         .filter { !it.isFinished }
         .sortedBy { it.startDate }
 
-    // Завершённые (descending для недавних сверху)
     val completedEvents = events
         .filter { it.isFinished }
         .sortedByDescending { it.startDate }
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        // Блок "Назначенные вам" (использует AssignedEventCard, но только одну)
         item {
             EventSection(
                 title = "Назначенные вам",
@@ -50,12 +46,11 @@ fun MainScreen(
                     AssignedEventCard(
                         event = event,
                         onCardClick = { onEventClick(event.id) })
-                },  // Передача клика
-                onViewAllClick = { /* TODO: переход ко всем назначенным */ }
+                },
+                onViewAllClick = { }
             )
         }
 
-        // Блок "Ближайшие"
         item {
             EventSection(
                 title = "Ближайшие",
@@ -64,12 +59,11 @@ fun MainScreen(
                     UpcomingEventCard(
                         event = event,
                         onClick = { onEventClick(event.id) })
-                },  // Передача клика
-                onViewAllClick = { /* TODO: переход ко всем предстоящим */ }
+                },
+                onViewAllClick = { }
             )
         }
 
-        // Блок "Завершённые"
         item {
             EventSection(
                 title = "Завершённые",
@@ -78,8 +72,8 @@ fun MainScreen(
                     AssignedEventCard(
                         event = event,
                         onCardClick = { onEventClick(event.id) })
-                },  // Передача клика
-                onViewAllClick = { /* TODO: переход ко всем завершённым */ }
+                },
+                onViewAllClick = { }
             )
         }
     }

@@ -23,7 +23,7 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun EventDetailsScreen(
-    eventId: Int,
+    eventId: String,
     viewModel: EventDetailsViewModel = hiltViewModel()
 ) {
     viewModel.loadEvent(eventId)

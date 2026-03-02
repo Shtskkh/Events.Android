@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.events.app.domain.models.events.Event
+import com.events.app.domain.usecases.events.GetEventByIdUseCase
 import com.events.app.domain.usecases.events.GetEventsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,7 +14,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class EventDetailsViewModel @Inject constructor(
-    private val getEventsUseCase: GetEventsUseCase,
+    private val getEventByIdUseCase: GetEventByIdUseCase,  // новый UseCase
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -21,14 +22,17 @@ class EventDetailsViewModel @Inject constructor(
     val event = _event.asStateFlow()
 
     init {
-        val eventId = savedStateHandle.get<Int>("id") ?: 0  // Извлечение id из навигации
+        val eventId = savedStateHandle.get<String>("id") ?: ""
         loadEvent(eventId)
     }
 
-    fun loadEvent(eventId: Int) {  // Сделали публичным для вызова извне, если нужно
+    fun loadEvent(eventId: String) {
         viewModelScope.launch {
-            val allEvents = getEventsUseCase()
-            _event.value = allEvents.find { it.id == eventId }
+            try {
+                _event.value = getEventByIdUseCase(eventId)
+            } catch (e: Exception) {
+                // обработка ошибки
+            }
         }
     }
 }

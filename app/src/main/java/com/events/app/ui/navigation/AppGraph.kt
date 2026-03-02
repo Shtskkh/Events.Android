@@ -38,7 +38,7 @@ fun AppGraph(
         navController.navigate(NavigationRoute.Account)
     }
 
-    fun navToEventDetails(id: Int) {
+    fun navToEventDetails(id: String) {   // было Int
         navController.navigate(NavigationRoute.EventDetails(id))
     }
 
@@ -66,7 +66,7 @@ fun AppGraph(
                     onNavigationToAccount = { navToAccount() },
                 ) {
                     MainScreen(
-                        onEventClick = { id -> navToEventDetails(id) })
+                        onEventClick = { id -> navToEventDetails(id.toString()) })
                 }
             }
         }
@@ -83,7 +83,7 @@ fun AppGraph(
                     onFiltersClick = { navToFilters() },
                 ) {
                     EventsScreen(
-                        onEventClick = { id -> navToEventDetails(id) },
+                        onEventClick = { id -> navToEventDetails(id.toString()) },
                     )
                 }
             }

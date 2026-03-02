@@ -76,4 +76,11 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     ksp("com.google.dagger:hilt-android-compiler:2.57.2")
+    // Retrofit — HTTP клиент
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    // Конвертер JSON через kotlinx.serialization
+    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
+    // OkHttp (логи запросов для отладки)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 }

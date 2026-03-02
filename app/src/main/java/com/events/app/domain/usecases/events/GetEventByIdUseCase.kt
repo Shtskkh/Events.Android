@@ -4,10 +4,10 @@ import com.events.app.domain.models.events.Event
 import com.events.app.domain.repositories.events.EventRepository
 import javax.inject.Inject
 
-class GetEventsUseCase @Inject constructor(
+class GetEventByIdUseCase @Inject constructor(
     private val repository: EventRepository
 ) {
-    suspend operator fun invoke(size: Int = 20, page: Int = 1): List<Event> {
-        return repository.getEvents(size, page)
+    suspend operator fun invoke(id: String): Event {
+        return repository.getEventById(id)
     }
 }

@@ -3,7 +3,7 @@ package com.events.app.domain.models.events
 import java.time.LocalDateTime
 
 data class Event(
-    val id: Int,
+    val id: String,
     // Название события
     val title: String,
     // Анонс или краткое описание события
@@ -25,5 +25,6 @@ data class Event(
     // Флаг публичности события. True, если событие открыто для всех; false, если оно приватное (требует приглашения или доступа).
     val isPublic: Boolean,
     // Флаг завершения события. True, если событие уже прошло или завершено; false, если оно предстоящее или в процессе.
-    val isFinished: Boolean
+    val isFinished: Boolean,
+    val previewUrl: String?
 )
