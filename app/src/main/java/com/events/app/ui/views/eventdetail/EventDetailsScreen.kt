@@ -1,6 +1,5 @@
 package com.events.app.ui.views.eventdetail
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -19,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.events.app.ui.components.EventImage
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -34,18 +34,15 @@ fun EventDetailsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            horizontalAlignment = Alignment.Start // Выравнивание по левому краю
+            horizontalAlignment = Alignment.Start
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .background(Color(0xFFE0E0E0))
-                    .clip(RoundedCornerShape(8.dp))
+            EventImage(
+                url = it.previewUrl,
+                height = 220.dp,
+                modifier = Modifier.clip(RoundedCornerShape(8.dp))
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Заголовок
             Text(
                 text = it.title,
                 style = MaterialTheme.typography.headlineLarge,
@@ -53,12 +50,9 @@ fun EventDetailsScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Дата
             Text(
                 text = buildAnnotatedString {
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                        append("Дата: ")
-                    }
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append("Дата: ") }
                     append("${it.startDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))} - ${it.endDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))}")
                 },
                 style = MaterialTheme.typography.bodyMedium,
@@ -66,12 +60,9 @@ fun EventDetailsScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Статус
             Text(
                 text = buildAnnotatedString {
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                        append("Статус: ")
-                    }
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append("Статус: ") }
                     append(if (it.isFinished) "Завершено" else "Предстоящее")
                 },
                 style = MaterialTheme.typography.bodyMedium,
@@ -79,12 +70,9 @@ fun EventDetailsScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Формат
             Text(
                 text = buildAnnotatedString {
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                        append("Формат: ")
-                    }
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append("Формат: ") }
                     append(it.format)
                 },
                 style = MaterialTheme.typography.bodyMedium,
@@ -92,12 +80,9 @@ fun EventDetailsScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Место
             Text(
                 text = buildAnnotatedString {
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                        append("Мест: ")
-                    }
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append("Мест: ") }
                     append(it.places.toString())
                 },
                 style = MaterialTheme.typography.bodyMedium,
@@ -105,12 +90,9 @@ fun EventDetailsScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Локация
             Text(
                 text = buildAnnotatedString {
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                        append("Локация: ")
-                    }
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append("Локация: ") }
                     append(it.location)
                 },
                 style = MaterialTheme.typography.bodyMedium,
@@ -118,7 +100,6 @@ fun EventDetailsScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Описание
             Text(
                 text = it.description,
                 style = MaterialTheme.typography.bodyLarge,
@@ -126,10 +107,9 @@ fun EventDetailsScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Кнопка "Записаться"
             Button(
-                onClick = { /* Логика записи */ },
-                modifier = Modifier.align(Alignment.CenterHorizontally) // Центрируем кнопку
+                onClick = { },
+                modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 Text("Записаться")
             }

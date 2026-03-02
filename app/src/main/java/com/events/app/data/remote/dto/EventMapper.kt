@@ -13,9 +13,15 @@ private fun parseDateTime(raw: String): LocalDateTime {
     }
 }
 
+private fun fixPreviewUrl(url: String?): String? {
+    val fixed = url?.replace("localhost", "10.0.2.2")
+    android.util.Log.d("EventMapper", "Preview URL: $fixed")
+    return fixed
+}
+
 fun ShortEventDto.toDomain(): Event {
     return Event(
-        id = id,              // ← теперь берём id из DTO
+        id = id,
         title = title ?: "",
         announcement = announcement ?: "",
         description = "",
@@ -27,7 +33,7 @@ fun ShortEventDto.toDomain(): Event {
         link = null,
         isPublic = true,
         isFinished = LocalDateTime.now().isAfter(parseDateTime(endDateTime)),
-        previewUrl = previewDownloadLink
+        previewUrl = fixPreviewUrl(previewDownloadLink)  // ← исправляем URL
     )
 }
 
@@ -45,6 +51,6 @@ fun EventDetailDto.toDomain(): Event {
         link = null,
         isPublic = true,
         isFinished = LocalDateTime.now().isAfter(parseDateTime(endDateTime)),
-        previewUrl = previewDownloadLink
+        previewUrl = fixPreviewUrl(previewDownloadLink)  // ← исправляем URL
     )
 }
