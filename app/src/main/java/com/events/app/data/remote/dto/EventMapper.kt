@@ -13,9 +13,9 @@ private fun parseDateTime(raw: String): LocalDateTime {
     }
 }
 
-fun ShortEventDto.toDomain(id: String = ""): Event {
+fun ShortEventDto.toDomain(): Event {
     return Event(
-        id = id,
+        id = id,              // ← теперь берём id из DTO
         title = title ?: "",
         announcement = announcement ?: "",
         description = "",
