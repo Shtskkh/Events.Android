@@ -4,12 +4,12 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ShortEventDto(
-    val id: String,           // ← добавили это поле!
+    val id: String,
     val title: String?,
     val announcement: String?,
     val type: String?,
     val format: String?,
     val startDateTime: String,
     val endDateTime: String,
-    val previewDownloadLink: String?
+    val previewInfo: PreviewInfoDto?   // ← было previewDownloadLink: String?
 )

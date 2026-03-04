@@ -7,9 +7,9 @@ data class EventDetailDto(
     val id: String,
     val title: String?,
     val description: String?,
-    val type: String?,        // теперь просто строка
-    val format: String?,      // теперь просто строка
+    val type: String?,
+    val format: String?,
     val startDateTime: String,
     val endDateTime: String,
-    val previewDownloadLink: String?
+    val previewInfo: PreviewInfoDto?   // ← было previewDownloadLink: String?
 )

@@ -15,13 +15,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.events.app.domain.models.events.Event
-import com.events.app.ui.components.eventscards.AssignedEventCard
 import com.events.app.ui.components.eventscards.UpcomingEventCard
 
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
-    onEventClick: (String) -> Unit = {}  // Int → String (UUID)
+    onEventClick: (String) -> Unit = {}
 ) {
     val events = viewModel.events.collectAsState().value
 
@@ -43,9 +42,9 @@ fun MainScreen(
                 title = "Назначенные вам",
                 events = listOfNotNull(assignedEvent),
                 cardComposable = { event ->
-                    AssignedEventCard(
+                    UpcomingEventCard(
                         event = event,
-                        onCardClick = { onEventClick(event.id) })
+                        onClick = { onEventClick(event.id) })
                 },
                 onViewAllClick = { }
             )
@@ -69,9 +68,9 @@ fun MainScreen(
                 title = "Завершённые",
                 events = completedEvents.take(3),
                 cardComposable = { event ->
-                    AssignedEventCard(
+                    UpcomingEventCard(
                         event = event,
-                        onCardClick = { onEventClick(event.id) })
+                        onClick = { onEventClick(event.id) })
                 },
                 onViewAllClick = { }
             )
