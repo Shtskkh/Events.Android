@@ -2,6 +2,9 @@ package com.events.app.ui.views.events
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.events.app.data.RemoteDataSource
+import com.events.app.data.remote.dto.EventFormatDto
+import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.domain.models.events.Event
 import com.events.app.domain.usecases.events.GetEventsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,9 +16,11 @@ import javax.inject.Inject
 
 @HiltViewModel
 class EventsViewModel @Inject constructor(
-    private val getEventsUseCase: GetEventsUseCase
+    private val getEventsUseCase: GetEventsUseCase,
+    private val remoteDataSource: RemoteDataSource
 ) : ViewModel() {
 
+    // --- Список мероприятий ---
     private val _allEvents = MutableStateFlow<List<Event>>(emptyList())
     private val _displayedEvents = MutableStateFlow<List<Event>>(emptyList())
     val displayedEvents = _displayedEvents.asStateFlow()
@@ -23,7 +28,6 @@ class EventsViewModel @Inject constructor(
     private val _hasMore = MutableStateFlow(false)
     val hasMore = _hasMore.asStateFlow()
 
-    // Новые состояния для ошибок и загрузки
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
@@ -32,31 +36,38 @@ class EventsViewModel @Inject constructor(
 
     private var currentPage = 1
     private val pageSize = 20
+    private val displayStep = 5
+
+    // --- Справочники ---
+    private val _eventTypes = MutableStateFlow<List<EventTypeDto>>(emptyList())
+    val eventTypes = _eventTypes.asStateFlow()
+
+    private val _eventFormats = MutableStateFlow<List<EventFormatDto>>(emptyList())
+    val eventFormats = _eventFormats.asStateFlow()
 
     init {
         loadEvents()
+        loadReferenceData()
     }
 
-    private fun loadEvents() {
+    private fun loadReferenceData() {
+        viewModelScope.launch {
+            try { _eventTypes.value = remoteDataSource.getEventTypes() } catch (_: Exception) {}
+            try { _eventFormats.value = remoteDataSource.getEventFormats() } catch (_: Exception) {}
+        }
+    }
+
+    fun loadEvents() {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             try {
-                val loadedEvents = getEventsUseCase(size = pageSize, page = currentPage)
-                _allEvents.value = loadedEvents
-                _displayedEvents.value = loadedEvents
-                // Если вернулось меньше чем pageSize — значит страниц больше нет
-                _hasMore.value = loadedEvents.size >= pageSize
-            } catch (e: retrofit2.HttpException) {
-                if (e.code() == 404) {
-                    // 404 = просто нет данных, это не ошибка
-                    _displayedEvents.value = emptyList()
-                    _hasMore.value = false
-                } else {
-                    _error.value = "Ошибка сервера: ${e.code()}"
-                }
+                val events = getEventsUseCase(size = pageSize, page = currentPage)
+                _allEvents.value = events
+                _displayedEvents.value = events.take(displayStep)
+                _hasMore.value = events.size > displayStep
             } catch (e: Exception) {
-                _error.value = "Нет соединения с сервером"
+                _error.value = e.message ?: "Ошибка загрузки"
             } finally {
                 _isLoading.value = false
             }
@@ -64,31 +75,12 @@ class EventsViewModel @Inject constructor(
     }
 
     fun loadMore() {
-        if (_isLoading.value || !_hasMore.value) return
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                currentPage++
-                val nextEvents = getEventsUseCase(size = pageSize, page = currentPage)
-                if (nextEvents.isEmpty()) {
-                    _hasMore.value = false
-                } else {
-                    _displayedEvents.value = _displayedEvents.value + nextEvents
-                    _hasMore.value = nextEvents.size >= pageSize
-                }
-            } catch (e: retrofit2.HttpException) {
-                if (e.code() == 404) {
-                    _hasMore.value = false
-                } else {
-                    _error.value = "Ошибка загрузки: ${e.code()}"
-                }
-                currentPage-- // откатываем страницу при ошибке
-            } catch (e: Exception) {
-                _error.value = "Нет соединения"
-                currentPage--
-            } finally {
-                _isLoading.value = false
-            }
+        val all = _allEvents.value
+        val displayed = _displayedEvents.value
+        if (displayed.size < all.size) {
+            val next = min(displayed.size + displayStep, all.size)
+            _displayedEvents.value = all.take(next)
+            _hasMore.value = next < all.size
         }
     }
 }

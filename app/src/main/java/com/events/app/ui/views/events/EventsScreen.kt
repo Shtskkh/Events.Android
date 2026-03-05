@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.outlined.*
@@ -16,12 +17,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-
+import com.events.app.data.remote.dto.EventFormatDto
+import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.ui.components.eventscards.UpcomingEventCard
 import kotlinx.coroutines.launch
 
@@ -35,6 +38,9 @@ fun EventsScreen(
     val hasMore by viewModel.hasMore.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val eventTypes by viewModel.eventTypes.collectAsState()
+    val eventFormats by viewModel.eventFormats.collectAsState()
+
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
@@ -45,28 +51,19 @@ fun EventsScreen(
         if (isCloseToEnd && hasMore) viewModel.loadMore()
     }
 
-    // Состояния фильтров
     var searchQuery by remember { mutableStateOf("") }
-
-    // Дата
     var dateStartLabel by remember { mutableStateOf<String?>(null) }
     var dateEndLabel by remember { mutableStateOf<String?>(null) }
+    var selectedTypeId by remember { mutableStateOf<Int?>(null) }
+    var selectedFormatId by remember { mutableStateOf<Int?>(null) }
     var showDateSheet by remember { mutableStateOf(false) }
-
-    // Тип
-    var selectedType by remember { mutableStateOf<String?>(null) }
     var showTypeSheet by remember { mutableStateOf(false) }
-
-    // Формат
-    var selectedFormat by remember { mutableStateOf<String?>(null) }
     var showFormatSheet by remember { mutableStateOf(false) }
-
-    // Все фильтры
     var showAllFiltersSheet by remember { mutableStateOf(false) }
 
     val dateActive = dateStartLabel != null || dateEndLabel != null
-    val typeActive = selectedType != null
-    val formatActive = selectedFormat != null
+    val selectedTypeName = eventTypes.find { it.id == selectedTypeId }?.title
+    val selectedFormatName = eventFormats.find { it.id == selectedFormatId }?.title
 
     Box(modifier = Modifier.fillMaxSize()) {
 
@@ -78,11 +75,7 @@ fun EventsScreen(
                 onValueChange = { searchQuery = it },
                 placeholder = { Text("Поиск мероприятий...") },
                 leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.Search,
-                        contentDescription = "Поиск",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Icon(Icons.Outlined.Search, "Поиск", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
@@ -95,7 +88,7 @@ fun EventsScreen(
                 )
             )
 
-            // ── Быстрые фильтры — одна строка ─────────────────────
+            // ── Быстрые фильтры ────────────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -104,7 +97,6 @@ fun EventsScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Дата
                 FilterChip(
                     selected = dateActive,
                     onClick = { showDateSheet = true },
@@ -123,30 +115,24 @@ fun EventsScreen(
                     },
                     shape = RoundedCornerShape(12.dp)
                 )
-
-                // Тип
                 FilterChip(
-                    selected = typeActive,
+                    selected = selectedTypeId != null,
                     onClick = { showTypeSheet = true },
-                    label = { Text(selectedType ?: "Тип", maxLines = 1) },
+                    label = { Text(selectedTypeName ?: "Тип", maxLines = 1) },
                     leadingIcon = {
                         Icon(Icons.Outlined.Category, null, modifier = Modifier.size(16.dp))
                     },
                     shape = RoundedCornerShape(12.dp)
                 )
-
-                // Формат
                 FilterChip(
-                    selected = formatActive,
+                    selected = selectedFormatId != null,
                     onClick = { showFormatSheet = true },
-                    label = { Text(selectedFormat ?: "Формат", maxLines = 1) },
+                    label = { Text(selectedFormatName ?: "Формат", maxLines = 1) },
                     leadingIcon = {
                         Icon(Icons.Outlined.Tv, null, modifier = Modifier.size(16.dp))
                     },
                     shape = RoundedCornerShape(12.dp)
                 )
-
-                // Все фильтры
                 AssistChip(
                     onClick = { showAllFiltersSheet = true },
                     label = { Text("Все фильтры", maxLines = 1) },
@@ -192,20 +178,15 @@ fun EventsScreen(
                             if (hasMore) {
                                 item {
                                     CircularProgressIndicator(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp)
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp)
                                             .wrapContentWidth(Alignment.CenterHorizontally)
                                     )
                                 }
                             }
                         }
-
                         if (showScrollToTop) {
                             FloatingActionButton(
-                                onClick = {
-                                    coroutineScope.launch { listState.animateScrollToItem(0) }
-                                },
+                                onClick = { coroutineScope.launch { listState.animateScrollToItem(0) } },
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
                                     .padding(end = 15.dp, bottom = 80.dp)
@@ -214,7 +195,7 @@ fun EventsScreen(
                                 contentColor = Color.White,
                                 elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
                             ) {
-                                Icon(Icons.Default.ArrowUpward, contentDescription = "Вверх")
+                                Icon(Icons.Default.ArrowUpward, "Вверх")
                             }
                         }
                     }
@@ -231,9 +212,9 @@ fun EventsScreen(
                 DateFilterSheetContent(
                     startLabel = dateStartLabel,
                     endLabel = dateEndLabel,
-                    onApply = { start, end ->
-                        dateStartLabel = start
-                        dateEndLabel = end
+                    onApply = { s, e ->
+                        dateStartLabel = s
+                        dateEndLabel = e
                         showDateSheet = false
                     },
                     onReset = {
@@ -245,34 +226,36 @@ fun EventsScreen(
             }
         }
 
-        // ── Шторка: Тип ───────────────────────────────────────────
+        // ── Шторка: Тип (из базы) ─────────────────────────────────
         if (showTypeSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showTypeSheet = false },
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
             ) {
-                QuickPickSheetContent(
+                DtoGridPickSheetContent(
                     title = "Тип мероприятия",
-                    options = listOf("Конференция", "Семинар", "Вебинар", "Митап", "Воркшоп"),
-                    selected = selectedType,
-                    onSelect = { selectedType = it; showTypeSheet = false },
-                    onReset = { selectedType = null; showTypeSheet = false }
+                    icon = Icons.Outlined.Category,
+                    options = eventTypes,
+                    selectedId = selectedTypeId,
+                    onSelect = { selectedTypeId = it; showTypeSheet = false },
+                    onReset = { selectedTypeId = null; showTypeSheet = false }
                 )
             }
         }
 
-        // ── Шторка: Формат ────────────────────────────────────────
+        // ── Шторка: Формат (из базы) ──────────────────────────────
         if (showFormatSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showFormatSheet = false },
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
             ) {
-                QuickPickSheetContent(
+                DtoGridPickSheetContent(
                     title = "Формат мероприятия",
-                    options = listOf("Офлайн", "Онлайн", "Гибридный"),
-                    selected = selectedFormat,
-                    onSelect = { selectedFormat = it; showFormatSheet = false },
-                    onReset = { selectedFormat = null; showFormatSheet = false }
+                    icon = Icons.Outlined.Tv,
+                    options = eventFormats,
+                    selectedId = selectedFormatId,
+                    onSelect = { selectedFormatId = it; showFormatSheet = false },
+                    onReset = { selectedFormatId = null; showFormatSheet = false }
                 )
             }
         }
@@ -284,11 +267,11 @@ fun EventsScreen(
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ) {
                 AllFiltersSheetContent(
+                    eventTypes = eventTypes,
+                    eventFormats = eventFormats,
                     onReset = {
-                        dateStartLabel = null
-                        dateEndLabel = null
-                        selectedType = null
-                        selectedFormat = null
+                        dateStartLabel = null; dateEndLabel = null
+                        selectedTypeId = null; selectedFormatId = null
                         showAllFiltersSheet = false
                     },
                     onApply = { showAllFiltersSheet = false }
@@ -298,7 +281,7 @@ fun EventsScreen(
     }
 }
 
-// ── Шторка выбора диапазона дат ───────────────────────────────────
+// ── Шторка диапазона дат ──────────────────────────────────────────
 @Composable
 private fun DateFilterSheetContent(
     startLabel: String?,
@@ -309,17 +292,19 @@ private fun DateFilterSheetContent(
     var start by remember { mutableStateOf(startLabel ?: "") }
     var end by remember { mutableStateOf(endLabel ?: "") }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Диапазон дат", style = MaterialTheme.typography.titleLarge)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Outlined.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary)
+                Text("Диапазон дат", style = MaterialTheme.typography.titleLarge)
+            }
             TextButton(onClick = onReset) { Text("Сбросить") }
         }
 
@@ -328,24 +313,24 @@ private fun DateFilterSheetContent(
         OutlinedTextField(
             value = start,
             onValueChange = { start = it },
-            label = { Text("Начало (дд.мм.гггг)") },
-            leadingIcon = {
-                Icon(Icons.Outlined.CalendarMonth, null)
-            },
+            label = { Text("Начало периода") },
+            placeholder = { Text("01.01.2026") },
+            supportingText = { Text("Введите число, месяц и год начала") },
+            leadingIcon = { Icon(Icons.Outlined.CalendarMonth, null) },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
             value = end,
             onValueChange = { end = it },
-            label = { Text("Конец (дд.мм.гггг)") },
-            leadingIcon = {
-                Icon(Icons.Outlined.CalendarMonth, null)
-            },
+            label = { Text("Конец периода") },
+            placeholder = { Text("31.12.2026") },
+            supportingText = { Text("Введите число, месяц и год окончания") },
+            leadingIcon = { Icon(Icons.Outlined.CalendarMonth, null) },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()
@@ -354,12 +339,7 @@ private fun DateFilterSheetContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = {
-                onApply(
-                    start.ifBlank { null },
-                    end.ifBlank { null }
-                )
-            },
+            onClick = { onApply(start.ifBlank { null }, end.ifBlank { null }) },
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(14.dp)
         ) {
@@ -370,63 +350,66 @@ private fun DateFilterSheetContent(
     }
 }
 
-// ── Шторка быстрого выбора одного значения (тип / формат) ─────────
+// ── Универсальная шторка с сеткой 2 колонки из DTO ────────────────
 @Composable
-private fun QuickPickSheetContent(
+private fun DtoGridPickSheetContent(
     title: String,
-    options: List<String>,
-    selected: String?,
-    onSelect: (String) -> Unit,
+    icon: ImageVector,
+    options: List<Any>,
+    selectedId: Int?,
+    onSelect: (Int) -> Unit,
     onReset: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-    ) {
+    val items = options.mapNotNull { dto ->
+        when (dto) {
+            is EventTypeDto -> Pair(dto.id, dto.title ?: "Тип ${dto.id}")
+            is EventFormatDto -> Pair(dto.id, dto.title ?: "Формат ${dto.id}")
+            else -> null
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            if (selected != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+                Text(title, style = MaterialTheme.typography.titleLarge)
+            }
+            if (selectedId != null) {
                 TextButton(onClick = onReset) { Text("Сбросить") }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        options.forEach { option ->
-            val isSelected = selected == option
-            Surface(
-                onClick = { onSelect(option) },
-                shape = RoundedCornerShape(12.dp),
-                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
+        if (items.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(100.dp),
+                contentAlignment = Alignment.Center
             ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            items.chunked(2).forEach { row ->
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = option,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (isSelected) {
-                        Icon(
-                            imageVector = Icons.Outlined.CheckCircle,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
+                    row.forEach { (id, label) ->
+                        FilterGridItem(
+                            label = label,
+                            selected = selectedId == id,
+                            onClick = { onSelect(id) },
+                            modifier = Modifier.weight(1f)
                         )
                     }
+                    if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -439,18 +422,22 @@ private fun QuickPickSheetContent(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AllFiltersSheetContent(
+    eventTypes: List<EventTypeDto>,
+    eventFormats: List<EventFormatDto>,
     onReset: () -> Unit,
     onApply: () -> Unit
 ) {
     var dateStart by remember { mutableStateOf("") }
     var dateEnd by remember { mutableStateOf("") }
-    var typeSelected by remember { mutableStateOf<String?>(null) }
-    var formatSelected by remember { mutableStateOf<String?>(null) }
+    var typeSelected by remember { mutableStateOf<Int?>(null) }
+    var formatSelected by remember { mutableStateOf<Int?>(null) }
+    var statusSelected by remember { mutableStateOf<String?>(null) }
     var registrationRequired by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
     ) {
         Row(
@@ -458,57 +445,77 @@ private fun AllFiltersSheetContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Все фильтры", style = MaterialTheme.typography.titleLarge)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Outlined.Tune, null, tint = MaterialTheme.colorScheme.primary)
+                Text("Все фильтры", style = MaterialTheme.typography.titleLarge)
+            }
             TextButton(onClick = onReset) { Text("Сбросить все") }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        // ── Диапазон дат ──────────────────────────────────────────
+        FilterSectionHeader(Icons.Outlined.CalendarMonth, "Диапазон дат")
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = dateStart,
+            onValueChange = { dateStart = it },
+            label = { Text("Начало периода") },
+            placeholder = { Text("01.01.2026") },
+            supportingText = { Text("Введите число, месяц и год начала") },
+            leadingIcon = {
+                Icon(Icons.Outlined.CalendarMonth, null, modifier = Modifier.size(18.dp))
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = dateEnd,
+            onValueChange = { dateEnd = it },
+            label = { Text("Конец периода") },
+            placeholder = { Text("31.12.2026") },
+            supportingText = { Text("Введите число, месяц и год окончания") },
+            leadingIcon = {
+                Icon(Icons.Outlined.CalendarMonth, null, modifier = Modifier.size(18.dp))
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Дата
-        Text("Диапазон дат", style = MaterialTheme.typography.labelLarge)
+        // ── Тип — из базы ─────────────────────────────────────────
+        FilterSectionHeader(Icons.Outlined.Category, "Тип мероприятия")
         Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = dateStart,
-                onValueChange = { dateStart = it },
-                label = { Text("С") },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.weight(1f)
-            )
-            OutlinedTextField(
-                value = dateEnd,
-                onValueChange = { dateEnd = it },
-                label = { Text("По") },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider()
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Тип
-        Text("Тип мероприятия", style = MaterialTheme.typography.labelLarge)
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf("Конференция", "Семинар", "Вебинар", "Митап", "Воркшоп").forEach { type ->
-                FilterChip(
-                    selected = typeSelected == type,
-                    onClick = { typeSelected = if (typeSelected == type) null else type },
-                    label = { Text(type) },
-                    leadingIcon = {
-                        Icon(Icons.Outlined.Category, null, modifier = Modifier.size(16.dp))
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                )
+        if (eventTypes.isEmpty()) {
+            Text("Загрузка...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+        } else {
+            eventTypes.chunked(2).forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    row.forEach { type ->
+                        FilterGridItem(
+                            label = type.title ?: "Тип ${type.id}",
+                            selected = typeSelected == type.id,
+                            onClick = { typeSelected = if (typeSelected == type.id) null else type.id },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
 
@@ -516,17 +523,27 @@ private fun AllFiltersSheetContent(
         HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Формат
-        Text("Формат", style = MaterialTheme.typography.labelLarge)
+        // ── Формат — из базы ──────────────────────────────────────
+        FilterSectionHeader(Icons.Outlined.Tv, "Формат")
         Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Офлайн", "Онлайн", "Гибридный").forEach { format ->
-                FilterChip(
-                    selected = formatSelected == format,
-                    onClick = { formatSelected = if (formatSelected == format) null else format },
-                    label = { Text(format) },
-                    shape = RoundedCornerShape(12.dp)
-                )
+        if (eventFormats.isEmpty()) {
+            Text("Загрузка...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+        } else {
+            eventFormats.chunked(2).forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    row.forEach { format ->
+                        FilterGridItem(
+                            label = format.title ?: "Формат ${format.id}",
+                            selected = formatSelected == format.id,
+                            onClick = { formatSelected = if (formatSelected == format.id) null else format.id },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
 
@@ -534,20 +551,49 @@ private fun AllFiltersSheetContent(
         HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Регистрация
+        // ── Статус (заготовка) ────────────────────────────────────
+        FilterSectionHeader(Icons.Outlined.CheckCircle, "Статус")
+        Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = "Требуется регистрация",
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Switch(
-                checked = registrationRequired,
-                onCheckedChange = { registrationRequired = it }
-            )
+            listOf("Активные", "Завершённые").forEach { status ->
+                FilterGridItem(
+                    label = status,
+                    selected = statusSelected == status,
+                    onClick = { statusSelected = if (statusSelected == status) null else status },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // ── Регистрация ───────────────────────────────────────────
+        FilterSectionHeader(Icons.Outlined.AppRegistration, "Регистрация")
+        Spacer(modifier = Modifier.height(8.dp))
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Требуется регистрация",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Switch(
+                    checked = registrationRequired,
+                    onCheckedChange = { registrationRequired = it }
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -561,6 +607,57 @@ private fun AllFiltersSheetContent(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+// ── Переиспользуемый заголовок секции ─────────────────────────────
+@Composable
+private fun FilterSectionHeader(icon: ImageVector, title: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+// ── Элемент сетки фильтров ────────────────────────────────────────
+@Composable
+private fun FilterGridItem(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surfaceVariant,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (selected) {
+                Icon(
+                    Icons.Outlined.CheckCircle,
+                    null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
     }
 }
 
