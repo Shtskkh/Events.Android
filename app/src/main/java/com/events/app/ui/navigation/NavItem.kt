@@ -14,7 +14,6 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 
-// Класс для элементов навигации
 sealed class NavItem(
     val route: NavigationRoute,
     val title: String,
@@ -41,7 +40,7 @@ sealed class NavItem(
     )
 
     object CreateEvent : NavItem(
-        route = NavigationRoute.CreateEvent,
+        route = NavigationRoute.CreateEventGraph,  // ← было NavigationRoute.CreateEvent
         title = "Создать мероприятие",
         iconOutlined = { Icon(Icons.Outlined.Add, "Создать мероприятие") },
         iconSelected = { Icon(Icons.Filled.Add, "Создать мероприятие") }

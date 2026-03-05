@@ -2,11 +2,6 @@ package com.events.app.ui.navigation
 
 import kotlinx.serialization.Serializable
 
-/*
-* В данном интерфейсе прописываются параметры,
-* необходимые для перехода на экран.
-* Актуально для вложенных экранов.
-*/
 sealed interface NavigationRoute {
 
     @Serializable
@@ -17,6 +12,9 @@ sealed interface NavigationRoute {
 
     @Serializable
     data object Events : NavigationRoute
+
+    @Serializable
+    data object CreateEventGraph : NavigationRoute  // ← новый граф
 
     @Serializable
     data object CreateEvent : NavigationRoute
@@ -32,7 +30,7 @@ sealed interface NavigationRoute {
 
     @Serializable
     data class EventDetails(
-        val id: String   // было Int — меняем на String
+        val id: String
     ) : NavigationRoute
 
     @Serializable
