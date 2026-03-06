@@ -14,6 +14,8 @@ data class Event(
     val startDate: LocalDateTime,
     // Дата и время окончания события
     val endDate: LocalDateTime,
+
+    val type: String,
     // Формат события
     val format: String,
     // Количество мест

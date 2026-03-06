@@ -40,6 +40,7 @@ fun ShortEventDto.toDomain(): Event {
         places = 0,
         location = "",
         link = null,
+        type = type ?: "",   // ← добавить в оба маппера
         isPublic = true,
         isFinished = LocalDateTime.now().isAfter(parseDateTime(endDateTime)),
         previewUrl = buildPreviewUrl(previewInfo)
@@ -51,6 +52,7 @@ fun EventDetailDto.toDomain(): Event {
         id = id,
         title = title ?: "",
         announcement = "",
+        type = type ?: "",   // ← добавить в оба маппера
         description = description ?: "",
         startDate = parseDateTime(startDateTime),
         endDate = parseDateTime(endDateTime),
