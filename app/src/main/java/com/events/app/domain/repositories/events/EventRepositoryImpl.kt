@@ -9,8 +9,18 @@ class EventRepositoryImpl @Inject constructor(
     private val remoteDataSource: RemoteDataSource
 ) : EventRepository {
 
-    override suspend fun getEvents(size: Int, page: Int): List<Event> {
-        return remoteDataSource.getEvents(size, page).map { it.toDomain() }
+    override suspend fun getEvents(
+        size: Int,
+        page: Int,
+        text: String?,
+        startDateTime: String?,
+        endDateTime: String?,
+        typeId: Int?,
+        formatId: Int?
+    ): List<Event> {
+        return remoteDataSource.getEvents(
+            size, page, text, startDateTime, endDateTime, typeId, formatId
+        ).map { it.toDomain() }
     }
 
     override suspend fun getEventById(id: String): Event {

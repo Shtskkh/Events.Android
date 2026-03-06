@@ -13,8 +13,15 @@ import javax.inject.Inject
 class RemoteDataSource @Inject constructor(
     private val api: EventsApi
 ) {
-    suspend fun getEvents(size: Int = 20, page: Int = 1): List<ShortEventDto> =
-        api.getEvents(size = size, page = page)
+    suspend fun getEvents(
+        size: Int = 20,
+        page: Int = 1,
+        text: String? = null,
+        startDateTime: String? = null,
+        endDateTime: String? = null,
+        typeId: Int? = null,
+        formatId: Int? = null
+    ): List<ShortEventDto> = api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId)
 
     suspend fun getEventById(id: String): EventDetailDto =
         api.getEventById(id)

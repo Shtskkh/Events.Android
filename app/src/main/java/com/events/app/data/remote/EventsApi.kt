@@ -15,7 +15,11 @@ interface EventsApi {
     suspend fun getEvents(
         @Query("Size") size: Int = 20,
         @Query("Page") page: Int = 1,
-        @Query("Text") text: String? = null
+        @Query("Text") text: String? = null,
+        @Query("StartDateTime") startDateTime: String? = null,
+        @Query("EndDateTime") endDateTime: String? = null,
+        @Query("TypeId") typeId: Int? = null,
+        @Query("FormatId") formatId: Int? = null
     ): List<ShortEventDto>
 
     @GET("api/v/1/events/{id}")
