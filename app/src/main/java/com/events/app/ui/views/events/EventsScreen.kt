@@ -22,7 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.ui.components.eventscards.UpcomingEventCard
@@ -173,7 +173,7 @@ fun EventsScreen(
                         ) {
                             items(displayedEvents) { event ->
                                 UpcomingEventCard(event = event, onClick = { onEventClick(event.id) })
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(16.dp)) // было 8.dp
                             }
                             if (hasMore) {
                                 item {
@@ -314,22 +314,20 @@ private fun DateFilterSheetContent(
             value = start,
             onValueChange = { start = it },
             label = { Text("Начало периода") },
-            placeholder = { Text("01.01.2026") },
-            supportingText = { Text("Введите число, месяц и год начала") },
+            placeholder = { Text("дд.мм.гггг") },
             leadingIcon = { Icon(Icons.Outlined.CalendarMonth, null) },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
             value = end,
             onValueChange = { end = it },
             label = { Text("Конец периода") },
-            placeholder = { Text("31.12.2026") },
-            supportingText = { Text("Введите число, месяц и год окончания") },
+            placeholder = { Text("дд.мм.гггг") },
             leadingIcon = { Icon(Icons.Outlined.CalendarMonth, null) },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
@@ -465,8 +463,7 @@ private fun AllFiltersSheetContent(
             value = dateStart,
             onValueChange = { dateStart = it },
             label = { Text("Начало периода") },
-            placeholder = { Text("01.01.2026") },
-            supportingText = { Text("Введите число, месяц и год начала") },
+            placeholder = { Text("дд.мм.гггг") },
             leadingIcon = {
                 Icon(Icons.Outlined.CalendarMonth, null, modifier = Modifier.size(18.dp))
             },
@@ -475,14 +472,13 @@ private fun AllFiltersSheetContent(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
             value = dateEnd,
             onValueChange = { dateEnd = it },
             label = { Text("Конец периода") },
-            placeholder = { Text("31.12.2026") },
-            supportingText = { Text("Введите число, месяц и год окончания") },
+            placeholder = { Text("дд.мм.гггг") },
             leadingIcon = {
                 Icon(Icons.Outlined.CalendarMonth, null, modifier = Modifier.size(18.dp))
             },
