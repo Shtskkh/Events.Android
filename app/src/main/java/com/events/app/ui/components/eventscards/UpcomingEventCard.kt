@@ -35,15 +35,15 @@ fun UpcomingEventCard(
             event.format.contains("online", ignoreCase = true)
 
     val formatIcon: ImageVector = if (isOnline) Icons.Outlined.Videocam else Icons.Outlined.LocationOn
-    val formatColor = if (isOnline) Color(0xFF3B82F6) else Color(0xFF10B981)
-    val formatBg   = formatColor.copy(alpha = 0.12f)
+    // Зелёный — онлайн, Красный — офлайн
+    val formatColor = if (isOnline) Color(0xFF22C55E) else Color(0xFFEF4444)
 
     Card(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(20.dp),      // ← все 4 угла скруглены
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
@@ -65,26 +65,51 @@ fun UpcomingEventCard(
                         .fillMaxSize()
                         .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
                 )
+
+                // Лёгкий градиент снизу
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(0.2f)),
-                                startY = 100f
+                                colors = listOf(Color.Transparent, Color.Black.copy(0.22f)),
+                                startY = 80f
                             )
                         )
                 )
+
+                // Бейдж формата — полностью прозрачный фон, только иконка и текст
+                if (event.format.isNotBlank()) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 12.dp, end = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Icon(
+                            imageVector = formatIcon,
+                            contentDescription = null,
+                            tint = formatColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = event.format,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = formatColor
+                        )
+                    }
+                }
             }
 
-            // ── Текст ─────────────────────────────────────────
+            // ── Название и анонс ───────────────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 16.dp)
+                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 4.dp)
             ) {
-                // Название
                 Text(
                     text = event.title,
                     fontWeight = FontWeight.ExtraBold,
@@ -94,8 +119,6 @@ fun UpcomingEventCard(
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-
-                // Анонс
                 if (event.announcement.isNotBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -107,56 +130,35 @@ fun UpcomingEventCard(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
 
-                Spacer(Modifier.height(14.dp))
-
-                // ── Нижняя строка: дата · время · тип · формат ──
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Дата
+            // ── Чипы одного цвета от темы ─────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Дата
+                InfoChip(
+                    icon = Icons.Outlined.CalendarMonth,
+                    value = event.startDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
+                    modifier = Modifier.weight(1f)
+                )
+                // Время
+                InfoChip(
+                    icon = Icons.Outlined.Schedule,
+                    value = event.startDate.format(DateTimeFormatter.ofPattern("HH:mm")),
+                    modifier = Modifier.weight(1f)
+                )
+                // Тип
+                if (event.type.isNotBlank()) {
                     InfoChip(
-                        icon = Icons.Outlined.CalendarMonth,
-                        text = event.startDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        bgColor = MaterialTheme.colorScheme.primary.copy(0.10f),
-                        textColor = MaterialTheme.colorScheme.primary
+                        icon = Icons.Outlined.Category,
+                        value = event.type,
+                        modifier = Modifier.weight(1f)
                     )
-
-                    // Время
-                    InfoChip(
-                        icon = Icons.Outlined.Schedule,
-                        text = event.startDate.format(DateTimeFormatter.ofPattern("HH:mm")),
-                        iconTint = MaterialTheme.colorScheme.secondary,
-                        bgColor = MaterialTheme.colorScheme.secondary.copy(0.10f),
-                        textColor = MaterialTheme.colorScheme.secondary
-                    )
-
-                    // Тип мероприятия
-                    if (event.type.isNotBlank()) {
-                        InfoChip(
-                            icon = Icons.Outlined.Category,
-                            text = event.type,
-                            iconTint = Color(0xFFF59E0B),
-                            bgColor = Color(0xFFF59E0B).copy(0.12f),
-                            textColor = Color(0xFFF59E0B)
-                        )
-                    }
-
-                    Spacer(Modifier.weight(1f))
-
-                    // Формат (Онлайн / Офлайн)
-                    if (event.format.isNotBlank()) {
-                        InfoChip(
-                            icon = formatIcon,
-                            text = event.format,
-                            iconTint = formatColor,
-                            bgColor = formatBg,
-                            textColor = formatColor
-                        )
-                    }
                 }
             }
         }
@@ -166,26 +168,34 @@ fun UpcomingEventCard(
 @Composable
 private fun InfoChip(
     icon: ImageVector,
-    text: String,
-    iconTint: Color,
-    bgColor: Color,
-    textColor: Color
+    value: String,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = bgColor
+        // Единый цвет от темы — secondaryContainer хорошо читается и в светлой и тёмной теме
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = modifier
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.Center
         ) {
-            Icon(icon, null, tint = iconTint, modifier = Modifier.size(13.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(Modifier.width(5.dp))
             Text(
-                text = text,
+                text = value,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = textColor
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

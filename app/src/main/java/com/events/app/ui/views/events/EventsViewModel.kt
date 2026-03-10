@@ -106,6 +106,13 @@ class EventsViewModel @Inject constructor(
         }
     }
 
+    // ── Поиск: trim + минимум 2 символа, иначе null ───────────
+    fun setSearchText(text: String?) {
+        val trimmed = text?.trim()?.takeIf { it.length >= 2 }
+        _searchText.value = trimmed
+        loadEvents(reset = true)
+    }
+
     // ── Быстрые фильтры — применяются сразу ───────────────────
     fun setDateFilter(start: String?, end: String?) {
         _filterStartDate.value = start
@@ -123,11 +130,6 @@ class EventsViewModel @Inject constructor(
         loadEvents(reset = true)
     }
 
-    fun setSearchText(text: String?) {
-        _searchText.value = text?.ifBlank { null }
-        loadEvents(reset = true)
-    }
-
     // ── Все фильтры — по кнопке ────────────────────────────────
     fun applyAllFilters(
         text: String?,
@@ -136,7 +138,7 @@ class EventsViewModel @Inject constructor(
         typeId: Int?,
         formatId: Int?
     ) {
-        _searchText.value = text?.ifBlank { null }
+        _searchText.value = text?.trim()?.takeIf { it.length >= 2 }
         _filterStartDate.value = startDate
         _filterEndDate.value = endDate
         _filterTypeId.value = typeId

@@ -82,12 +82,29 @@ fun EventsScreen(
                     searchJob?.cancel()
                     searchJob = coroutineScope.launch {
                         delay(500)
-                        viewModel.setSearchText(query.ifBlank { null })
+                        // trim() убирает пробелы, ifBlank даёт null — Retrofit не добавит параметр
+                        viewModel.setSearchText(query.trim().ifBlank { null })
                     }
                 },
                 placeholder = { Text("Поиск мероприятий...") },
                 leadingIcon = {
                     Icon(Icons.Outlined.Search, "Поиск", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
+                // Кнопка очистки поля
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = {
+                            searchQuery = ""
+                            searchJob?.cancel()
+                            viewModel.setSearchText(null)
+                        }) {
+                            Icon(
+                                Icons.Outlined.Close,
+                                contentDescription = "Очистить",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
@@ -215,7 +232,7 @@ fun EventsScreen(
             }
         }
 
-        // ── Шторка: Дата → применяется сразу ─────────────────────
+        // ── Шторка: Дата ──────────────────────────────────────────
         if (showDateSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showDateSheet = false },
@@ -236,7 +253,7 @@ fun EventsScreen(
             }
         }
 
-        // ── Шторка: Тип → применяется сразу ──────────────────────
+        // ── Шторка: Тип ───────────────────────────────────────────
         if (showTypeSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showTypeSheet = false },
@@ -259,7 +276,7 @@ fun EventsScreen(
             }
         }
 
-        // ── Шторка: Формат → применяется сразу ───────────────────
+        // ── Шторка: Формат ────────────────────────────────────────
         if (showFormatSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showFormatSheet = false },
@@ -282,7 +299,7 @@ fun EventsScreen(
             }
         }
 
-        // ── Шторка: Все фильтры → по кнопке ──────────────────────
+        // ── Шторка: Все фильтры ───────────────────────────────────
         if (showAllFiltersSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showAllFiltersSheet = false },
@@ -302,7 +319,7 @@ fun EventsScreen(
                     },
                     onApply = { startDate, endDate, typeId, formatId ->
                         viewModel.applyAllFilters(
-                            text = searchQuery.ifBlank { null },
+                            text = searchQuery.trim().ifBlank { null },
                             startDate = startDate,
                             endDate = endDate,
                             typeId = typeId,
@@ -442,7 +459,7 @@ private fun DtoGridPickSheetContent(
     }
 }
 
-// ── Шторка «Все фильтры» — применяет по кнопке ───────────────────
+// ── Шторка «Все фильтры» ─────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AllFiltersSheetContent(
