@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,6 +26,8 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.events.app.domain.models.events.Event
 import java.time.format.DateTimeFormatter
+
+
 
 @Composable
 fun UpcomingEventCard(
@@ -44,10 +47,11 @@ fun UpcomingEventCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(20.dp),
+        // Используем surface — он светлее surfaceVariant, но отличается от background
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
 
@@ -132,7 +136,7 @@ fun UpcomingEventCard(
                 }
             }
 
-            // ── Чипы одного цвета от темы ─────────────────────
+            // ── Чипы — голубой фон, жирный текст ─────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -173,8 +177,7 @@ private fun InfoChip(
 ) {
     Surface(
         shape = RoundedCornerShape(10.dp),
-        // Единый цвет от темы — secondaryContainer хорошо читается и в светлой и тёмной теме
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
         modifier = modifier
     ) {
         Row(
@@ -185,15 +188,15 @@ private fun InfoChip(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(14.dp)
             )
             Spacer(Modifier.width(5.dp))
             Text(
                 text = value,
                 fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

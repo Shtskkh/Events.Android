@@ -68,6 +68,16 @@ fun DrawerContent(
                 onClick = { closeDrawer() },
             )
 
+            DrawerNavItem(
+                route = NavItem.Statistics.route,
+                label = NavItem.Statistics.title,
+                iconOutlined = NavItem.Statistics.iconOutlined,
+                iconSelected = NavItem.Statistics.iconSelected,
+                currentRoute = currentRoute,
+                navController = navController,
+                onClick = { closeDrawer() },
+            )
+
             HorizontalDivider(
                 modifier = Modifier
                     .padding(8.dp)

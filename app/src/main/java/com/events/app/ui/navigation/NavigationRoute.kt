@@ -36,4 +36,7 @@ sealed interface NavigationRoute {
     @Serializable
     data object Filters : NavigationRoute
 
+    @Serializable
+    data object Statistics : NavigationRoute  // ← новая вкладка
+
 }

@@ -25,6 +25,7 @@ import com.events.app.ui.views.events.EventsScreen
 import com.events.app.ui.views.eventsfilter.FiltersScreen
 import com.events.app.ui.views.main.MainScreen
 import com.events.app.ui.views.settings.SettingsScreen
+import com.events.app.ui.views.statistics.StatisticsScreen
 import com.events.app.ui.views.user.AccountScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -128,6 +129,19 @@ fun AppGraph(
                             }
                         )
                     }
+                }
+            }
+        }
+
+        // Статистика
+        composable<NavigationRoute.Statistics> {
+            AppDrawer(drawerState = drawerState, navController = navController) {
+                AppTopBar(
+                    title = "Статистика",
+                    drawerState = drawerState,
+                    onNavigationToAccount = { navToAccount() },
+                ) {
+                    StatisticsScreen()
                 }
             }
         }

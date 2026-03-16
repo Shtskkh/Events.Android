@@ -3,11 +3,13 @@ package com.events.app.ui.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
@@ -40,10 +42,17 @@ sealed class NavItem(
     )
 
     object CreateEvent : NavItem(
-        route = NavigationRoute.CreateEventGraph,  // ← было NavigationRoute.CreateEvent
+        route = NavigationRoute.CreateEventGraph,
         title = "Создать мероприятие",
         iconOutlined = { Icon(Icons.Outlined.Add, "Создать мероприятие") },
         iconSelected = { Icon(Icons.Filled.Add, "Создать мероприятие") }
+    )
+
+    object Statistics : NavItem(
+        route = NavigationRoute.Statistics,
+        title = "Статистика",
+        iconOutlined = { Icon(Icons.Outlined.BarChart, "Статистика") },
+        iconSelected = { Icon(Icons.Filled.BarChart, "Статистика") }
     )
 
     object Settings : NavItem(
