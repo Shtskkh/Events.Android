@@ -11,5 +11,6 @@ data class ShortEventDto(
     val format: String?,
     val startDateTime: String,
     val endDateTime: String,
-    val previewInfo: PreviewInfoDto?   // ← было previewDownloadLink: String?
+    val previewInfo: PreviewInfoDto?,
+    val locationTitle: String? = null   // ← название локации (nullable для совместимости)
 )

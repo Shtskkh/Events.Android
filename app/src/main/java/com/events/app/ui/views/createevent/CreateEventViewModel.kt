@@ -31,12 +31,12 @@ class CreateEventViewModel @Inject constructor(
     val selectedPlaceholder = MutableStateFlow<String?>(null)
 
     // --- Шаг 2: параметры ---
-    val startDateTime = MutableStateFlow("")   // ISO: "2026-04-10T10:00:00"
+    val startDateTime = MutableStateFlow("")
     val endDateTime = MutableStateFlow("")
     val needsRegistration = MutableStateFlow(false)
     val selectedTypeId = MutableStateFlow<Int?>(null)
     val selectedFormatId = MutableStateFlow<Int?>(null)
-    val selectedLocationId = MutableStateFlow<Int?>(null)  // необязательно
+    val selectedLocationId = MutableStateFlow<Int?>(null)
 
     // --- Справочники ---
     private val _placeholders = MutableStateFlow<List<String>>(emptyList())
@@ -61,6 +61,16 @@ class CreateEventViewModel @Inject constructor(
     private val _success = MutableStateFlow(false)
     val success = _success.asStateFlow()
 
+    // --- Состояние диалога создания локации ---
+    private val _showCreateLocationDialog = MutableStateFlow(false)
+    val showCreateLocationDialog = _showCreateLocationDialog.asStateFlow()
+
+    private val _isCreatingLocation = MutableStateFlow(false)
+    val isCreatingLocation = _isCreatingLocation.asStateFlow()
+
+    private val _createLocationError = MutableStateFlow<String?>(null)
+    val createLocationError = _createLocationError.asStateFlow()
+
     init {
         loadReferenceData()
     }
@@ -74,6 +84,40 @@ class CreateEventViewModel @Inject constructor(
         }
     }
 
+    fun openCreateLocationDialog() {
+        _createLocationError.value = null
+        _showCreateLocationDialog.value = true
+    }
+
+    fun closeCreateLocationDialog() {
+        _showCreateLocationDialog.value = false
+        _createLocationError.value = null
+    }
+
+    fun createLocation(title: String, address: String, onSuccess: (LocationDto) -> Unit) {
+        viewModelScope.launch {
+            _isCreatingLocation.value = true
+            _createLocationError.value = null
+            try {
+                fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
+                val newId = remoteDataSource.createLocation(
+                    title = title.toBody(),
+                    address = address.toBody()
+                )
+                // Добавляем новую локацию в список и выбираем её
+                val newLocation = LocationDto(id = newId, title = title, address = address)
+                _locations.value = _locations.value + newLocation
+                selectedLocationId.value = newId
+                _showCreateLocationDialog.value = false
+                onSuccess(newLocation)
+            } catch (e: Exception) {
+                _createLocationError.value = "Не удалось создать локацию: ${e.message}"
+            } finally {
+                _isCreatingLocation.value = false
+            }
+        }
+    }
+
     fun submitEvent() {
         viewModelScope.launch {
             _isLoading.value = true
@@ -81,7 +125,6 @@ class CreateEventViewModel @Inject constructor(
             try {
                 fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
 
-                // Собираем превью с устройства если есть
                 val previewPart: MultipartBody.Part? = selectedImageUri.value?.let { uri ->
                     val bytes = getApplication<Application>().contentResolver
                         .openInputStream(uri)?.readBytes() ?: return@let null

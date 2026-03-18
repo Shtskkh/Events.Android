@@ -40,6 +40,13 @@ interface EventsApi {
     suspend fun getLocations(): List<LocationDto>
 
     @Multipart
+    @POST("api/v/1/locations")
+    suspend fun createLocation(
+        @Part("Title") title: RequestBody,
+        @Part("Address") address: RequestBody
+    ): Int  // возвращает id созданной локации
+
+    @Multipart
     @POST("api/v/1/events")
     suspend fun createEvent(
         @Part("Title") title: RequestBody,

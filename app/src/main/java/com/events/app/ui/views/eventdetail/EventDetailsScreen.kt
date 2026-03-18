@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -22,7 +23,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-
 import coil.compose.AsyncImage
 import com.events.app.domain.models.events.Event
 import java.time.format.DateTimeFormatter
@@ -33,14 +33,37 @@ fun EventDetailsScreen(
     eventId: String,
     viewModel: EventDetailsViewModel = hiltViewModel()
 ) {
-    viewModel.loadEvent(eventId)
-    val event by viewModel.event.collectAsState()
+    LaunchedEffect(eventId) {
+        viewModel.loadEvent(eventId)
+    }
 
-    event?.let { EventContent(it) } ?: Box(
-        Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        CircularProgressIndicator()
+    val event by viewModel.event.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    when {
+        isLoading -> Box(
+            Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        error != null -> Box(
+            Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = error ?: "",
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        event != null -> EventContent(event!!)
+        else -> Box(
+            Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
     }
 }
 
@@ -61,8 +84,6 @@ private fun EventContent(event: Event) {
             .verticalScroll(scrollState)
             .background(MaterialTheme.colorScheme.background)
     ) {
-
-        // ── Hero-изображение — полностью видно, лёгкий градиент только в самом низу ──
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -74,8 +95,6 @@ private fun EventContent(event: Event) {
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
-
-            // Тонкий градиент — только последние 25% высоты
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -90,8 +109,6 @@ private fun EventContent(event: Event) {
                         )
                     )
             )
-
-            // Бейдж «Завершено» если нужен
             if (event.isFinished) {
                 Surface(
                     modifier = Modifier
@@ -111,14 +128,11 @@ private fun EventContent(event: Event) {
             }
         }
 
-        // ── Контент ────────────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
         ) {
-
-            // Название
             Text(
                 text = event.title,
                 fontSize = 24.sp,
@@ -130,7 +144,6 @@ private fun EventContent(event: Event) {
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Секция: Дата и время (компактная) ─────────────
             SectionTitle("Дата и время")
             Spacer(Modifier.height(8.dp))
 
@@ -154,21 +167,14 @@ private fun EventContent(event: Event) {
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Секция: Информация о мероприятии ──────────────
             SectionTitle("О мероприятии")
             Spacer(Modifier.height(8.dp))
 
-            // Тип
             if (event.type.isNotBlank()) {
-                InfoRow(
-                    icon = Icons.Outlined.Category,
-                    label = "Тип",
-                    value = event.type
-                )
+                InfoRow(icon = Icons.Outlined.Category, label = "Тип", value = event.type)
                 Spacer(Modifier.height(6.dp))
             }
 
-            // Формат (онлайн/офлайн) — теперь в инфо-секции
             if (event.format.isNotBlank()) {
                 InfoRow(
                     icon = formatIcon,
@@ -179,7 +185,6 @@ private fun EventContent(event: Event) {
                 Spacer(Modifier.height(6.dp))
             }
 
-            // Локация
             if (event.location.isNotBlank()) {
                 InfoRow(
                     icon = Icons.Outlined.LocationOn,
@@ -189,7 +194,6 @@ private fun EventContent(event: Event) {
                 Spacer(Modifier.height(6.dp))
             }
 
-            // Количество мест
             if (event.places > 0) {
                 InfoRow(
                     icon = Icons.Outlined.Group,
@@ -199,7 +203,6 @@ private fun EventContent(event: Event) {
                 Spacer(Modifier.height(6.dp))
             }
 
-            // Нужна регистрация
             InfoRow(
                 icon = if (event.isPublic) Icons.Outlined.LockOpen else Icons.Outlined.Lock,
                 label = "Доступ",
@@ -207,7 +210,6 @@ private fun EventContent(event: Event) {
             )
             Spacer(Modifier.height(6.dp))
 
-            // Статус
             InfoRow(
                 icon = if (event.isFinished) Icons.Outlined.EventBusy else Icons.Outlined.Event,
                 label = "Статус",
@@ -218,17 +220,11 @@ private fun EventContent(event: Event) {
                     Color(0xFF22C55E)
             )
 
-            // Ссылка
             if (!event.link.isNullOrBlank()) {
                 Spacer(Modifier.height(6.dp))
-                InfoRow(
-                    icon = Icons.Outlined.Link,
-                    label = "Ссылка",
-                    value = event.link
-                )
+                InfoRow(icon = Icons.Outlined.Link, label = "Ссылка", value = event.link)
             }
 
-            // ── Описание ───────────────────────────────────────
             if (event.description.isNotBlank()) {
                 Spacer(Modifier.height(16.dp))
                 SectionTitle("Описание")
@@ -248,7 +244,6 @@ private fun EventContent(event: Event) {
                 }
             }
 
-            // ── Анонс ──────────────────────────────────────────
             if (event.announcement.isNotBlank()) {
                 Spacer(Modifier.height(16.dp))
                 SectionTitle("Анонс")
@@ -270,7 +265,6 @@ private fun EventContent(event: Event) {
 
             Spacer(Modifier.height(28.dp))
 
-            // ── Кнопка ─────────────────────────────────────────
             Button(
                 onClick = { },
                 modifier = Modifier
@@ -314,7 +308,6 @@ private fun SectionTitle(text: String) {
     )
 }
 
-// Компактная карточка для дат — две в ряд, небольшая
 @Composable
 private fun CompactInfoCard(
     icon: ImageVector,
@@ -358,7 +351,6 @@ private fun CompactInfoCard(
     }
 }
 
-// Строка с иконкой — для остальных полей
 @Composable
 private fun InfoRow(
     icon: ImageVector,

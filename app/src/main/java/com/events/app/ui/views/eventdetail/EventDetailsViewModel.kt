@@ -1,11 +1,10 @@
 package com.events.app.ui.views.eventdetail
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.events.app.data.local.EventLocationCache
 import com.events.app.domain.models.events.Event
 import com.events.app.domain.usecases.events.GetEventByIdUseCase
-import com.events.app.domain.usecases.events.GetEventsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,24 +13,36 @@ import javax.inject.Inject
 
 @HiltViewModel
 class EventDetailsViewModel @Inject constructor(
-    private val getEventByIdUseCase: GetEventByIdUseCase,  // новый UseCase
-    savedStateHandle: SavedStateHandle
+    private val getEventByIdUseCase: GetEventByIdUseCase,
+    private val locationCache: EventLocationCache
 ) : ViewModel() {
 
     private val _event = MutableStateFlow<Event?>(null)
     val event = _event.asStateFlow()
 
-    init {
-        val eventId = savedStateHandle.get<String>("id") ?: ""
-        loadEvent(eventId)
-    }
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error = _error.asStateFlow()
 
     fun loadEvent(eventId: String) {
+        if (eventId.isBlank()) return
         viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
             try {
-                _event.value = getEventByIdUseCase(eventId)
+                val loaded = getEventByIdUseCase(eventId)
+                val locationTitle = if (loaded.location.isBlank()) {
+                    locationCache.get(eventId) ?: ""
+                } else {
+                    loaded.location
+                }
+                _event.value = loaded.copy(location = locationTitle)
             } catch (e: Exception) {
-                // обработка ошибки
+                _error.value = "Ошибка загрузки мероприятия"
+            } finally {
+                _isLoading.value = false
             }
         }
     }

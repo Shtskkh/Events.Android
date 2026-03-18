@@ -38,6 +38,11 @@ class RemoteDataSource @Inject constructor(
     suspend fun getLocations(): List<LocationDto> =
         api.getLocations()
 
+    suspend fun createLocation(
+        title: RequestBody,
+        address: RequestBody
+    ): Int = api.createLocation(title, address)
+
     suspend fun createEvent(
         title: RequestBody,
         announcement: RequestBody,

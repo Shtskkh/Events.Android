@@ -2,6 +2,7 @@ package com.events.app.ui.views.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.events.app.data.local.EventLocationCache
 import com.events.app.domain.models.events.Event
 import com.events.app.domain.usecases.events.GetEventsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,7 +13,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val getEventsUseCase: GetEventsUseCase
+    private val getEventsUseCase: GetEventsUseCase,
+    private val locationCache: EventLocationCache
 ) : ViewModel() {
 
     private val _events = MutableStateFlow<List<Event>>(emptyList())
@@ -34,10 +36,15 @@ class MainViewModel @Inject constructor(
             _error.value = null
             try {
                 val loadedEvents = getEventsUseCase(size = 20, page = 1)
-                _events.value = loadedEvents
+                // Обогащаем каждое событие локацией из кэша если бэкенд не вернул
+                _events.value = loadedEvents.map { event ->
+                    if (event.location.isBlank()) {
+                        val cached = locationCache.get(event.id)
+                        if (!cached.isNullOrBlank()) event.copy(location = cached) else event
+                    } else event
+                }
             } catch (e: retrofit2.HttpException) {
                 if (e.code() == 404) {
-                    // Нет событий — просто показываем пустой список
                     _events.value = emptyList()
                 } else {
                     _error.value = "Ошибка сервера: ${e.code()}"

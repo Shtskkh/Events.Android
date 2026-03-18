@@ -3,6 +3,7 @@ package com.events.app.ui.views.events
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.events.app.data.RemoteDataSource
+import com.events.app.data.local.EventLocationCache
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.domain.models.events.Event
@@ -16,10 +17,10 @@ import javax.inject.Inject
 @HiltViewModel
 class EventsViewModel @Inject constructor(
     private val getEventsUseCase: GetEventsUseCase,
-    private val remoteDataSource: RemoteDataSource
+    private val remoteDataSource: RemoteDataSource,
+    private val locationCache: EventLocationCache
 ) : ViewModel() {
 
-    // ── Список мероприятий ─────────────────────────────────────
     private val _displayedEvents = MutableStateFlow<List<Event>>(emptyList())
     val displayedEvents = _displayedEvents.asStateFlow()
 
@@ -35,7 +36,6 @@ class EventsViewModel @Inject constructor(
     private var currentPage = 1
     private val pageSize = 20
 
-    // ── Активные фильтры ───────────────────────────────────────
     private val _searchText = MutableStateFlow<String?>(null)
     val searchText = _searchText.asStateFlow()
 
@@ -51,7 +51,6 @@ class EventsViewModel @Inject constructor(
     private val _filterFormatId = MutableStateFlow<Int?>(null)
     val filterFormatId = _filterFormatId.asStateFlow()
 
-    // ── Справочники ────────────────────────────────────────────
     private val _eventTypes = MutableStateFlow<List<EventTypeDto>>(emptyList())
     val eventTypes = _eventTypes.asStateFlow()
 
@@ -88,8 +87,15 @@ class EventsViewModel @Inject constructor(
                     typeId = _filterTypeId.value,
                     formatId = _filterFormatId.value
                 )
-                _displayedEvents.value = if (reset) events
-                else _displayedEvents.value + events
+                // Обогащаем события локацией из кэша если бэкенд не вернул
+                val enriched = events.map { event ->
+                    if (event.location.isBlank()) {
+                        val cached = locationCache.get(event.id)
+                        if (!cached.isNullOrBlank()) event.copy(location = cached) else event
+                    } else event
+                }
+                _displayedEvents.value = if (reset) enriched
+                else _displayedEvents.value + enriched
                 _hasMore.value = events.size >= pageSize
             } catch (e: retrofit2.HttpException) {
                 if (e.code() == 404) {
@@ -106,14 +112,12 @@ class EventsViewModel @Inject constructor(
         }
     }
 
-    // ── Поиск: trim + минимум 2 символа, иначе null ───────────
     fun setSearchText(text: String?) {
         val trimmed = text?.trim()?.takeIf { it.length >= 2 }
         _searchText.value = trimmed
         loadEvents(reset = true)
     }
 
-    // ── Быстрые фильтры — применяются сразу ───────────────────
     fun setDateFilter(start: String?, end: String?) {
         _filterStartDate.value = start
         _filterEndDate.value = end
@@ -130,7 +134,6 @@ class EventsViewModel @Inject constructor(
         loadEvents(reset = true)
     }
 
-    // ── Все фильтры — по кнопке ────────────────────────────────
     fun applyAllFilters(
         text: String?,
         startDate: String?,
@@ -155,7 +158,6 @@ class EventsViewModel @Inject constructor(
         loadEvents(reset = true)
     }
 
-    // ── Пагинация ──────────────────────────────────────────────
     fun loadMore() {
         if (_isLoading.value || !_hasMore.value) return
         currentPage++

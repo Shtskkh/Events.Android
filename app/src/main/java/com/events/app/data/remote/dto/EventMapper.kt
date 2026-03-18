@@ -8,11 +8,9 @@ import java.time.OffsetDateTime
 
 private fun parseDateTime(raw: String): LocalDateTime {
     return try {
-        // Сначала пробуем LocalDateTime
         LocalDateTime.parse(raw, DateTimeFormatter.ISO_DATE_TIME)
     } catch (e: DateTimeParseException) {
         try {
-            // Если есть смещение +00:00 — парсим как OffsetDateTime
             OffsetDateTime.parse(raw, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                 .toLocalDateTime()
         } catch (e2: DateTimeParseException) {
@@ -38,9 +36,9 @@ fun ShortEventDto.toDomain(): Event {
         endDate = parseDateTime(endDateTime),
         format = format ?: "",
         places = 0,
-        location = "",
+        location = locationTitle ?: "",   // ← пробрасываем название локации
         link = null,
-        type = type ?: "",   // ← добавить в оба маппера
+        type = type ?: "",
         isPublic = true,
         isFinished = LocalDateTime.now().isAfter(parseDateTime(endDateTime)),
         previewUrl = buildPreviewUrl(previewInfo)
@@ -52,13 +50,13 @@ fun EventDetailDto.toDomain(): Event {
         id = id,
         title = title ?: "",
         announcement = "",
-        type = type ?: "",   // ← добавить в оба маппера
+        type = type ?: "",
         description = description ?: "",
         startDate = parseDateTime(startDateTime),
         endDate = parseDateTime(endDateTime),
         format = format ?: "",
         places = 0,
-        location = "",
+        location = locationTitle ?: "",   // ← пробрасываем название локации
         link = null,
         isPublic = true,
         isFinished = LocalDateTime.now().isAfter(parseDateTime(endDateTime)),

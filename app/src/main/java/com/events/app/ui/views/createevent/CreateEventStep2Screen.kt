@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AddLocation
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
@@ -18,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
@@ -37,6 +39,9 @@ fun CreateEventStep2Screen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val success by viewModel.success.collectAsState()
+    val showCreateLocationDialog by viewModel.showCreateLocationDialog.collectAsState()
+    val startDateTime by viewModel.startDateTime.collectAsState()
+    val endDateTime by viewModel.endDateTime.collectAsState()
 
     var startDisplay by remember { mutableStateOf("") }
     var endDisplay by remember { mutableStateOf("") }
@@ -49,15 +54,12 @@ fun CreateEventStep2Screen(
     val selectedFormat by viewModel.selectedFormatId.collectAsState()
     val selectedLocation by viewModel.selectedLocationId.collectAsState()
 
-    // Обработка успеха
     LaunchedEffect(success) {
         if (success) onSuccess()
     }
 
-    // Обработка ошибки
     error?.let {
         LaunchedEffect(it) {
-            // снимаем ошибку через 3 секунды
             kotlinx.coroutines.delay(3000)
             viewModel.clearError()
         }
@@ -75,8 +77,8 @@ fun CreateEventStep2Screen(
         }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
     }
 
-    val isFormValid = viewModel.startDateTime.value.isNotBlank()
-            && viewModel.endDateTime.value.isNotBlank()
+    val isFormValid = startDateTime.isNotBlank()
+            && endDateTime.isNotBlank()
             && selectedType != null
             && selectedFormat != null
 
@@ -93,11 +95,15 @@ fun CreateEventStep2Screen(
 
         // Дата начала
         OutlinedButton(
-            onClick = { pickDateTime { iso, display ->
-                viewModel.startDateTime.value = iso
-                startDisplay = display
-            }},
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            onClick = {
+                pickDateTime { iso, display ->
+                    viewModel.startDateTime.value = iso
+                    startDisplay = display
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
             Icon(Icons.Outlined.CalendarMonth, contentDescription = null)
@@ -113,11 +119,15 @@ fun CreateEventStep2Screen(
 
         // Дата окончания
         OutlinedButton(
-            onClick = { pickDateTime { iso, display ->
-                viewModel.endDateTime.value = iso
-                endDisplay = display
-            }},
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            onClick = {
+                pickDateTime { iso, display ->
+                    viewModel.endDateTime.value = iso
+                    endDisplay = display
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
             Icon(Icons.Outlined.Schedule, contentDescription = null)
@@ -142,7 +152,9 @@ fun CreateEventStep2Screen(
                 readOnly = true,
                 label = { Text("Тип мероприятия *") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                 shape = RoundedCornerShape(12.dp)
             )
             ExposedDropdownMenu(
@@ -174,7 +186,9 @@ fun CreateEventStep2Screen(
                 readOnly = true,
                 label = { Text("Формат мероприятия *") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = formatExpanded) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                 shape = RoundedCornerShape(12.dp)
             )
             ExposedDropdownMenu(
@@ -195,7 +209,7 @@ fun CreateEventStep2Screen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Локация (необязательно)
+        // Локация
         ExposedDropdownMenuBox(
             expanded = locationExpanded,
             onExpandedChange = { locationExpanded = it }
@@ -207,22 +221,59 @@ fun CreateEventStep2Screen(
                 readOnly = true,
                 label = { Text("Локация (необязательно)") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = locationExpanded) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                 shape = RoundedCornerShape(12.dp)
             )
             ExposedDropdownMenu(
                 expanded = locationExpanded,
                 onDismissRequest = { locationExpanded = false }
             ) {
+                if (selectedLocation != null) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                "Не указывать",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        onClick = {
+                            viewModel.selectedLocationId.value = null
+                            locationExpanded = false
+                        }
+                    )
+                    HorizontalDivider()
+                }
                 if (locations.isEmpty()) {
                     DropdownMenuItem(
-                        text = { Text("Нет доступных локаций", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        text = {
+                            Text(
+                                "Нет доступных локаций",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
                         onClick = { locationExpanded = false }
                     )
                 } else {
                     locations.forEach { loc ->
                         DropdownMenuItem(
-                            text = { Text("${loc.title ?: "Локация ${loc.id}"} — ${loc.address ?: ""}") },
+                            text = {
+                                Column {
+                                    Text(
+                                        text = loc.title ?: "Локация ${loc.id}",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp
+                                    )
+                                    if (!loc.address.isNullOrBlank()) {
+                                        Text(
+                                            text = loc.address,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            },
                             onClick = {
                                 viewModel.selectedLocationId.value = loc.id
                                 locationExpanded = false
@@ -231,6 +282,26 @@ fun CreateEventStep2Screen(
                     }
                 }
             }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Кнопка создания новой локации
+        OutlinedButton(
+            onClick = { viewModel.openCreateLocationDialog() },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.AddLocation,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Создать новую локацию", fontSize = 14.sp)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -277,7 +348,9 @@ fun CreateEventStep2Screen(
 
         Button(
             onClick = { viewModel.submitEvent() },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
             shape = RoundedCornerShape(14.dp),
             enabled = isFormValid && !isLoading
         ) {
@@ -293,5 +366,156 @@ fun CreateEventStep2Screen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    // Диалог создания новой локации
+    if (showCreateLocationDialog) {
+        CreateLocationDialog(
+            onDismiss = { viewModel.closeCreateLocationDialog() },
+            onConfirm = { title, address ->
+                viewModel.createLocation(title, address) { }
+            },
+            isLoading = viewModel.isCreatingLocation.collectAsState().value,
+            error = viewModel.createLocationError.collectAsState().value
+        )
+    }
+}
+
+@Composable
+private fun CreateLocationDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (title: String, address: String) -> Unit,
+    isLoading: Boolean,
+    error: String?
+) {
+    var locationTitle by remember { mutableStateOf("") }
+    var locationAddress by remember { mutableStateOf("") }
+
+    val isValid = locationTitle.trim().isNotBlank() && locationAddress.trim().isNotBlank()
+
+    Dialog(onDismissRequest = { if (!isLoading) onDismiss() }) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Outlined.AddLocation,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "Новая локация",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 18.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Заполните данные о месте проведения",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                OutlinedTextField(
+                    value = locationTitle,
+                    onValueChange = { locationTitle = it },
+                    label = { Text("Название *") },
+                    placeholder = { Text("Например: Главный кампус") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = !isLoading
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = locationAddress,
+                    onValueChange = { locationAddress = it },
+                    label = { Text("Адрес *") },
+                    placeholder = { Text("Например: ул. Пушкина, 10") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = !isLoading
+                )
+
+                if (error != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = error,
+                            modifier = Modifier.padding(10.dp),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = !isLoading
+                    ) {
+                        Text("Отмена")
+                    }
+                    Button(
+                        onClick = {
+                            if (isValid) onConfirm(
+                                locationTitle.trim(),
+                                locationAddress.trim()
+                            )
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = isValid && !isLoading
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Создать", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
