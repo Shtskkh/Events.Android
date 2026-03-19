@@ -8,6 +8,8 @@ import com.events.app.data.RemoteDataSource
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
+import com.events.app.data.remote.dto.PlaceDto
+import com.events.app.domain.repositories.auth.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,23 +22,26 @@ import javax.inject.Inject
 @HiltViewModel
 class CreateEventViewModel @Inject constructor(
     private val remoteDataSource: RemoteDataSource,
+    private val authRepository: AuthRepository,
     application: Application
 ) : AndroidViewModel(application) {
 
-    // --- Шаг 1: основные данные ---
+    // --- Шаг 1 ---
     val title = MutableStateFlow("")
     val announcement = MutableStateFlow("")
     val description = MutableStateFlow("")
     val selectedImageUri = MutableStateFlow<Uri?>(null)
     val selectedPlaceholder = MutableStateFlow<String?>(null)
 
-    // --- Шаг 2: параметры ---
+    // --- Шаг 2 ---
     val startDateTime = MutableStateFlow("")
     val endDateTime = MutableStateFlow("")
     val needsRegistration = MutableStateFlow(false)
+    val maxParticipants = MutableStateFlow("")
     val selectedTypeId = MutableStateFlow<Int?>(null)
     val selectedFormatId = MutableStateFlow<Int?>(null)
     val selectedLocationId = MutableStateFlow<Int?>(null)
+    val selectedPlaceId = MutableStateFlow<Int?>(null)
 
     // --- Справочники ---
     private val _placeholders = MutableStateFlow<List<String>>(emptyList())
@@ -51,6 +56,9 @@ class CreateEventViewModel @Inject constructor(
     private val _locations = MutableStateFlow<List<LocationDto>>(emptyList())
     val locations = _locations.asStateFlow()
 
+    private val _places = MutableStateFlow<List<PlaceDto>>(emptyList())
+    val places = _places.asStateFlow()
+
     // --- UI состояние ---
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
@@ -61,7 +69,6 @@ class CreateEventViewModel @Inject constructor(
     private val _success = MutableStateFlow(false)
     val success = _success.asStateFlow()
 
-    // --- Состояние диалога создания локации ---
     private val _showCreateLocationDialog = MutableStateFlow(false)
     val showCreateLocationDialog = _showCreateLocationDialog.asStateFlow()
 
@@ -84,6 +91,18 @@ class CreateEventViewModel @Inject constructor(
         }
     }
 
+    // Загружаем помещения при выборе локации
+    fun loadPlaces(locationId: Int) {
+        viewModelScope.launch {
+            try {
+                _places.value = remoteDataSource.getPlacesByLocation(locationId)
+                selectedPlaceId.value = null
+            } catch (_: Exception) {
+                _places.value = emptyList()
+            }
+        }
+    }
+
     fun openCreateLocationDialog() {
         _createLocationError.value = null
         _showCreateLocationDialog.value = true
@@ -100,11 +119,7 @@ class CreateEventViewModel @Inject constructor(
             _createLocationError.value = null
             try {
                 fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
-                val newId = remoteDataSource.createLocation(
-                    title = title.toBody(),
-                    address = address.toBody()
-                )
-                // Добавляем новую локацию в список и выбираем её
+                val newId = remoteDataSource.createLocation(title.toBody(), address.toBody())
                 val newLocation = LocationDto(id = newId, title = title, address = address)
                 _locations.value = _locations.value + newLocation
                 selectedLocationId.value = newId
@@ -125,6 +140,9 @@ class CreateEventViewModel @Inject constructor(
             try {
                 fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
 
+                val userId = authRepository.currentUser.value?.id
+                    ?: throw Exception("Пользователь не авторизован")
+
                 val previewPart: MultipartBody.Part? = selectedImageUri.value?.let { uri ->
                     val bytes = getApplication<Application>().contentResolver
                         .openInputStream(uri)?.readBytes() ?: return@let null
@@ -133,10 +151,17 @@ class CreateEventViewModel @Inject constructor(
                 }
 
                 val placeholderBody = selectedPlaceholder.value
-                    ?.takeIf { previewPart == null }
-                    ?.toBody()
+                    ?.takeIf { previewPart == null }?.toBody()
+
+                // MaxParticipants — только если включена регистрация
+                val maxParticipantsBody = if (needsRegistration.value && maxParticipants.value.isNotBlank())
+                    maxParticipants.value.toBody() else null
+
+                // PlaceId — только если выбрано помещение
+                val placeIdBody = selectedPlaceId.value?.toString()?.toBody()
 
                 remoteDataSource.createEvent(
+                    userId = userId.toBody(),
                     title = title.value.toBody(),
                     announcement = announcement.value.toBody(),
                     description = description.value.toBody(),
@@ -145,6 +170,8 @@ class CreateEventViewModel @Inject constructor(
                     eventTypeId = selectedTypeId.value.toString().toBody(),
                     eventFormatId = selectedFormatId.value.toString().toBody(),
                     needsRegistration = needsRegistration.value.toString().toBody(),
+                    maxParticipants = maxParticipantsBody,
+                    placeId = placeIdBody,
                     placeholder = placeholderBody,
                     preview = previewPart
                 )

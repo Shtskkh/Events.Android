@@ -4,6 +4,7 @@ import com.events.app.data.remote.dto.EventDetailDto
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
+import com.events.app.data.remote.dto.PlaceDto
 import com.events.app.data.remote.dto.ShortEventDto
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -23,9 +24,7 @@ interface EventsApi {
     ): List<ShortEventDto>
 
     @GET("api/v/1/events/{id}")
-    suspend fun getEventById(
-        @Path("id") id: String
-    ): EventDetailDto
+    suspend fun getEventById(@Path("id") id: String): EventDetailDto
 
     @GET("api/v/1/events/placeholders")
     suspend fun getPlaceholders(): List<String>
@@ -39,16 +38,20 @@ interface EventsApi {
     @GET("api/v/1/locations")
     suspend fun getLocations(): List<LocationDto>
 
+    @GET("api/v/1/locations/{locationId}/places")
+    suspend fun getPlacesByLocation(@Path("locationId") locationId: Int): List<PlaceDto>
+
     @Multipart
     @POST("api/v/1/locations")
     suspend fun createLocation(
         @Part("Title") title: RequestBody,
         @Part("Address") address: RequestBody
-    ): Int  // возвращает id созданной локации
+    ): Int
 
     @Multipart
     @POST("api/v/1/events")
     suspend fun createEvent(
+        @Part("UserId") userId: RequestBody,
         @Part("Title") title: RequestBody,
         @Part("Announcement") announcement: RequestBody,
         @Part("Description") description: RequestBody,
@@ -57,6 +60,8 @@ interface EventsApi {
         @Part("EventTypeId") eventTypeId: RequestBody,
         @Part("EventFormatId") eventFormatId: RequestBody,
         @Part("NeedsRegistration") needsRegistration: RequestBody,
+        @Part("MaxParticipants") maxParticipants: RequestBody? = null,
+        @Part("PlaceId") placeId: RequestBody? = null,
         @Part("Placeholder") placeholder: RequestBody? = null,
         @Part preview: MultipartBody.Part? = null
     ): String

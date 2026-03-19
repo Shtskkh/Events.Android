@@ -5,6 +5,7 @@ import com.events.app.data.remote.dto.EventDetailDto
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
+import com.events.app.data.remote.dto.PlaceDto
 import com.events.app.data.remote.dto.ShortEventDto
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -14,36 +15,23 @@ class RemoteDataSource @Inject constructor(
     private val api: EventsApi
 ) {
     suspend fun getEvents(
-        size: Int = 20,
-        page: Int = 1,
-        text: String? = null,
-        startDateTime: String? = null,
-        endDateTime: String? = null,
-        typeId: Int? = null,
-        formatId: Int? = null
+        size: Int = 20, page: Int = 1, text: String? = null,
+        startDateTime: String? = null, endDateTime: String? = null,
+        typeId: Int? = null, formatId: Int? = null
     ): List<ShortEventDto> = api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId)
 
-    suspend fun getEventById(id: String): EventDetailDto =
-        api.getEventById(id)
+    suspend fun getEventById(id: String): EventDetailDto = api.getEventById(id)
+    suspend fun getPlaceholders(): List<String> = api.getPlaceholders()
+    suspend fun getEventTypes(): List<EventTypeDto> = api.getEventTypes()
+    suspend fun getEventFormats(): List<EventFormatDto> = api.getEventFormats()
+    suspend fun getLocations(): List<LocationDto> = api.getLocations()
+    suspend fun getPlacesByLocation(locationId: Int): List<PlaceDto> = api.getPlacesByLocation(locationId)
 
-    suspend fun getPlaceholders(): List<String> =
-        api.getPlaceholders()
-
-    suspend fun getEventTypes(): List<EventTypeDto> =
-        api.getEventTypes()
-
-    suspend fun getEventFormats(): List<EventFormatDto> =
-        api.getEventFormats()
-
-    suspend fun getLocations(): List<LocationDto> =
-        api.getLocations()
-
-    suspend fun createLocation(
-        title: RequestBody,
-        address: RequestBody
-    ): Int = api.createLocation(title, address)
+    suspend fun createLocation(title: RequestBody, address: RequestBody): Int =
+        api.createLocation(title, address)
 
     suspend fun createEvent(
+        userId: RequestBody,
         title: RequestBody,
         announcement: RequestBody,
         description: RequestBody,
@@ -52,12 +40,13 @@ class RemoteDataSource @Inject constructor(
         eventTypeId: RequestBody,
         eventFormatId: RequestBody,
         needsRegistration: RequestBody,
+        maxParticipants: RequestBody? = null,
+        placeId: RequestBody? = null,
         placeholder: RequestBody? = null,
         preview: MultipartBody.Part? = null
     ): String = api.createEvent(
-        title, announcement, description,
-        startDateTime, endDateTime,
-        eventTypeId, eventFormatId, needsRegistration,
-        placeholder, preview
+        userId, title, announcement, description,
+        startDateTime, endDateTime, eventTypeId, eventFormatId,
+        needsRegistration, maxParticipants, placeId, placeholder, preview
     )
 }

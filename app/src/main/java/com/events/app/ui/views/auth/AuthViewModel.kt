@@ -1,11 +1,11 @@
 package com.events.app.ui.views.auth
 
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.events.app.domain.models.users.User
 import com.events.app.domain.repositories.auth.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -14,22 +14,21 @@ class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
 ) : ViewModel() {
 
-    private val _isLoading = mutableStateOf(false)
-    private val _error = mutableStateOf<String?>(null)
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error = _error.asStateFlow()
 
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-
-            try {
-                val fakeUser = User(id = "123", name = "Иван", email = email)
-                authRepository.login(fakeUser)
-            } catch (e: Exception) {
-                _error.value = "Неверный логин или пароль."
-            } finally {
-                _isLoading.value = false
+            val result = authRepository.loginWithCredentials(email, password)
+            result.onFailure { e ->
+                _error.value = e.message ?: "Ошибка входа"
             }
+            _isLoading.value = false
         }
     }
 }
