@@ -19,15 +19,12 @@ class AdminViewModel @Inject constructor(
     private val remoteDataSource: RemoteDataSource
 ) : ViewModel() {
 
-    // ── Вкладки ───────────────────────────────────────────────────
     enum class AdminTab { EVENTS, USERS, LOCATIONS }
 
     private val _selectedTab = MutableStateFlow(AdminTab.EVENTS)
     val selectedTab = _selectedTab.asStateFlow()
-
     fun selectTab(tab: AdminTab) { _selectedTab.value = tab }
 
-    // ── Состояние загрузки / ошибки / успеха ──────────────────────
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
@@ -37,13 +34,10 @@ class AdminViewModel @Inject constructor(
     private val _successMessage = MutableStateFlow<String?>(null)
     val successMessage = _successMessage.asStateFlow()
 
-    fun clearMessages() {
-        _error.value = null
-        _successMessage.value = null
-    }
+    fun clearMessages() { _error.value = null; _successMessage.value = null }
 
     // ─────────────────────────────────────────────────────────────
-    // МЕРОПРИЯТИЯ
+    // МЕРОПРИЯТИЯ — size max 30 (ограничение бэкенда)
     // ─────────────────────────────────────────────────────────────
 
     private val _events = MutableStateFlow<List<ShortEventDto>>(emptyList())
@@ -52,27 +46,44 @@ class AdminViewModel @Inject constructor(
     private val _eventsLoading = MutableStateFlow(false)
     val eventsLoading = _eventsLoading.asStateFlow()
 
-    fun loadEvents(query: String? = null) {
+    private var eventsPage = 1
+    private var eventsHasMore = true
+
+    fun loadEvents(query: String? = null, reset: Boolean = true) {
+        if (reset) { eventsPage = 1; eventsHasMore = true; _events.value = emptyList() }
+        if (!eventsHasMore) return
+
         viewModelScope.launch {
             _eventsLoading.value = true
             try {
-                _events.value = remoteDataSource.getEvents(
-                    size = 50,
-                    page = 1,
+                val page = remoteDataSource.getEvents(
+                    size = 30,
+                    page = eventsPage,
                     text = query?.trim()?.takeIf { it.length >= 2 }
                 )
+                _events.value = if (reset) page else _events.value + page
+                if (page.size < 30) eventsHasMore = false else eventsPage++
+            } catch (e: retrofit2.HttpException) {
+                if (e.code() == 404) {
+                    _events.value = emptyList()   // 404 = просто нет — не ошибка
+                } else {
+                    _error.value = "Ошибка загрузки: HTTP ${e.code()}"
+                }
             } catch (e: Exception) {
-                _error.value = "Не удалось загрузить мероприятия"
+                _error.value = "Нет соединения с сервером"
             } finally {
                 _eventsLoading.value = false
             }
         }
     }
 
+    fun loadMoreEvents() {
+        if (!_eventsLoading.value && eventsHasMore) loadEvents(reset = false)
+    }
+
     fun deleteEvent(id: String, onDone: () -> Unit = {}) {
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
             try {
                 remoteDataSource.deleteEvent(id)
                 _events.value = _events.value.filter { it.id != id }
@@ -80,14 +91,13 @@ class AdminViewModel @Inject constructor(
                 onDone()
             } catch (e: Exception) {
                 _error.value = "Ошибка при удалении: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
+            } finally { _isLoading.value = false }
         }
     }
 
     // ─────────────────────────────────────────────────────────────
-    // ПОЛЬЗОВАТЕЛИ
+    // ПОЛЬЗОВАТЕЛИ — GET /api/v/1/users?Size=20&Page=1
+    // POST /api/v/1/users: FirstName, LastName, Email, Password, Patronymic?
     // ─────────────────────────────────────────────────────────────
 
     private val _users = MutableStateFlow<List<UserDto>>(emptyList())
@@ -100,9 +110,15 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             _usersLoading.value = true
             try {
-                _users.value = remoteDataSource.getUsers()
+                // Size и Page обязательны!
+                _users.value = remoteDataSource.getUsers(size = 20, page = 1)
+            } catch (e: retrofit2.HttpException) {
+                if (e.code() != 404) {
+                    _error.value = "Ошибка загрузки пользователей: HTTP ${e.code()}"
+                }
+                _users.value = emptyList()
             } catch (e: Exception) {
-                _error.value = "Не удалось загрузить пользователей"
+                _users.value = emptyList()
             } finally {
                 _usersLoading.value = false
             }
@@ -110,10 +126,11 @@ class AdminViewModel @Inject constructor(
     }
 
     fun createUser(
+        firstName: String,
+        lastName: String,
         email: String,
         password: String,
-        name: String,
-        role: String,
+        patronymic: String,
         onDone: () -> Unit = {}
     ) {
         viewModelScope.launch {
@@ -121,27 +138,32 @@ class AdminViewModel @Inject constructor(
             _error.value = null
             try {
                 fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
+
                 remoteDataSource.createUser(
-                    email = email.trim().toBody(),
-                    password = password.toBody(),
-                    name = name.trim().toBody(),
-                    role = role.toBody()
+                    firstName  = firstName.trim().toBody(),
+                    lastName   = lastName.trim().toBody(),
+                    email      = email.trim().toBody(),
+                    password   = password.toBody(),
+                    patronymic = patronymic.trim().takeIf { it.isNotEmpty() }?.toBody()
                 )
-                _successMessage.value = "Пользователь «${name.trim()}» создан"
+                _successMessage.value = "Пользователь «${firstName.trim()} ${lastName.trim()}» создан"
                 loadUsers()
                 onDone()
+            } catch (e: retrofit2.HttpException) {
+                _error.value = when (e.code()) {
+                    400  -> "Неверные данные. Проверь email и пароль."
+                    409  -> "Пользователь с таким email уже существует."
+                    else -> "Ошибка создания: HTTP ${e.code()}"
+                }
             } catch (e: Exception) {
-                _error.value = "Ошибка создания пользователя: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
+                _error.value = "Ошибка: ${e.message}"
+            } finally { _isLoading.value = false }
         }
     }
 
     fun deleteUser(id: String, onDone: () -> Unit = {}) {
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
             try {
                 remoteDataSource.deleteUser(id)
                 _users.value = _users.value.filter { it.id != id }
@@ -149,9 +171,7 @@ class AdminViewModel @Inject constructor(
                 onDone()
             } catch (e: Exception) {
                 _error.value = "Ошибка при удалении: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
+            } finally { _isLoading.value = false }
         }
     }
 
@@ -170,36 +190,34 @@ class AdminViewModel @Inject constructor(
             _locationsLoading.value = true
             try {
                 _locations.value = remoteDataSource.getLocations()
+            } catch (e: retrofit2.HttpException) {
+                if (e.code() != 404) _error.value = "Ошибка загрузки локаций"
+                _locations.value = emptyList()
             } catch (e: Exception) {
-                _error.value = "Не удалось загрузить локации"
-            } finally {
-                _locationsLoading.value = false
-            }
+                _locations.value = emptyList()
+            } finally { _locationsLoading.value = false }
         }
     }
 
     fun createLocation(title: String, address: String, onDone: () -> Unit = {}) {
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
             try {
                 fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
                 val newId = remoteDataSource.createLocation(title.trim().toBody(), address.trim().toBody())
-                _locations.value = _locations.value + LocationDto(id = newId, title = title.trim(), address = address.trim())
+                _locations.value = _locations.value +
+                        LocationDto(id = newId, title = title.trim(), address = address.trim())
                 _successMessage.value = "Локация «${title.trim()}» создана"
                 onDone()
             } catch (e: Exception) {
                 _error.value = "Ошибка создания локации: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
+            } finally { _isLoading.value = false }
         }
     }
 
     fun deleteLocation(id: Int, onDone: () -> Unit = {}) {
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
             try {
                 remoteDataSource.deleteLocation(id)
                 _locations.value = _locations.value.filter { it.id != id }
@@ -207,13 +225,10 @@ class AdminViewModel @Inject constructor(
                 onDone()
             } catch (e: Exception) {
                 _error.value = "Ошибка при удалении: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
+            } finally { _isLoading.value = false }
         }
     }
 
-    // Инициализация — грузим сразу при открытии
     init {
         loadEvents()
         loadUsers()

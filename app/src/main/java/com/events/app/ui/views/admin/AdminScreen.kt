@@ -3,11 +3,10 @@ package com.events.app.ui.views.admin
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -35,90 +34,50 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminScreen(
-    viewModel: AdminViewModel = hiltViewModel()
-) {
-    val selectedTab by viewModel.selectedTab.collectAsState()
-    val error by viewModel.error.collectAsState()
+fun AdminScreen(viewModel: AdminViewModel = hiltViewModel()) {
+    val selectedTab    by viewModel.selectedTab.collectAsState()
+    val error          by viewModel.error.collectAsState()
     val successMessage by viewModel.successMessage.collectAsState()
-    val scope = rememberCoroutineScope()
 
-    // Авто-скрытие сообщений через 3 секунды
     LaunchedEffect(error, successMessage) {
         if (error != null || successMessage != null) {
-            delay(3000)
-            viewModel.clearMessages()
+            delay(4000); viewModel.clearMessages()
         }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-
-        // ── Табы ──────────────────────────────────────────────────
-        TabRow(
-            selectedTabIndex = selectedTab.ordinal,
+        TabRow(selectedTabIndex = selectedTab.ordinal,
             containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.primary
-        ) {
+            contentColor   = MaterialTheme.colorScheme.primary) {
             AdminViewModel.AdminTab.entries.forEach { tab ->
-                Tab(
-                    selected = selectedTab == tab,
-                    onClick = { viewModel.selectTab(tab) },
-                    text = {
-                        Text(
-                            text = tab.label,
-                            fontSize = 12.sp,
-                            fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Normal
-                        )
-                    },
-                    icon = {
-                        Icon(
-                            imageVector = tab.icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                )
+                Tab(selected = selectedTab == tab, onClick = { viewModel.selectTab(tab) },
+                    text = { Text(tab.label, fontSize = 12.sp,
+                        fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Normal) },
+                    icon = { Icon(tab.icon, null, modifier = Modifier.size(18.dp)) })
             }
         }
 
-        // ── Сообщение об ошибке / успехе ──────────────────────────
-        AnimatedVisibility(
-            visible = error != null || successMessage != null,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
+        AnimatedVisibility(visible = error != null || successMessage != null,
+            enter = fadeIn(), exit = fadeOut()) {
             val isError = error != null
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            Surface(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = if (isError)
-                    MaterialTheme.colorScheme.errorContainer
-                else
-                    Color(0xFF22C55E).copy(alpha = 0.15f)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
+                color = if (isError) MaterialTheme.colorScheme.errorContainer
+                else Color(0xFF22C55E).copy(alpha = 0.15f)) {
+                Row(modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isError) Icons.Outlined.ErrorOutline else Icons.Outlined.CheckCircle,
-                        contentDescription = null,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(if (isError) Icons.Outlined.ErrorOutline else Icons.Outlined.CheckCircle,
+                        null,
                         tint = if (isError) MaterialTheme.colorScheme.error else Color(0xFF22C55E),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = error ?: successMessage ?: "",
+                        modifier = Modifier.size(18.dp))
+                    Text(error ?: successMessage ?: "",
                         color = if (isError) MaterialTheme.colorScheme.onErrorContainer else Color(0xFF166534),
-                        fontSize = 13.sp
-                    )
+                        fontSize = 13.sp)
                 }
             }
         }
 
-        // ── Контент вкладки ───────────────────────────────────────
         when (selectedTab) {
             AdminViewModel.AdminTab.EVENTS    -> EventsTab(viewModel)
             AdminViewModel.AdminTab.USERS     -> UsersTab(viewModel)
@@ -127,75 +86,82 @@ fun AdminScreen(
     }
 }
 
-// Расширяем enum label-ами и иконками
 val AdminViewModel.AdminTab.label get() = when (this) {
     AdminViewModel.AdminTab.EVENTS    -> "Мероприятия"
     AdminViewModel.AdminTab.USERS     -> "Пользователи"
     AdminViewModel.AdminTab.LOCATIONS -> "Локации"
 }
-
 val AdminViewModel.AdminTab.icon: ImageVector get() = when (this) {
     AdminViewModel.AdminTab.EVENTS    -> Icons.Outlined.Event
     AdminViewModel.AdminTab.USERS     -> Icons.Outlined.People
     AdminViewModel.AdminTab.LOCATIONS -> Icons.Outlined.LocationOn
 }
 
+// ═════════════════════════════════════════════════════════════════
+// МЕРОПРИЯТИЯ
+// ═════════════════════════════════════════════════════════════════
+
 @Composable
 private fun EventsTab(viewModel: AdminViewModel) {
-    val events by viewModel.events.collectAsState()
+    val events    by viewModel.events.collectAsState()
     val isLoading by viewModel.eventsLoading.collectAsState()
+    val listState = rememberLazyListState()
+    val scope     = rememberCoroutineScope()
 
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery  by remember { mutableStateOf("") }
+    var searchJob    by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var eventToDelete by remember { mutableStateOf<ShortEventDto?>(null) }
-    val scope = rememberCoroutineScope()
+
+    val isCloseToEnd by remember {
+        derivedStateOf {
+            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+            last != null && last.index >= listState.layoutInfo.totalItemsCount - 3
+        }
+    }
+    LaunchedEffect(isCloseToEnd) { if (isCloseToEnd) viewModel.loadMoreEvents() }
 
     Column(modifier = Modifier.fillMaxSize()) {
-
-        // ── Поиск ─────────────────────────────────────────────────
         OutlinedTextField(
             value = searchQuery,
-            onValueChange = { query ->
-                searchQuery = query
-                scope.launch {
-                    delay(500)
-                    viewModel.loadEvents(query.ifBlank { null })
-                }
+            onValueChange = { q ->
+                searchQuery = q
+                searchJob?.cancel()
+                searchJob = scope.launch { delay(500); viewModel.loadEvents(q.ifBlank { null }) }
             },
             placeholder = { Text("Поиск по названию или ID...") },
             leadingIcon = { Icon(Icons.Outlined.Search, null) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = {
-                        searchQuery = ""
-                        viewModel.loadEvents(null)
-                    }) { Icon(Icons.Outlined.Close, null) }
+                    IconButton(onClick = { searchQuery = ""; viewModel.loadEvents(null) }) {
+                        Icon(Icons.Outlined.Close, null)
+                    }
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+            shape    = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
         )
 
-        // ── Список ────────────────────────────────────────────────
         Box(modifier = Modifier.weight(1f)) {
             when {
-                isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                events.isEmpty() -> EmptyState(
-                    icon = Icons.Outlined.EventBusy,
-                    text = "Мероприятия не найдены"
-                )
+                isLoading && events.isEmpty() ->
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                events.isEmpty() ->
+                    EmptyState(Icons.Outlined.EventBusy, "Мероприятия не найдены")
                 else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    state = listState, modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(events, key = { it.id }) { event ->
-                        AdminEventCard(
-                            event = event,
-                            onDelete = { eventToDelete = event }
-                        )
+                        AdminEventCard(event, onDelete = { eventToDelete = event })
+                    }
+                    if (isLoading) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            }
+                        }
                     }
                     item { Spacer(Modifier.height(16.dp)) }
                 }
@@ -203,150 +169,82 @@ private fun EventsTab(viewModel: AdminViewModel) {
         }
     }
 
-    // ── Диалог подтверждения удаления ─────────────────────────────
     eventToDelete?.let { event ->
         ConfirmDeleteDialog(
             title = "Удалить мероприятие?",
-            description = "«${event.title ?: event.id}» будет удалено без возможности восстановления.",
-            onConfirm = {
-                viewModel.deleteEvent(event.id)
-                eventToDelete = null
-            },
+            description = "«${event.title ?: event.id}» будет удалено безвозвратно.",
+            onConfirm = { viewModel.deleteEvent(event.id); eventToDelete = null },
             onDismiss = { eventToDelete = null }
         )
     }
 }
 
 @Composable
-private fun AdminEventCard(
-    event: ShortEventDto,
-    onDelete: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Иконка
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(40.dp)
-            ) {
+private fun AdminEventCard(event: ShortEventDto, onDelete: () -> Unit) {
+    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(40.dp)) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Outlined.Event,
-                        null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Icon(Icons.Outlined.Event, null, tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp))
                 }
             }
-
             Spacer(Modifier.width(12.dp))
-
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = event.title ?: "Без названия",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "ID: ${event.id}",
-                    fontSize = 11.sp,
+                Text(event.title ?: "Без названия", fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("ID: ${event.id}", fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (!event.type.isNullOrBlank()) {
-                    Text(
-                        text = event.type,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Text(event.type, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                 }
             }
-
-            // Кнопка удаления
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    Icons.Outlined.DeleteOutline,
-                    contentDescription = "Удалить",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
-                )
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Outlined.DeleteOutline, "Удалить",
+                    tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
             }
         }
     }
 }
 
 // ═════════════════════════════════════════════════════════════════
-// ВКЛАДКА: ПОЛЬЗОВАТЕЛИ
+// ПОЛЬЗОВАТЕЛИ
 // ═════════════════════════════════════════════════════════════════
 
 @Composable
 private fun UsersTab(viewModel: AdminViewModel) {
-    val users by viewModel.users.collectAsState()
+    val users     by viewModel.users.collectAsState()
     val isLoading by viewModel.usersLoading.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
-    var userToDelete by remember { mutableStateOf<UserDto?>(null) }
+    var userToDelete     by remember { mutableStateOf<UserDto?>(null) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-
-        // ── Кнопка создать ────────────────────────────────────────
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Всего: ${users.size}",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Button(
-                onClick = { showCreateDialog = true },
-                shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-            ) {
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("Всего: ${users.size}", fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = { showCreateDialog = true }, shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                 Icon(Icons.Outlined.PersonAdd, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Создать", fontSize = 14.sp)
             }
         }
-
-        // ── Список ────────────────────────────────────────────────
         Box(modifier = Modifier.weight(1f)) {
             when {
                 isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                users.isEmpty() -> EmptyState(icon = Icons.Outlined.PeopleOutline, text = "Пользователи не найдены")
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                users.isEmpty() -> EmptyState(Icons.Outlined.PeopleOutline, "Пользователи не найдены")
+                else -> LazyColumn(modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(users, key = { it.id }) { user ->
-                        AdminUserCard(
-                            user = user,
-                            onDelete = { userToDelete = user }
-                        )
+                        AdminUserCard(user, onDelete = { userToDelete = user })
                     }
                     item { Spacer(Modifier.height(16.dp)) }
                 }
@@ -354,156 +252,90 @@ private fun UsersTab(viewModel: AdminViewModel) {
         }
     }
 
-    // ── Диалог создания пользователя ──────────────────────────────
     if (showCreateDialog) {
         CreateUserDialog(
-            isLoading = false,
+            isLoading = viewModel.isLoading.collectAsState().value,
             onDismiss = { showCreateDialog = false },
-            onConfirm = { email, password, name, role ->
-                viewModel.createUser(email, password, name, role) { showCreateDialog = false }
+            onConfirm = { firstName, lastName, patronymic, email, password ->
+                viewModel.createUser(firstName, lastName, email, password, patronymic) {
+                    showCreateDialog = false
+                }
             }
         )
     }
 
-    // ── Диалог подтверждения удаления ─────────────────────────────
     userToDelete?.let { user ->
         ConfirmDeleteDialog(
             title = "Удалить пользователя?",
-            description = "«${user.name ?: user.email ?: user.id}» будет удалён без возможности восстановления.",
-            onConfirm = {
-                viewModel.deleteUser(user.id)
-                userToDelete = null
-            },
+            description = "«${user.displayName}» будет удалён безвозвратно.",
+            onConfirm = { viewModel.deleteUser(user.id); userToDelete = null },
             onDismiss = { userToDelete = null }
         )
     }
 }
 
 @Composable
-private fun AdminUserCard(
-    user: UserDto,
-    onDelete: () -> Unit
-) {
-    val roleColor = when (user.role) {
-        "Администратор" -> Color(0xFF7C3AED)
-        "Пользователь"  -> Color(0xFF0284C7)
-        else            -> Color(0xFF6B7280)
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = roleColor.copy(alpha = 0.12f),
-                modifier = Modifier.size(40.dp)
-            ) {
+private fun AdminUserCard(user: UserDto, onDelete: () -> Unit) {
+    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                modifier = Modifier.size(40.dp)) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Outlined.Person,
-                        null,
-                        tint = roleColor,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Icon(Icons.Outlined.Person, null, tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp))
                 }
             }
-
             Spacer(Modifier.width(12.dp))
-
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = user.name ?: user.email ?: "—",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = user.email ?: "—",
-                    fontSize = 12.sp,
+                Text(user.displayName, fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("ID: ${user.id}", fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = user.role ?: "—",
-                    fontSize = 11.sp,
-                    color = roleColor,
-                    fontWeight = FontWeight.Medium
-                )
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    Icons.Outlined.DeleteOutline,
-                    contentDescription = "Удалить",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
-                )
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Outlined.DeleteOutline, "Удалить",
+                    tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
             }
         }
     }
 }
 
+// ═════════════════════════════════════════════════════════════════
+// ЛОКАЦИИ
+// ═════════════════════════════════════════════════════════════════
+
 @Composable
 private fun LocationsTab(viewModel: AdminViewModel) {
     val locations by viewModel.locations.collectAsState()
     val isLoading by viewModel.locationsLoading.collectAsState()
-
     var showCreateDialog by remember { mutableStateOf(false) }
     var locationToDelete by remember { mutableStateOf<LocationDto?>(null) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Всего: ${locations.size}",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Button(
-                onClick = { showCreateDialog = true },
-                shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-            ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Всего: ${locations.size}", fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = { showCreateDialog = true }, shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                 Icon(Icons.Outlined.AddLocation, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Создать", fontSize = 14.sp)
             }
         }
-
         Box(modifier = Modifier.weight(1f)) {
             when {
                 isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                locations.isEmpty() -> EmptyState(icon = Icons.Outlined.LocationOff, text = "Локации не найдены")
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                locations.isEmpty() -> EmptyState(Icons.Outlined.LocationOff, "Локации не найдены")
+                else -> LazyColumn(modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(locations, key = { it.id }) { location ->
-                        AdminLocationCard(
-                            location = location,
-                            onDelete = { locationToDelete = location }
-                        )
+                        AdminLocationCard(location, onDelete = { locationToDelete = location })
                     }
                     item { Spacer(Modifier.height(16.dp)) }
                 }
@@ -513,284 +345,153 @@ private fun LocationsTab(viewModel: AdminViewModel) {
 
     if (showCreateDialog) {
         CreateLocationDialog(
-            isLoading = false,
+            isLoading = viewModel.isLoading.collectAsState().value,
             onDismiss = { showCreateDialog = false },
             onConfirm = { title, address ->
                 viewModel.createLocation(title, address) { showCreateDialog = false }
             }
         )
     }
-
     locationToDelete?.let { loc ->
         ConfirmDeleteDialog(
             title = "Удалить локацию?",
-            description = "«${loc.title ?: "ID ${loc.id}"}» будет удалена без возможности восстановления.",
-            onConfirm = {
-                viewModel.deleteLocation(loc.id)
-                locationToDelete = null
-            },
+            description = "«${loc.title ?: "ID ${loc.id}"}» будет удалена безвозвратно.",
+            onConfirm = { viewModel.deleteLocation(loc.id); locationToDelete = null },
             onDismiss = { locationToDelete = null }
         )
     }
 }
 
 @Composable
-private fun AdminLocationCard(
-    location: LocationDto,
-    onDelete: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.tertiaryContainer,
-                modifier = Modifier.size(40.dp)
-            ) {
+private fun AdminLocationCard(location: LocationDto, onDelete: () -> Unit) {
+    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.size(40.dp)) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Outlined.LocationOn,
-                        null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Icon(Icons.Outlined.LocationOn, null, tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(20.dp))
                 }
             }
-
             Spacer(Modifier.width(12.dp))
-
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = location.title ?: "Локация ${location.id}",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Text(location.title ?: "Локация ${location.id}", fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (!location.address.isNullOrBlank()) {
-                    Text(
-                        text = location.address,
-                        fontSize = 12.sp,
+                    Text(location.address, fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Text(
-                    text = "ID: ${location.id}",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
             }
-
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    Icons.Outlined.DeleteOutline,
-                    contentDescription = "Удалить",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
-                )
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Outlined.DeleteOutline, "Удалить",
+                    tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
             }
         }
     }
 }
 
+// ═════════════════════════════════════════════════════════════════
+// ДИАЛОГИ
+// ═════════════════════════════════════════════════════════════════
+
 @Composable
-private fun ConfirmDeleteDialog(
-    title: String,
-    description: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
-            Icon(
-                Icons.Outlined.DeleteOutline,
-                null,
-                tint = MaterialTheme.colorScheme.error
-            )
-        },
-        title = {
-            Text(title, fontWeight = FontWeight.Bold)
-        },
-        text = {
-            Text(description, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        },
+private fun ConfirmDeleteDialog(title: String, description: String,
+                                onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(onDismissRequest = onDismiss,
+        icon  = { Icon(Icons.Outlined.DeleteOutline, null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text(title, fontWeight = FontWeight.Bold) },
+        text  = { Text(description, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) },
         confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                ),
-                shape = RoundedCornerShape(10.dp)
-            ) {
+            Button(onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                shape  = RoundedCornerShape(10.dp)) {
                 Text("Удалить", fontWeight = FontWeight.SemiBold)
             }
         },
         dismissButton = {
-            OutlinedButton(
-                onClick = onDismiss,
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("Отмена")
-            }
+            OutlinedButton(onClick = onDismiss, shape = RoundedCornerShape(10.dp)) { Text("Отмена") }
         }
     )
 }
 
+// Форма создания пользователя — точно по Scalar API:
+// FirstName*, LastName*, Email*, Password*, Patronymic (опц.)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CreateUserDialog(
     isLoading: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (email: String, password: String, name: String, role: String) -> Unit
+    onConfirm: (firstName: String, lastName: String, patronymic: String,
+                email: String, password: String) -> Unit
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
+    var firstName  by remember { mutableStateOf("") }
+    var lastName   by remember { mutableStateOf("") }
+    var patronymic by remember { mutableStateOf("") }
+    var email      by remember { mutableStateOf("") }
+    var password   by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    // Роль через дропдаун
-    val roles = listOf("Пользователь", "Администратор")
-    var selectedRole by remember { mutableStateOf(roles[0]) }
-    var roleExpanded by remember { mutableStateOf(false) }
-
-    val isValid = email.trim().isNotBlank()
+    val isValid = firstName.trim().isNotBlank()
+            && lastName.trim().isNotBlank()
+            && email.trim().isNotBlank()
             && password.isNotBlank()
-            && name.trim().isNotBlank()
 
     Dialog(onDismissRequest = { if (!isLoading) onDismiss() }) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(24.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Icon(
-                        Icons.Outlined.PersonAdd,
-                        null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Text(
-                        "Новый пользователь",
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 18.sp
-                    )
-                }
+        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp) {
+            Column(modifier = Modifier.fillMaxWidth()
+                .verticalScroll(rememberScrollState()).padding(24.dp)) {
 
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Outlined.PersonAdd, null, tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp))
+                    Text("Новый пользователь", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                }
                 Spacer(Modifier.height(20.dp))
 
-                AdminTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = "Имя *",
-                    icon = Icons.Outlined.Person,
-                    enabled = !isLoading
-                )
-                Spacer(Modifier.height(12.dp))
-
-                AdminTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = "Email *",
-                    icon = Icons.Outlined.Email,
-                    enabled = !isLoading
-                )
-                Spacer(Modifier.height(12.dp))
-
+                // Фамилия *
+                AdminTextField(lastName,   { lastName = it },   "Фамилия *",  Icons.Outlined.Person,  !isLoading)
+                Spacer(Modifier.height(10.dp))
+                // Имя *
+                AdminTextField(firstName,  { firstName = it },  "Имя *",      Icons.Outlined.Person,  !isLoading)
+                Spacer(Modifier.height(10.dp))
+                // Отчество (необязательно)
+                AdminTextField(patronymic, { patronymic = it }, "Отчество",   Icons.Outlined.Person,  !isLoading)
+                Spacer(Modifier.height(10.dp))
+                // Email *
+                AdminTextField(email,      { email = it },      "Email *",    Icons.Outlined.Email,   !isLoading)
+                Spacer(Modifier.height(10.dp))
+                // Пароль *
                 OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
+                    value = password, onValueChange = { password = it },
                     label = { Text("Пароль *") },
                     leadingIcon = { Icon(Icons.Outlined.Lock, null) },
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                null
-                            )
+                            Icon(if (passwordVisible) Icons.Outlined.VisibilityOff
+                            else Icons.Outlined.Visibility, null)
                         }
                     },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = !isLoading
+                    visualTransformation = if (passwordVisible) VisualTransformation.None
+                    else PasswordVisualTransformation(),
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp), enabled = !isLoading
                 )
-                Spacer(Modifier.height(12.dp))
-
-                // Дропдаун роли
-                ExposedDropdownMenuBox(
-                    expanded = roleExpanded,
-                    onExpandedChange = { roleExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = selectedRole,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Роль") },
-                        leadingIcon = { Icon(Icons.Outlined.Shield, null) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = roleExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = roleExpanded,
-                        onDismissRequest = { roleExpanded = false }
-                    ) {
-                        roles.forEach { role ->
-                            DropdownMenuItem(
-                                text = { Text(role) },
-                                onClick = { selectedRole = role; roleExpanded = false }
-                            )
-                        }
-                    }
-                }
 
                 Spacer(Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        enabled = !isLoading
-                    ) { Text("Отмена") }
-
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp), enabled = !isLoading) { Text("Отмена") }
                     Button(
                         onClick = {
-                            if (isValid) onConfirm(email.trim(), password, name.trim(), selectedRole)
+                            if (isValid) onConfirm(firstName.trim(), lastName.trim(),
+                                patronymic.trim(), email.trim(), password)
                         },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp),
                         enabled = isValid && !isLoading
                     ) {
                         if (isLoading) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -803,74 +504,33 @@ private fun CreateUserDialog(
 }
 
 @Composable
-private fun CreateLocationDialog(
-    isLoading: Boolean,
-    onDismiss: () -> Unit,
-    onConfirm: (title: String, address: String) -> Unit
-) {
-    var locationTitle by remember { mutableStateOf("") }
+private fun CreateLocationDialog(isLoading: Boolean, onDismiss: () -> Unit,
+                                 onConfirm: (title: String, address: String) -> Unit) {
+    var locationTitle   by remember { mutableStateOf("") }
     var locationAddress by remember { mutableStateOf("") }
     val isValid = locationTitle.trim().isNotBlank() && locationAddress.trim().isNotBlank()
 
     Dialog(onDismissRequest = { if (!isLoading) onDismiss() }) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
-        ) {
+        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp) {
             Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Icon(
-                        Icons.Outlined.AddLocation,
-                        null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Text(
-                        "Новая локация",
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 18.sp
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Outlined.AddLocation, null, tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp))
+                    Text("Новая локация", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
                 }
                 Spacer(Modifier.height(20.dp))
-
-                AdminTextField(
-                    value = locationTitle,
-                    onValueChange = { locationTitle = it },
-                    label = "Название *",
-                    icon = Icons.Outlined.LocationOn,
-                    enabled = !isLoading
-                )
+                AdminTextField(locationTitle,   { locationTitle = it },   "Название *", Icons.Outlined.LocationOn, !isLoading)
                 Spacer(Modifier.height(12.dp))
-
-                AdminTextField(
-                    value = locationAddress,
-                    onValueChange = { locationAddress = it },
-                    label = "Адрес *",
-                    icon = Icons.Outlined.Map,
-                    enabled = !isLoading
-                )
-
+                AdminTextField(locationAddress, { locationAddress = it }, "Адрес *",    Icons.Outlined.Map,        !isLoading)
                 Spacer(Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        enabled = !isLoading
-                    ) { Text("Отмена") }
-
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp), enabled = !isLoading) { Text("Отмена") }
                     Button(
                         onClick = { if (isValid) onConfirm(locationTitle.trim(), locationAddress.trim()) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp),
                         enabled = isValid && !isLoading
                     ) {
                         if (isLoading) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -882,44 +542,23 @@ private fun CreateLocationDialog(
     }
 }
 
-// ── Вспомогательные компоненты ────────────────────────────────────
-
 @Composable
-private fun AdminTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    icon: ImageVector,
-    enabled: Boolean = true
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        leadingIcon = { Icon(icon, null) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        enabled = enabled
-    )
+private fun AdminTextField(value: String, onValueChange: (String) -> Unit,
+                           label: String, icon: ImageVector, enabled: Boolean = true) {
+    OutlinedTextField(value = value, onValueChange = onValueChange,
+        label = { Text(label) }, leadingIcon = { Icon(icon, null) },
+        singleLine = true, modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp), enabled = enabled)
 }
 
 @Composable
 private fun EmptyState(icon: ImageVector, text: String) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                icon,
-                null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                modifier = Modifier.size(48.dp)
-            )
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                modifier = Modifier.size(48.dp))
             Spacer(Modifier.height(12.dp))
-            Text(
-                text = text,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                fontSize = 14.sp
-            )
+            Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontSize = 14.sp)
         }
     }
 }

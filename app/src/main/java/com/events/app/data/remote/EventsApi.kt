@@ -17,7 +17,7 @@ interface EventsApi {
 
     @GET("api/v/1/events")
     suspend fun getEvents(
-        @Query("Size") size: Int = 20,
+        @Query("Size") size: Int = 20,       // max 30 по Scalar!
         @Query("Page") page: Int = 1,
         @Query("Text") text: String? = null,
         @Query("StartDateTime") startDateTime: String? = null,
@@ -41,26 +41,6 @@ interface EventsApi {
     @DELETE("api/v/1/events/{id}")
     suspend fun deleteEvent(@Path("id") id: String)
 
-    // ── Locations ─────────────────────────────────────────────────
-
-    @GET("api/v/1/locations")
-    suspend fun getLocations(): List<LocationDto>
-
-    @GET("api/v/1/locations/{locationId}/places")
-    suspend fun getPlacesByLocation(@Path("locationId") locationId: Int): List<PlaceDto>
-
-    @Multipart
-    @POST("api/v/1/locations")
-    suspend fun createLocation(
-        @Part("Title") title: RequestBody,
-        @Part("Address") address: RequestBody
-    ): Int
-
-    @DELETE("api/v/1/locations/{id}")
-    suspend fun deleteLocation(@Path("id") id: Int)
-
-    // ── Events create ─────────────────────────────────────────────
-
     @Multipart
     @POST("api/v/1/events")
     suspend fun createEvent(
@@ -79,19 +59,54 @@ interface EventsApi {
         @Part preview: MultipartBody.Part? = null
     ): String
 
-    // ── Users (Admin) ─────────────────────────────────────────────
+    // ── Participants ──────────────────────────────────────────────
 
-    @GET("api/v/1/users")
-    suspend fun getUsers(): List<UserDto>
+    @POST("api/v/1/events/{eventId}/participants")
+    suspend fun registerForEvent(
+        @Path("eventId") eventId: String,
+        @Query("participantId") participantId: String
+    )
+
+    @DELETE("api/v/1/events/{eventId}/participants")
+    suspend fun leaveEvent(
+        @Path("eventId") eventId: String,
+        @Query("participantId") participantId: String
+    )
+
+    // ── Locations ─────────────────────────────────────────────────
+
+    @GET("api/v/1/locations")
+    suspend fun getLocations(): List<LocationDto>
+
+    @GET("api/v/1/locations/{locationId}/places")
+    suspend fun getPlacesByLocation(@Path("locationId") locationId: Int): List<PlaceDto>
 
     @Multipart
-    @POST("api/v/1/users/register")
+    @POST("api/v/1/locations")
+    suspend fun createLocation(
+        @Part("Title") title: RequestBody,
+        @Part("Address") address: RequestBody
+    ): Int
+
+    @DELETE("api/v/1/locations/{id}")
+    suspend fun deleteLocation(@Path("id") id: Int)
+
+
+    @GET("api/v/1/users")
+    suspend fun getUsers(
+        @Query("Size") size: Int = 20,
+        @Query("Page") page: Int = 1
+    ): List<UserDto>
+
+    @Multipart
+    @POST("api/v/1/users")
     suspend fun createUser(
+        @Part("FirstName") firstName: RequestBody,
+        @Part("LastName") lastName: RequestBody,
         @Part("Email") email: RequestBody,
         @Part("Password") password: RequestBody,
-        @Part("Name") name: RequestBody,
-        @Part("Role") role: RequestBody
-    ): String
+        @Part("Patronymic") patronymic: RequestBody? = null
+    ): String   // возвращает UUID созданного пользователя
 
     @DELETE("api/v/1/users/{id}")
     suspend fun deleteUser(@Path("id") id: String)

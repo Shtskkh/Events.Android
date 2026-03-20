@@ -21,7 +21,8 @@ class RemoteDataSource @Inject constructor(
         size: Int = 20, page: Int = 1, text: String? = null,
         startDateTime: String? = null, endDateTime: String? = null,
         typeId: Int? = null, formatId: Int? = null
-    ): List<ShortEventDto> = api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId)
+    ): List<ShortEventDto> =
+        api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId)
 
     suspend fun getEventById(id: String): EventDetailDto = api.getEventById(id)
     suspend fun getPlaceholders(): List<String> = api.getPlaceholders()
@@ -29,48 +30,49 @@ class RemoteDataSource @Inject constructor(
     suspend fun getEventFormats(): List<EventFormatDto> = api.getEventFormats()
     suspend fun deleteEvent(id: String) = api.deleteEvent(id)
 
+    suspend fun createEvent(
+        userId: RequestBody, title: RequestBody, announcement: RequestBody,
+        description: RequestBody, startDateTime: RequestBody, endDateTime: RequestBody,
+        eventTypeId: RequestBody, eventFormatId: RequestBody, needsRegistration: RequestBody,
+        maxParticipants: RequestBody? = null, placeId: RequestBody? = null,
+        placeholder: RequestBody? = null, preview: MultipartBody.Part? = null
+    ): String = api.createEvent(
+        userId, title, announcement, description, startDateTime, endDateTime,
+        eventTypeId, eventFormatId, needsRegistration, maxParticipants, placeId, placeholder, preview
+    )
+
+    // ── Participants ──────────────────────────────────────────────
+
+    suspend fun registerForEvent(eventId: String, participantId: String) =
+        api.registerForEvent(eventId, participantId)
+
+    suspend fun leaveEvent(eventId: String, participantId: String) =
+        api.leaveEvent(eventId, participantId)
+
     // ── Locations ─────────────────────────────────────────────────
 
     suspend fun getLocations(): List<LocationDto> = api.getLocations()
-    suspend fun getPlacesByLocation(locationId: Int): List<PlaceDto> = api.getPlacesByLocation(locationId)
+    suspend fun getPlacesByLocation(locationId: Int): List<PlaceDto> =
+        api.getPlacesByLocation(locationId)
 
     suspend fun createLocation(title: RequestBody, address: RequestBody): Int =
         api.createLocation(title, address)
 
     suspend fun deleteLocation(id: Int) = api.deleteLocation(id)
 
-    // ── Events create ─────────────────────────────────────────────
+    // ── Users ─────────────────────────────────────────────────────
 
-    suspend fun createEvent(
-        userId: RequestBody,
-        title: RequestBody,
-        announcement: RequestBody,
-        description: RequestBody,
-        startDateTime: RequestBody,
-        endDateTime: RequestBody,
-        eventTypeId: RequestBody,
-        eventFormatId: RequestBody,
-        needsRegistration: RequestBody,
-        maxParticipants: RequestBody? = null,
-        placeId: RequestBody? = null,
-        placeholder: RequestBody? = null,
-        preview: MultipartBody.Part? = null
-    ): String = api.createEvent(
-        userId, title, announcement, description,
-        startDateTime, endDateTime, eventTypeId, eventFormatId,
-        needsRegistration, maxParticipants, placeId, placeholder, preview
-    )
-
-    // ── Users (Admin) ─────────────────────────────────────────────
-
-    suspend fun getUsers(): List<UserDto> = api.getUsers()
+    // Size и Page обязательны — передаём явно
+    suspend fun getUsers(size: Int = 20, page: Int = 1): List<UserDto> =
+        api.getUsers(size, page)
 
     suspend fun createUser(
+        firstName: RequestBody,
+        lastName: RequestBody,
         email: RequestBody,
         password: RequestBody,
-        name: RequestBody,
-        role: RequestBody
-    ): String = api.createUser(email, password, name, role)
+        patronymic: RequestBody? = null
+    ): String = api.createUser(firstName, lastName, email, password, patronymic)
 
     suspend fun deleteUser(id: String) = api.deleteUser(id)
 }

@@ -174,7 +174,10 @@ fun AppGraph(
                 onNavigationToAccount = { navToAccount() },
                 onBack = { navBack() }
             ) {
-                EventDetailsScreen(eventId = details.id)
+                EventDetailsScreen(
+                    eventId = details.id,
+                    onBack = { navBack() }   // ← добавить это
+                )
             }
         }
 
