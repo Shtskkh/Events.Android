@@ -3,12 +3,14 @@ package com.events.app.ui.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AdminPanelSettings
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Home
@@ -69,4 +71,11 @@ sealed class NavItem(
         iconSelected = { Icon(Icons.Filled.AccountCircle, "Аккаунт") }
     )
 
+    // Только для ADMIN — добавляется в Drawer условно
+    object Admin : NavItem(
+        route = NavigationRoute.Admin,
+        title = "Администрирование",
+        iconOutlined = { Icon(Icons.Outlined.AdminPanelSettings, "Администрирование") },
+        iconSelected = { Icon(Icons.Filled.AdminPanelSettings, "Администрирование") }
+    )
 }

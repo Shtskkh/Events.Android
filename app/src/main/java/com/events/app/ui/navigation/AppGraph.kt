@@ -4,6 +4,8 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
@@ -12,11 +14,14 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.events.app.domain.models.users.User
+import com.events.app.domain.models.users.UserRole
+import com.events.app.ui.AppViewModel
 import com.events.app.ui.components.appbar.AppTopBar
 import com.events.app.ui.components.appbar.EventDetailsTopBar
 import com.events.app.ui.components.appbar.EventsTopBar
 import com.events.app.ui.components.appbar.FiltersTopBar
 import com.events.app.ui.components.drawers.AppDrawer
+import com.events.app.ui.views.admin.AdminScreen
 import com.events.app.ui.views.createevent.CreateEventScreen
 import com.events.app.ui.views.createevent.CreateEventStep2Screen
 import com.events.app.ui.views.createevent.CreateEventViewModel
@@ -36,27 +41,18 @@ fun AppGraph(
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
-    fun navToAccount() {
-        navController.navigate(NavigationRoute.Account)
-    }
+    val isAdmin = user.role == UserRole.ADMIN
 
-    fun navToEventDetails(id: String) {
-        navController.navigate(NavigationRoute.EventDetails(id))
-    }
-
-    fun navToFilters() {
-        navController.navigate(NavigationRoute.Filters)
-    }
-
-    fun navBack() {
-        navController.popBackStack()
-    }
+    fun navToAccount() = navController.navigate(NavigationRoute.Account)
+    fun navToEventDetails(id: String) = navController.navigate(NavigationRoute.EventDetails(id))
+    fun navToFilters() = navController.navigate(NavigationRoute.Filters)
+    fun navBack() = navController.popBackStack()
 
     NavHost(
         navController = navController,
         startDestination = NavigationRoute.Main
     ) {
-        // Главная страница
+        // Главная
         composable<NavigationRoute.Main> {
             AppDrawer(drawerState = drawerState, navController = navController) {
                 AppTopBar(
@@ -64,7 +60,7 @@ fun AppGraph(
                     drawerState = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
-                    MainScreen(onEventClick = { id -> navToEventDetails(id.toString()) })
+                    MainScreen(onEventClick = { id -> navToEventDetails(id) })
                 }
             }
         }
@@ -77,13 +73,12 @@ fun AppGraph(
                     onNavigationToAccount = { navToAccount() },
                     onFiltersClick = { navToFilters() },
                 ) {
-                    EventsScreen(onEventClick = { id -> navToEventDetails(id.toString()) })
+                    EventsScreen(onEventClick = { id -> navToEventDetails(id) })
                 }
             }
         }
 
-        // Создание мероприятия — вложенный граф, чтобы шаги 1 и 2
-        // делили один и тот же CreateEventViewModel
+        // Создание мероприятия — вложенный граф (shared ViewModel)
         navigation<NavigationRoute.CreateEventGraph>(
             startDestination = NavigationRoute.CreateEvent
         ) {
@@ -159,7 +154,7 @@ fun AppGraph(
             }
         }
 
-        // Аккаунт пользователя
+        // Аккаунт
         composable<NavigationRoute.Account> {
             AppDrawer(drawerState = drawerState, navController = navController) {
                 AppTopBar(
@@ -190,6 +185,21 @@ fun AppGraph(
                 onResetAll = { }
             ) {
                 FiltersScreen()
+            }
+        }
+
+        // Администрирование — только если ADMIN
+        if (isAdmin) {
+            composable<NavigationRoute.Admin> {
+                AppDrawer(drawerState = drawerState, navController = navController) {
+                    AppTopBar(
+                        title = "Администрирование",
+                        drawerState = drawerState,
+                        onNavigationToAccount = { navToAccount() },
+                    ) {
+                        AdminScreen()
+                    }
+                }
             }
         }
     }

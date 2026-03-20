@@ -14,7 +14,7 @@ sealed interface NavigationRoute {
     data object Events : NavigationRoute
 
     @Serializable
-    data object CreateEventGraph : NavigationRoute  // ← новый граф
+    data object CreateEventGraph : NavigationRoute
 
     @Serializable
     data object CreateEvent : NavigationRoute
@@ -37,6 +37,8 @@ sealed interface NavigationRoute {
     data object Filters : NavigationRoute
 
     @Serializable
-    data object Statistics : NavigationRoute  // ← новая вкладка
+    data object Statistics : NavigationRoute
 
+    @Serializable
+    data object Admin : NavigationRoute   // ← только для ADMIN
 }

@@ -7,6 +7,7 @@ import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
 import com.events.app.data.remote.dto.PlaceDto
 import com.events.app.data.remote.dto.ShortEventDto
+import com.events.app.data.remote.dto.UserDto
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import javax.inject.Inject
@@ -14,6 +15,8 @@ import javax.inject.Inject
 class RemoteDataSource @Inject constructor(
     private val api: EventsApi
 ) {
+    // ── Events ────────────────────────────────────────────────────
+
     suspend fun getEvents(
         size: Int = 20, page: Int = 1, text: String? = null,
         startDateTime: String? = null, endDateTime: String? = null,
@@ -24,11 +27,19 @@ class RemoteDataSource @Inject constructor(
     suspend fun getPlaceholders(): List<String> = api.getPlaceholders()
     suspend fun getEventTypes(): List<EventTypeDto> = api.getEventTypes()
     suspend fun getEventFormats(): List<EventFormatDto> = api.getEventFormats()
+    suspend fun deleteEvent(id: String) = api.deleteEvent(id)
+
+    // ── Locations ─────────────────────────────────────────────────
+
     suspend fun getLocations(): List<LocationDto> = api.getLocations()
     suspend fun getPlacesByLocation(locationId: Int): List<PlaceDto> = api.getPlacesByLocation(locationId)
 
     suspend fun createLocation(title: RequestBody, address: RequestBody): Int =
         api.createLocation(title, address)
+
+    suspend fun deleteLocation(id: Int) = api.deleteLocation(id)
+
+    // ── Events create ─────────────────────────────────────────────
 
     suspend fun createEvent(
         userId: RequestBody,
@@ -49,4 +60,17 @@ class RemoteDataSource @Inject constructor(
         startDateTime, endDateTime, eventTypeId, eventFormatId,
         needsRegistration, maxParticipants, placeId, placeholder, preview
     )
+
+    // ── Users (Admin) ─────────────────────────────────────────────
+
+    suspend fun getUsers(): List<UserDto> = api.getUsers()
+
+    suspend fun createUser(
+        email: RequestBody,
+        password: RequestBody,
+        name: RequestBody,
+        role: RequestBody
+    ): String = api.createUser(email, password, name, role)
+
+    suspend fun deleteUser(id: String) = api.deleteUser(id)
 }

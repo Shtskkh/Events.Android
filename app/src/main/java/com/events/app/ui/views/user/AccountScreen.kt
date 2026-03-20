@@ -1,8 +1,10 @@
 package com.events.app.ui.views.user
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,6 +22,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,6 +32,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.events.app.domain.models.users.UserRole
 import com.events.app.ui.AppViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -35,21 +41,27 @@ fun AccountScreen() {
     val user by viewModel.authRepository.currentUser.collectAsState()
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
 
     var selectedPhotoUri by remember { mutableStateOf<Uri?>(null) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        if (uri != null) {
-            selectedPhotoUri = uri
-        }
+        if (uri != null) selectedPhotoUri = uri
     }
 
     val (roleLabel, roleColor) = when (user?.role) {
         UserRole.ADMIN -> "Администратор" to Color(0xFF7C3AED)
         UserRole.USER  -> "Пользователь"  to Color(0xFF0284C7)
         else           -> "Гость"          to Color(0xFF6B7280)
+    }
+
+    // Функция копирования с Toast
+    fun copyToClipboard(label: String, value: String) {
+        clipboardManager.setText(AnnotatedString(value))
+        Toast.makeText(context, "$label скопирован", Toast.LENGTH_SHORT).show()
     }
 
     Column(
@@ -69,7 +81,6 @@ fun AccountScreen() {
                 modifier = Modifier.size(110.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Аватар без фона
                 Box(
                     modifier = Modifier
                         .size(100.dp)
@@ -132,7 +143,7 @@ fun AccountScreen() {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ── Карточка информации ───────────────────────────────
+        // ── Карточка информации (кликабельные строки) ─────────
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
@@ -140,30 +151,42 @@ fun AccountScreen() {
             tonalElevation = 2.dp
         ) {
             Column(modifier = Modifier.padding(4.dp)) {
-                InfoRow(
+
+                // Имя — копируется по нажатию
+                CopyableInfoRow(
                     icon = Icons.Outlined.Person,
                     label = "Имя",
-                    value = user?.name ?: "—"
+                    value = user?.name ?: "—",
+                    onCopy = { copyToClipboard("Имя", user?.name ?: "") }
                 )
                 RowDivider()
-                InfoRow(
+
+                // Email — копируется по нажатию
+                CopyableInfoRow(
                     icon = Icons.Outlined.Email,
                     label = "Email",
-                    value = user?.email ?: "—"
+                    value = user?.email ?: "—",
+                    onCopy = { copyToClipboard("Email", user?.email ?: "") }
                 )
                 RowDivider()
-                InfoRow(
+
+                // Роль — показывается с цветом, копируется
+                CopyableInfoRow(
                     icon = Icons.Outlined.Shield,
                     label = "Роль",
                     value = roleLabel,
-                    valueColor = roleColor
+                    valueColor = roleColor,
+                    onCopy = { copyToClipboard("Роль", roleLabel) }
                 )
                 RowDivider()
-                InfoRow(
+
+                // ID — выводится ПОЛНОСТЬЮ, копируется
+                CopyableInfoRow(
                     icon = Icons.Outlined.Key,
                     label = "ID пользователя",
-                    value = user?.id?.take(18)?.plus("...") ?: "—",
-                    valueFontSize = 12
+                    value = user?.id ?: "—",          // ← полный ID без обрезания
+                    valueFontSize = 12,
+                    onCopy = { copyToClipboard("ID пользователя", user?.id ?: "") }
                 )
             }
         }
@@ -233,61 +256,98 @@ fun AccountScreen() {
     }
 }
 
+// ── Кликабельная строка с копированием ────────────────────────────
 @Composable
-private fun RowDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-    )
-}
-
-@Composable
-private fun InfoRow(
+private fun CopyableInfoRow(
     icon: ImageVector,
     label: String,
     value: String,
     valueColor: Color = Color.Unspecified,
-    valueFontSize: Int = 15
+    valueFontSize: Int = 15,
+    onCopy: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+    // Мигание фона при нажатии для feedback
+    var copied by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    val bgColor by animateColorAsState(
+        targetValue = if (copied)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        else
+            Color.Transparent,
+        label = "copyFeedback"
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = bgColor,
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-            modifier = Modifier.size(38.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    onCopy()
+                    // Короткая анимация подсветки
+                    scope.launch {
+                        copied = true
+                        delay(300)
+                        copied = false
+                    }
+                }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+            // Иконка в плашке
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                modifier = Modifier.size(38.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            // Текст
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = value,
+                    fontSize = valueFontSize.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (valueColor == Color.Unspecified)
+                        MaterialTheme.colorScheme.onSurface else valueColor
                 )
             }
-        }
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = value,
-                fontSize = valueFontSize.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (valueColor == Color.Unspecified)
-                    MaterialTheme.colorScheme.onSurface else valueColor
+
+            // Иконка-подсказка "нажми чтобы скопировать"
+            Icon(
+                imageVector = if (copied) Icons.Outlined.CheckCircle else Icons.Outlined.ContentCopy,
+                contentDescription = "Копировать",
+                tint = if (copied)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.size(16.dp)
             )
         }
     }
 }
 
+// ── Строка-действие со стрелкой ───────────────────────────────────
 @Composable
 private fun ActionRow(
     icon: ImageVector,
@@ -330,4 +390,13 @@ private fun ActionRow(
             modifier = Modifier.size(20.dp)
         )
     }
+}
+
+// ── Разделитель ───────────────────────────────────────────────────
+@Composable
+private fun RowDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    )
 }

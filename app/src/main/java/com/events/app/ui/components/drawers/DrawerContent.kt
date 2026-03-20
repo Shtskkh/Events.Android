@@ -1,19 +1,22 @@
 package com.events.app.ui.components.drawers
 
-
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.events.app.domain.models.users.UserRole
+import com.events.app.ui.AppViewModel
 import com.events.app.ui.navigation.NavItem
 import com.events.app.ui.navigation.NavigationRoute
 import kotlinx.coroutines.launch
@@ -27,16 +30,17 @@ fun DrawerContent(
     val currentRoute = navBackStackEntry?.destination?.route
     val scope = rememberCoroutineScope()
 
+    // Получаем текущего пользователя для проверки роли
+    val appViewModel: AppViewModel = hiltViewModel()
+    val user by appViewModel.authRepository.currentUser.collectAsState()
+    val isAdmin = user?.role == UserRole.ADMIN
+
     fun closeDrawer() {
-        scope.launch {
-            drawerState.close()
-        }
+        scope.launch { drawerState.close() }
     }
 
     ModalDrawerSheet {
-        Column(
-            modifier = Modifier.padding(16.dp),
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
 
             DrawerNavItem(
                 route = NavItem.Main.route,
@@ -78,10 +82,7 @@ fun DrawerContent(
                 onClick = { closeDrawer() },
             )
 
-            HorizontalDivider(
-                modifier = Modifier
-                    .padding(8.dp)
-            )
+            HorizontalDivider(modifier = Modifier.padding(8.dp))
 
             DrawerNavItem(
                 route = NavItem.Account.route,
@@ -103,6 +104,20 @@ fun DrawerContent(
                 onClick = { closeDrawer() },
             )
 
+            // ── Только для администратора ──────────────────────
+            if (isAdmin) {
+                HorizontalDivider(modifier = Modifier.padding(8.dp))
+
+                DrawerNavItem(
+                    route = NavItem.Admin.route,
+                    label = NavItem.Admin.title,
+                    iconOutlined = NavItem.Admin.iconOutlined,
+                    iconSelected = NavItem.Admin.iconSelected,
+                    currentRoute = currentRoute,
+                    navController = navController,
+                    onClick = { closeDrawer() },
+                )
+            }
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -135,10 +150,8 @@ private fun DrawerNavItem(
         selected = selected,
         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
         icon = {
-            if (selected) {
-                iconSelected?.invoke()
-            } else
-                iconOutlined?.invoke()
+            if (selected) iconSelected?.invoke()
+            else iconOutlined?.invoke()
         },
         onClick = {
             val popped = navController.popBackStack(route, inclusive = false)

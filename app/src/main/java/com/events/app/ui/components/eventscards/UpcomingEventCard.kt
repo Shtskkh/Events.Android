@@ -26,8 +26,6 @@ import coil.compose.AsyncImage
 import com.events.app.domain.models.events.Event
 import java.time.format.DateTimeFormatter
 
-
-
 @Composable
 fun UpcomingEventCard(
     event: Event,
