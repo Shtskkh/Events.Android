@@ -1,5 +1,6 @@
 package com.events.app.ui.views.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,7 +23,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-
 import com.events.app.ui.components.eventscards.UpcomingEventCard
 
 @Composable
@@ -31,40 +31,39 @@ fun MainScreen(
     onEventClick: (String) -> Unit = {},
     onViewAllClick: () -> Unit = {}
 ) {
-    val events = viewModel.events.collectAsState().value
+    val events    = viewModel.events.collectAsState().value
     val isLoading = viewModel.isLoading.collectAsState().value
-    val error = viewModel.error.collectAsState().value
+    val error     = viewModel.error.collectAsState().value
 
-    val myEvents = events.filter { !it.isFinished }.sortedBy { it.startDate }
+    val myEvents       = events.filter { !it.isFinished }.sortedBy { it.startDate }
     val upcomingEvents = events.filter { !it.isFinished }.sortedBy { it.startDate }
     val completedEvents = events.filter { it.isFinished }.sortedByDescending { it.startDate }
 
     when {
         isLoading -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         }
         error != null && events.isEmpty() -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center) {
                 Text(error, color = MaterialTheme.colorScheme.error)
             }
         }
         else -> {
+            // ← фикс: background на LazyColumn
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
-
-                // ── Созданные вами ─────────────────────────────
                 item {
-                    SectionLabel(
-                        title = "Созданные вами",
-                        icon = Icons.Outlined.Edit,
+                    SectionLabel(title = "Созданные вами", icon = Icons.Outlined.Edit,
                         accentColor = MaterialTheme.colorScheme.primary,
-                        showAll = myEvents.size > 3,
-                        onViewAll = onViewAllClick
-                    )
+                        showAll = myEvents.size > 3, onViewAll = onViewAllClick)
                 }
                 if (myEvents.isEmpty()) {
                     item { EmptySection("Вы ещё не создали ни одного мероприятия") }
@@ -74,18 +73,12 @@ fun MainScreen(
                         Spacer(Modifier.height(16.dp))
                     }
                 }
-
                 item { Spacer(Modifier.height(4.dp)) }
 
-                // ── Ближайшие ──────────────────────────────────
                 item {
-                    SectionLabel(
-                        title = "Ближайшие",
-                        icon = Icons.Outlined.Schedule,
+                    SectionLabel(title = "Ближайшие", icon = Icons.Outlined.Schedule,
                         accentColor = Color(0xFF3B82F6),
-                        showAll = upcomingEvents.size > 3,
-                        onViewAll = onViewAllClick
-                    )
+                        showAll = upcomingEvents.size > 3, onViewAll = onViewAllClick)
                 }
                 if (upcomingEvents.isEmpty()) {
                     item { EmptySection("Нет предстоящих мероприятий") }
@@ -96,17 +89,12 @@ fun MainScreen(
                     }
                 }
 
-                // ── Завершённые ────────────────────────────────
                 if (completedEvents.isNotEmpty()) {
                     item { Spacer(Modifier.height(4.dp)) }
                     item {
-                        SectionLabel(
-                            title = "Завершённые",
-                            icon = Icons.Outlined.CheckCircle,
+                        SectionLabel(title = "Завершённые", icon = Icons.Outlined.CheckCircle,
                             accentColor = Color(0xFF9E9E9E),
-                            showAll = completedEvents.size > 3,
-                            onViewAll = onViewAllClick
-                        )
+                            showAll = completedEvents.size > 3, onViewAll = onViewAllClick)
                     }
                     items(completedEvents.take(3)) { event ->
                         UpcomingEventCard(event = event, onClick = { onEventClick(event.id) })
@@ -118,96 +106,47 @@ fun MainScreen(
     }
 }
 
-// ── Заголовок секции с иконкой и цветом ───────────────────────────
 @Composable
 private fun SectionLabel(
-    title: String,
-    icon: ImageVector,
-    accentColor: Color,
-    showAll: Boolean,
-    onViewAll: () -> Unit
+    title: String, icon: ImageVector, accentColor: Color,
+    showAll: Boolean, onViewAll: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 12.dp, top = 28.dp, bottom = 12.dp),
+    Row(modifier = Modifier.fillMaxWidth()
+        .padding(start = 16.dp, end = 12.dp, top = 28.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Иконка в цветном кружке
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = accentColor.copy(alpha = 0.13f),
-                modifier = Modifier.size(36.dp)
-            ) {
+        verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Surface(shape = RoundedCornerShape(10.dp),
+                color = accentColor.copy(alpha = 0.13f), modifier = Modifier.size(36.dp)) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Icon(icon, null, tint = accentColor, modifier = Modifier.size(20.dp))
                 }
             }
-
-            Text(
-                text = title,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 20.sp,
-                letterSpacing = (-0.4).sp,
-                color = MaterialTheme.colorScheme.onBackground
-            )
+            Text(text = title, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp,
+                letterSpacing = (-0.4).sp, color = MaterialTheme.colorScheme.onBackground)
         }
-
         if (showAll) {
-            Row(
-                modifier = Modifier
-                    .clickable(onClick = onViewAll),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Все",
-                    fontSize = 14.sp,
-                    color = accentColor,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Icon(
-                    Icons.Outlined.ChevronRight,
-                    null,
-                    tint = accentColor,
-                    modifier = Modifier.size(18.dp)
-                )
+            Row(modifier = Modifier.clickable(onClick = onViewAll),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Все", fontSize = 14.sp, color = accentColor, fontWeight = FontWeight.SemiBold)
+                Icon(Icons.Outlined.ChevronRight, null, tint = accentColor, modifier = Modifier.size(18.dp))
             }
         }
     }
 }
 
-// ── Пустая секция ─────────────────────────────────────────────────
 @Composable
 private fun EmptySection(text: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Outlined.Event,
-                null,
+            Icon(Icons.Outlined.Event, null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.35f),
-                modifier = Modifier.size(32.dp)
-            )
+                modifier = Modifier.size(32.dp))
             Spacer(Modifier.height(8.dp))
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.55f)
-            )
+            Text(text, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.55f))
         }
     }
 }

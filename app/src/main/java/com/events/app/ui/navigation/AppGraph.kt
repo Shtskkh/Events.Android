@@ -200,7 +200,9 @@ fun AppGraph(
                         drawerState = drawerState,
                         onNavigationToAccount = { navToAccount() },
                     ) {
-                        AdminScreen()
+                        AdminScreen(
+                            onEventClick = { id -> navToEventDetails(id) }  // ← добавить
+                        )
                     }
                 }
             }

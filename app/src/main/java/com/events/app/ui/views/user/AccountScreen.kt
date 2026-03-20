@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -38,365 +39,152 @@ import kotlinx.coroutines.launch
 @Composable
 fun AccountScreen() {
     val viewModel: AppViewModel = hiltViewModel()
-    val user by viewModel.authRepository.currentUser.collectAsState()
-    val scope = rememberCoroutineScope()
-    val scrollState = rememberScrollState()
+    val user             by viewModel.authRepository.currentUser.collectAsState()
+    val scope            = rememberCoroutineScope()
+    val scrollState      = rememberScrollState()
     val clipboardManager = LocalClipboardManager.current
-    val context = LocalContext.current
-
+    val context          = LocalContext.current
     var selectedPhotoUri by remember { mutableStateOf<Uri?>(null) }
-
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) selectedPhotoUri = uri
+    val photoPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
+            uri: Uri? -> if (uri != null) selectedPhotoUri = uri
     }
-
     val (roleLabel, roleColor) = when (user?.role) {
         UserRole.ADMIN -> "Администратор" to Color(0xFF7C3AED)
         UserRole.USER  -> "Пользователь"  to Color(0xFF0284C7)
         else           -> "Гость"          to Color(0xFF6B7280)
     }
-
-    // Функция копирования с Toast
     fun copyToClipboard(label: String, value: String) {
         clipboardManager.setText(AnnotatedString(value))
         Toast.makeText(context, "$label скопирован", Toast.LENGTH_SHORT).show()
     }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
             .padding(horizontal = 16.dp)
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // ── Аватар и имя ──────────────────────────────────────
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier.size(110.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape)
-                        .clickable { photoPickerLauncher.launch("image/*") },
-                    contentAlignment = Alignment.Center
-                ) {
+        Spacer(Modifier.height(24.dp))
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(110.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(100.dp).clip(CircleShape).clickable { photoPickerLauncher.launch("image/*") },
+                    contentAlignment = Alignment.Center) {
                     if (selectedPhotoUri != null) {
-                        AsyncImage(
-                            model = selectedPhotoUri,
-                            contentDescription = "Фото профиля",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        AsyncImage(model = selectedPhotoUri, contentDescription = null,
+                            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     } else {
-                        Icon(
-                            imageVector = Icons.Default.AccountCircle,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Icon(Icons.Default.AccountCircle, null, modifier = Modifier.fillMaxSize(),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-
-                // Иконка камеры
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .align(Alignment.BottomEnd)
-                        .clip(CircleShape)
-                        .clickable { photoPickerLauncher.launch("image/*") },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
+                Box(Modifier.size(30.dp).align(Alignment.BottomEnd).clip(CircleShape)
+                    .clickable { photoPickerLauncher.launch("image/*") },
+                    contentAlignment = Alignment.Center) {
+                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxSize()) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Outlined.CameraAlt,
-                                contentDescription = "Сменить фото",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Icon(Icons.Outlined.CameraAlt, null, tint = Color.White, modifier = Modifier.size(16.dp))
                         }
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = user?.name ?: "—",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
+            Spacer(Modifier.height(10.dp))
+            Text(user?.name ?: "—", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onBackground)
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // ── Карточка информации (кликабельные строки) ─────────
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 2.dp
-        ) {
-            Column(modifier = Modifier.padding(4.dp)) {
-
-                // Имя — копируется по нажатию
-                CopyableInfoRow(
-                    icon = Icons.Outlined.Person,
-                    label = "Имя",
-                    value = user?.name ?: "—",
-                    onCopy = { copyToClipboard("Имя", user?.name ?: "") }
-                )
+        Spacer(Modifier.height(24.dp))
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+            Column(Modifier.padding(4.dp)) {
+                CopyableInfoRow(Icons.Outlined.Person, "Имя", user?.name ?: "—",
+                    onCopy = { copyToClipboard("Имя", user?.name ?: "") })
                 RowDivider()
-
-                // Email — копируется по нажатию
-                CopyableInfoRow(
-                    icon = Icons.Outlined.Email,
-                    label = "Email",
-                    value = user?.email ?: "—",
-                    onCopy = { copyToClipboard("Email", user?.email ?: "") }
-                )
+                CopyableInfoRow(Icons.Outlined.Email, "Email", user?.email ?: "—",
+                    onCopy = { copyToClipboard("Email", user?.email ?: "") })
                 RowDivider()
-
-                // Роль — показывается с цветом, копируется
-                CopyableInfoRow(
-                    icon = Icons.Outlined.Shield,
-                    label = "Роль",
-                    value = roleLabel,
-                    valueColor = roleColor,
-                    onCopy = { copyToClipboard("Роль", roleLabel) }
-                )
+                CopyableInfoRow(Icons.Outlined.Shield, "Роль", roleLabel, valueColor = roleColor,
+                    onCopy = { copyToClipboard("Роль", roleLabel) })
                 RowDivider()
-
-                // ID — выводится ПОЛНОСТЬЮ, копируется
-                CopyableInfoRow(
-                    icon = Icons.Outlined.Key,
-                    label = "ID пользователя",
-                    value = user?.id ?: "—",          // ← полный ID без обрезания
-                    valueFontSize = 12,
-                    onCopy = { copyToClipboard("ID пользователя", user?.id ?: "") }
-                )
+                CopyableInfoRow(Icons.Outlined.Key, "ID пользователя", user?.id ?: "—",
+                    valueFontSize = 12, onCopy = { copyToClipboard("ID", user?.id ?: "") })
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // ── Действия ─────────────────────────────────────────
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 2.dp
-        ) {
-            Column(modifier = Modifier.padding(4.dp)) {
-                ActionRow(
-                    icon = Icons.Outlined.PhotoCamera,
-                    label = "Загрузить фото профиля",
-                    onClick = { photoPickerLauncher.launch("image/*") }
-                )
+        Spacer(Modifier.height(16.dp))
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+            Column(Modifier.padding(4.dp)) {
+                ActionRow(Icons.Outlined.PhotoCamera, "Загрузить фото профиля") { photoPickerLauncher.launch("image/*") }
                 RowDivider()
-                ActionRow(
-                    icon = Icons.Outlined.AlternateEmail,
-                    label = "Сменить почту",
-                    onClick = { /* TODO */ }
-                )
+                ActionRow(Icons.Outlined.AlternateEmail, "Сменить почту") {}
                 RowDivider()
-                ActionRow(
-                    icon = Icons.Outlined.Lock,
-                    label = "Сменить пароль",
-                    onClick = { /* TODO */ }
-                )
+                ActionRow(Icons.Outlined.Lock, "Сменить пароль") {}
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // ── Выход ─────────────────────────────────────────────
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { scope.launch { viewModel.authRepository.logout() } }
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
+        Spacer(Modifier.height(16.dp))
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)) {
+            Row(Modifier.fillMaxWidth()
+                .clickable { scope.launch { viewModel.authRepository.logout() } }
+                .padding(horizontal = 16.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Logout,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(22.dp)
-                )
-                Text(
-                    text = "Выйти из аккаунта",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.error
-                )
+                horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Icon(Icons.Outlined.Logout, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(22.dp))
+                Text("Выйти из аккаунта", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.error)
             }
         }
-
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(Modifier.height(32.dp))
     }
 }
 
-// ── Кликабельная строка с копированием ────────────────────────────
 @Composable
-private fun CopyableInfoRow(
-    icon: ImageVector,
-    label: String,
-    value: String,
-    valueColor: Color = Color.Unspecified,
-    valueFontSize: Int = 15,
-    onCopy: () -> Unit
-) {
-    // Мигание фона при нажатии для feedback
+private fun CopyableInfoRow(icon: ImageVector, label: String, value: String,
+                            valueColor: Color = Color.Unspecified, valueFontSize: Int = 15, onCopy: () -> Unit) {
     var copied by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-
+    val scope  = rememberCoroutineScope()
     val bgColor by animateColorAsState(
-        targetValue = if (copied)
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-        else
-            Color.Transparent,
-        label = "copyFeedback"
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = bgColor,
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    onCopy()
-                    // Короткая анимация подсветки
-                    scope.launch {
-                        copied = true
-                        delay(300)
-                        copied = false
-                    }
-                }
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Иконка в плашке
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                modifier = Modifier.size(38.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            // Текст
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = label,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = value,
-                    fontSize = valueFontSize.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (valueColor == Color.Unspecified)
-                        MaterialTheme.colorScheme.onSurface else valueColor
-                )
-            }
-
-            // Иконка-подсказка "нажми чтобы скопировать"
-            Icon(
-                imageVector = if (copied) Icons.Outlined.CheckCircle else Icons.Outlined.ContentCopy,
-                contentDescription = "Копировать",
-                tint = if (copied)
-                    MaterialTheme.colorScheme.primary
-                else
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.size(16.dp)
-            )
-        }
-    }
-}
-
-// ── Строка-действие со стрелкой ───────────────────────────────────
-@Composable
-private fun ActionRow(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
+        if (copied) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent, label = "copy")
+    Surface(Modifier.fillMaxWidth(), color = bgColor, shape = RoundedCornerShape(12.dp)) {
+        Row(Modifier.fillMaxWidth()
+            .clickable { onCopy(); scope.launch { copied = true; delay(300); copied = false } }
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-            modifier = Modifier.size(38.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
+            verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), modifier = Modifier.size(38.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                }
             }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                Text(value, fontSize = valueFontSize.sp, fontWeight = FontWeight.SemiBold,
+                    color = if (valueColor == Color.Unspecified) MaterialTheme.colorScheme.onSurface else valueColor)
+            }
+            Icon(if (copied) Icons.Outlined.CheckCircle else Icons.Outlined.ContentCopy, null,
+                tint = if (copied) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
+                modifier = Modifier.size(16.dp))
         }
-        Text(
-            text = label,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Icon(
-            imageVector = Icons.Outlined.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
-        )
     }
 }
 
-// ── Разделитель ───────────────────────────────────────────────────
+@Composable
+private fun ActionRow(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            modifier = Modifier.size(38.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            }
+        }
+        Text(label, fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.onSurface)
+        Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+    }
+}
+
 @Composable
 private fun RowDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-    )
+    HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 }
