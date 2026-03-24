@@ -22,4 +22,7 @@ data class Event(
     val needsRegistration: Boolean,
     val maxParticipants: Int?,
     val organizerName: String?,
+    // Из аналитики GET /api/v/1/events/{id}/analytics
+    val participantsCount: Int?,
+    val viewsCount: Int?,
 )

@@ -40,7 +40,8 @@ private val RedEnd     = Color(0xFFEF4444)
 fun EventDetailsScreen(
     eventId: String,
     viewModel: EventDetailsViewModel = hiltViewModel(),
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    onEdit: ((String) -> Unit)? = null
 ) {
     LaunchedEffect(eventId) { viewModel.loadEvent(eventId) }
 
@@ -69,7 +70,8 @@ fun EventDetailsScreen(
             event      = event!!,
             isAdmin    = isAdmin,
             isDeleting = isDeleting,
-            onDelete   = { viewModel.deleteEvent(event!!.id) }
+            onDelete   = { viewModel.deleteEvent(event!!.id) },
+            onEdit     = { onEdit?.invoke(event!!.id) }
         )
         else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -82,7 +84,8 @@ private fun EventContent(
     event: Event,
     isAdmin: Boolean,
     isDeleting: Boolean,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEdit: () -> Unit
 ) {
     val isOnline = event.format.contains("онлайн", ignoreCase = true) ||
             event.format.contains("online", ignoreCase = true)
@@ -141,32 +144,77 @@ private fun EventContent(
     ) {
         // ── Превью ────────────────────────────────────────────────
         Box(modifier = Modifier.fillMaxWidth().height(280.dp)) {
-            AsyncImage(model = event.previewUrl, contentDescription = null,
-                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            Box(modifier = Modifier
-                .fillMaxWidth().height(110.dp).align(Alignment.BottomCenter)
-                .background(Brush.verticalGradient(
-                    listOf(Color.Transparent, MaterialTheme.colorScheme.background))))
+            AsyncImage(
+                model = event.previewUrl, contentDescription = null,
+                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth().height(110.dp).align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, MaterialTheme.colorScheme.background)
+                        )
+                    )
+            )
+
+            // Бейдж "Завершено"
             if (event.isFinished) {
-                Surface(modifier = Modifier.align(Alignment.TopStart).padding(14.dp),
-                    shape = RoundedCornerShape(8.dp), color = Color.Black.copy(alpha = 0.55f)) {
-                    Text("Завершено",
+                Surface(
+                    modifier = Modifier.align(Alignment.TopStart).padding(14.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Black.copy(alpha = 0.55f)
+                ) {
+                    Text(
+                        "Завершено",
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White
+                    )
                 }
             }
+
+            // Кнопки для admin
             if (isAdmin) {
-                Surface(modifier = Modifier.align(Alignment.TopEnd).padding(14.dp),
+                // Кнопка редактирования — слева сверху (если нет бейджа "Завершено")
+                if (!event.isFinished) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.TopStart).padding(14.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)
+                    ) {
+                        IconButton(onClick = onEdit, modifier = Modifier.size(44.dp)) {
+                            Icon(
+                                Icons.Outlined.Edit, "Редактировать",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Кнопка удаления — справа сверху
+                Surface(
+                    modifier = Modifier.align(Alignment.TopEnd).padding(14.dp),
                     shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.92f)) {
-                    IconButton(onClick = { showDeleteDialog = true }, enabled = !isDeleting,
-                        modifier = Modifier.size(44.dp)) {
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.92f)
+                ) {
+                    IconButton(
+                        onClick  = { showDeleteDialog = true },
+                        enabled  = !isDeleting,
+                        modifier = Modifier.size(44.dp)
+                    ) {
                         if (isDeleting) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp, color = MaterialTheme.colorScheme.error)
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         } else {
-                            Icon(Icons.Outlined.DeleteOutline, "Удалить",
-                                tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(22.dp))
+                            Icon(
+                                Icons.Outlined.DeleteOutline, "Удалить",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                     }
                 }
@@ -213,23 +261,19 @@ private fun EventContent(
             SectionTitle("Дата и время")
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-
-                // Начало — оригинальная карточка, иконка PlayArrow зелёная
                 CompactInfoCard(
-                    icon       = Icons.Outlined.PlayArrow,
-                    iconTint   = GreenStart,
-                    label      = "Начало",
-                    value      = event.startDate.format(dateFormatter),
-                    modifier   = Modifier.weight(1f)
+                    icon     = Icons.Outlined.PlayArrow,
+                    iconTint = GreenStart,
+                    label    = "Начало",
+                    value    = event.startDate.format(dateFormatter),
+                    modifier = Modifier.weight(1f)
                 )
-
-                // Конец — оригинальная карточка, иконка Stop красная
                 CompactInfoCard(
-                    icon       = Icons.Outlined.Stop,
-                    iconTint   = RedEnd,
-                    label      = "Конец",
-                    value      = event.endDate.format(dateFormatter),
-                    modifier   = Modifier.weight(1f)
+                    icon     = Icons.Outlined.Stop,
+                    iconTint = RedEnd,
+                    label    = "Конец",
+                    value    = event.endDate.format(dateFormatter),
+                    modifier = Modifier.weight(1f)
                 )
             }
 
@@ -251,16 +295,20 @@ private fun EventContent(
                         DetailDivider()
                     }
                     if (event.type.isNotBlank()) {
-                        DetailRow(Icons.Outlined.Category, "Тип", event.type); DetailDivider()
+                        DetailRow(Icons.Outlined.Category, "Тип", event.type)
+                        DetailDivider()
                     }
                     if (event.format.isNotBlank()) {
-                        DetailRow(formatIcon, "Формат", event.format, formatColor); DetailDivider()
+                        DetailRow(formatIcon, "Формат", event.format, formatColor)
+                        DetailDivider()
                     }
                     if (event.location.isNotBlank()) {
-                        DetailRow(Icons.Outlined.LocationOn, "Локация", event.location); DetailDivider()
+                        DetailRow(Icons.Outlined.LocationOn, "Локация", event.location)
+                        DetailDivider()
                     }
                     if (!event.placeNumber.isNullOrBlank()) {
-                        DetailRow(Icons.Outlined.MeetingRoom, "Помещение №", event.placeNumber); DetailDivider()
+                        DetailRow(Icons.Outlined.MeetingRoom, "Помещение №", event.placeNumber)
+                        DetailDivider()
                     }
                     DetailRow(
                         icon       = if (event.needsRegistration) Icons.Outlined.HowToReg else Icons.Outlined.PersonOff,
@@ -273,6 +321,27 @@ private fun EventContent(
                         DetailDivider()
                         DetailRow(Icons.Outlined.Group, "Макс. участников", event.maxParticipants.toString())
                     }
+
+                    // ── Аналитика — только для admin ───────────────
+                    if (isAdmin && event.participantsCount != null) {
+                        DetailDivider()
+                        DetailRow(
+                            icon       = Icons.Outlined.Group,
+                            label      = "Записалось",
+                            value      = event.participantsCount.toString() +
+                                    (event.maxParticipants?.let { " / $it" } ?: ""),
+                            valueColor = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    if (isAdmin && event.viewsCount != null) {
+                        DetailDivider()
+                        DetailRow(
+                            icon  = Icons.Outlined.Visibility,
+                            label = "Просмотры",
+                            value = event.viewsCount.toString()
+                        )
+                    }
+
                     DetailDivider()
                     DetailRow(
                         icon  = if (event.isPublic) Icons.Outlined.LockOpen else Icons.Outlined.Lock,
@@ -302,11 +371,16 @@ private fun EventContent(
                 Spacer(Modifier.height(16.dp))
                 SectionTitle("Описание")
                 Spacer(Modifier.height(8.dp))
-                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)) {
-                    Text(event.description, modifier = Modifier.padding(16.dp),
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape    = RoundedCornerShape(14.dp),
+                    color    = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                ) {
+                    Text(
+                        event.description, modifier = Modifier.padding(16.dp),
                         fontSize = 15.sp, lineHeight = 24.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -314,11 +388,16 @@ private fun EventContent(
                 Spacer(Modifier.height(16.dp))
                 SectionTitle("Анонс")
                 Spacer(Modifier.height(8.dp))
-                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)) {
-                    Text(event.announcement, modifier = Modifier.padding(16.dp),
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape    = RoundedCornerShape(14.dp),
+                    color    = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                ) {
+                    Text(
+                        event.announcement, modifier = Modifier.padding(16.dp),
                         fontSize = 14.sp, lineHeight = 22.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -336,11 +415,15 @@ private fun EventContent(
                         disabledContentColor   = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 ) {
-                    Icon(if (event.isFinished) Icons.Outlined.EventBusy else Icons.Outlined.HowToReg,
-                        null, modifier = Modifier.size(20.dp))
+                    Icon(
+                        if (event.isFinished) Icons.Outlined.EventBusy else Icons.Outlined.HowToReg,
+                        null, modifier = Modifier.size(20.dp)
+                    )
                     Spacer(Modifier.width(8.dp))
-                    Text(if (event.isFinished) "Мероприятие завершено" else "Записаться",
-                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (event.isFinished) "Мероприятие завершено" else "Записаться",
+                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
 
@@ -353,7 +436,7 @@ private fun EventContent(
 @Composable
 private fun CompactInfoCard(
     icon: ImageVector,
-    iconTint: Color,           // ← единственное новое — цвет иконки
+    iconTint: Color,
     label: String,
     value: String,
     modifier: Modifier = Modifier
@@ -371,14 +454,16 @@ private fun CompactInfoCard(
                 Icon(
                     imageVector        = icon,
                     contentDescription = null,
-                    tint               = iconTint,   // ← зелёный / красный
+                    tint               = iconTint,
                     modifier           = Modifier.size(13.dp)
                 )
                 Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(4.dp))
-            Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface, lineHeight = 18.sp)
+            Text(
+                value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface, lineHeight = 18.sp
+            )
         }
     }
 }
@@ -406,9 +491,11 @@ private fun CopyableDetailRow(
             Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(value, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                Text(
+                    value, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
             }
             Icon(
                 imageVector = if (copied) Icons.Outlined.CheckCircle else Icons.Outlined.ContentCopy,
@@ -434,21 +521,27 @@ private fun DetailRow(
         Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            Text(
+                value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                 color = if (valueColor == Color.Unspecified) MaterialTheme.colorScheme.onSurface else valueColor,
-                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                maxLines = 2, overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
 
 @Composable
 private fun DetailDivider() {
-    HorizontalDivider(modifier = Modifier.padding(horizontal = 14.dp),
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 14.dp),
+        color    = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+    )
 }
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(text, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-        letterSpacing = 0.8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(
+        text, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+        letterSpacing = 0.8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }

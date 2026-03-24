@@ -25,7 +25,9 @@ import com.events.app.ui.views.admin.AdminScreen
 import com.events.app.ui.views.createevent.CreateEventScreen
 import com.events.app.ui.views.createevent.CreateEventStep2Screen
 import com.events.app.ui.views.createevent.CreateEventViewModel
+import com.events.app.ui.views.editevent.EditEventScreen
 import com.events.app.ui.views.eventdetail.EventDetailsScreen
+import com.events.app.ui.views.eventdetail.EventDetailsViewModel
 import com.events.app.ui.views.events.EventsScreen
 import com.events.app.ui.views.eventsfilter.FiltersScreen
 import com.events.app.ui.views.main.MainScreen
@@ -39,25 +41,26 @@ fun AppGraph(
     user: User
 ) {
     val navController = rememberNavController()
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val drawerState   = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     val isAdmin = user.role == UserRole.ADMIN
 
-    fun navToAccount() = navController.navigate(NavigationRoute.Account)
+    fun navToAccount()                = navController.navigate(NavigationRoute.Account)
     fun navToEventDetails(id: String) = navController.navigate(NavigationRoute.EventDetails(id))
-    fun navToFilters() = navController.navigate(NavigationRoute.Filters)
-    fun navBack() = navController.popBackStack()
+    fun navToFilters()                = navController.navigate(NavigationRoute.Filters)
+    fun navToEditEvent(id: String)    = navController.navigate(NavigationRoute.EditEvent(id))
+    fun navBack()                     = navController.popBackStack()
 
     NavHost(
-        navController = navController,
+        navController    = navController,
         startDestination = NavigationRoute.Main
     ) {
-        // Главная
+        // ── Главная ───────────────────────────────────────────────
         composable<NavigationRoute.Main> {
             AppDrawer(drawerState = drawerState, navController = navController) {
                 AppTopBar(
-                    title = "Главная",
-                    drawerState = drawerState,
+                    title                 = "Главная",
+                    drawerState           = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
                     MainScreen(onEventClick = { id -> navToEventDetails(id) })
@@ -65,20 +68,20 @@ fun AppGraph(
             }
         }
 
-        // Все мероприятия
+        // ── Все мероприятия ───────────────────────────────────────
         composable<NavigationRoute.Events> {
             AppDrawer(drawerState = drawerState, navController = navController) {
                 EventsTopBar(
-                    drawerState = drawerState,
+                    drawerState           = drawerState,
                     onNavigationToAccount = { navToAccount() },
-                    onFiltersClick = { navToFilters() },
+                    onFiltersClick        = { navToFilters() },
                 ) {
                     EventsScreen(onEventClick = { id -> navToEventDetails(id) })
                 }
             }
         }
 
-        // Создание мероприятия — вложенный граф (shared ViewModel)
+        // ── Создание мероприятия — вложенный граф (shared ViewModel) ──
         navigation<NavigationRoute.CreateEventGraph>(
             startDestination = NavigationRoute.CreateEvent
         ) {
@@ -90,13 +93,13 @@ fun AppGraph(
 
                 AppDrawer(drawerState = drawerState, navController = navController) {
                     AppTopBar(
-                        title = "Создать мероприятие",
-                        drawerState = drawerState,
+                        title                 = "Создать мероприятие",
+                        drawerState           = drawerState,
                         onNavigationToAccount = { navToAccount() },
                     ) {
                         CreateEventScreen(
                             viewModel = viewModel,
-                            onNext = { navController.navigate(NavigationRoute.CreateEventStep2) }
+                            onNext    = { navController.navigate(NavigationRoute.CreateEventStep2) }
                         )
                     }
                 }
@@ -110,15 +113,15 @@ fun AppGraph(
 
                 AppDrawer(drawerState = drawerState, navController = navController) {
                     EventDetailsTopBar(
-                        title = "Создать мероприятие",
-                        onBack = { navBack() },
+                        title                 = "Создать мероприятие",
+                        onBack                = { navBack() },
                         onNavigationToAccount = { navToAccount() }
                     ) {
                         CreateEventStep2Screen(
                             viewModel = viewModel,
                             onSuccess = {
                                 navController.popBackStack(
-                                    route = NavigationRoute.CreateEventGraph,
+                                    route     = NavigationRoute.CreateEventGraph,
                                     inclusive = true
                                 )
                             }
@@ -128,12 +131,12 @@ fun AppGraph(
             }
         }
 
-        // Статистика
+        // ── Статистика ────────────────────────────────────────────
         composable<NavigationRoute.Statistics> {
             AppDrawer(drawerState = drawerState, navController = navController) {
                 AppTopBar(
-                    title = "Статистика",
-                    drawerState = drawerState,
+                    title                 = "Статистика",
+                    drawerState           = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
                     StatisticsScreen()
@@ -141,12 +144,12 @@ fun AppGraph(
             }
         }
 
-        // Настройки
+        // ── Настройки ─────────────────────────────────────────────
         composable<NavigationRoute.Settings> {
             AppDrawer(drawerState = drawerState, navController = navController) {
                 AppTopBar(
-                    title = "Настройки",
-                    drawerState = drawerState,
+                    title                 = "Настройки",
+                    drawerState           = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
                     SettingsScreen()
@@ -154,12 +157,12 @@ fun AppGraph(
             }
         }
 
-        // Аккаунт
+        // ── Аккаунт ───────────────────────────────────────────────
         composable<NavigationRoute.Account> {
             AppDrawer(drawerState = drawerState, navController = navController) {
                 AppTopBar(
-                    title = "Аккаунт",
-                    drawerState = drawerState,
+                    title                 = "Аккаунт",
+                    drawerState           = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
                     AccountScreen()
@@ -167,41 +170,73 @@ fun AppGraph(
             }
         }
 
-        // Детали мероприятия
+        // ── Детали мероприятия ────────────────────────────────────
         composable<NavigationRoute.EventDetails> { backStackEntry ->
             val details: NavigationRoute.EventDetails = backStackEntry.toRoute()
             EventDetailsTopBar(
                 onNavigationToAccount = { navToAccount() },
-                onBack = { navBack() }
+                onBack                = { navBack() }
             ) {
                 EventDetailsScreen(
                     eventId = details.id,
-                    onBack = { navBack() }   // ← добавить это
+                    onBack  = { navBack() },
+                    // Передаём onEdit только для admin — кнопка в экране сама скрыта для обычных пользователей,
+                    // но навигация всё равно только для admin
+                    onEdit  = if (isAdmin) { { id -> navToEditEvent(id) } } else null
                 )
             }
         }
 
-        // Фильтры
+        // ── Редактирование мероприятия (только ADMIN) ─────────────
+        if (isAdmin) {
+            composable<NavigationRoute.EditEvent> { backStackEntry ->
+                val route: NavigationRoute.EditEvent = backStackEntry.toRoute()
+
+                // Берём EventDetailsViewModel из предыдущего backstack entry,
+                // чтобы не делать лишний сетевой запрос — event уже загружен
+                val detailsEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry<NavigationRoute.EventDetails>()
+                }
+                val detailsViewModel: EventDetailsViewModel = hiltViewModel(detailsEntry)
+                val event by detailsViewModel.event.collectAsState()
+
+                EventDetailsTopBar(
+                    title                 = "Редактировать",
+                    onBack                = { navBack() },
+                    onNavigationToAccount = { navToAccount() }
+                ) {
+                    event?.let {
+                        EditEventScreen(
+                            event     = it,
+                            onSuccess = { navBack() },
+                            onBack    = { navBack() }
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── Фильтры ───────────────────────────────────────────────
         composable<NavigationRoute.Filters> {
             FiltersTopBar(
-                onBack = { navBack() },
+                onBack     = { navBack() },
                 onResetAll = { }
             ) {
                 FiltersScreen()
             }
         }
 
-        // Администрирование — только если ADMIN
+        // ── Администрирование (только ADMIN) ──────────────────────
         if (isAdmin) {
             composable<NavigationRoute.Admin> {
                 AppDrawer(drawerState = drawerState, navController = navController) {
                     AppTopBar(
-                        title = "Администрирование",
-                        drawerState = drawerState,
+                        title                 = "Администрирование",
+                        drawerState           = drawerState,
                         onNavigationToAccount = { navToAccount() },
                     ) {
                         AdminScreen(
-                            onEventClick = { id -> navToEventDetails(id) }  // ← добавить
+                            onEventClick = { id -> navToEventDetails(id) }
                         )
                     }
                 }

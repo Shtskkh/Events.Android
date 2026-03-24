@@ -63,12 +63,18 @@ interface EventsApi {
         @Part preview: MultipartBody.Part? = null
     ): String
 
-    // ── Analytics ─────────────────────────────────────────────────
+    @Multipart
+    @PATCH("api/v/1/events/{id}")
+    suspend fun updateEvent(
+        @Path("id") id: String,
+        @Part("Title") title: RequestBody? = null,
+        @Part("Announcement") announcement: RequestBody? = null,
+        @Part("Description") description: RequestBody? = null,
+        @Part("StartDateTime") startDateTime: RequestBody? = null,
+        @Part("EndDateTime") endDateTime: RequestBody? = null
+    )
 
-    /**
-     * Получить аналитику мероприятия: просмотры по дням, общее количество просмотров,
-     * количество участников и максимальное количество участников.
-     */
+    // ── Analytics ─────────────────────────────────────────────────
     @GET("api/v/1/events/{id}/analytics")
     suspend fun getEventAnalytics(@Path("id") id: String): EventAnalyticDto
 

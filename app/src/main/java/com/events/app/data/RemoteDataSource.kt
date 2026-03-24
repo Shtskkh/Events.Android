@@ -25,6 +25,11 @@ class RemoteDataSource @Inject constructor(
     ): List<ShortEventDto> =
         api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId)
 
+    /**
+     * Получить мероприятие по ID.
+     * [accessToken] — токен пользователя для фиксации просмотра на бэкенде.
+     * Передаётся как "Bearer {token}". Если null — просмотр не записывается на пользователя.
+     */
     suspend fun getEventById(id: String, accessToken: String? = null): EventDetailDto {
         val authHeader = accessToken?.let { "Bearer $it" }
         return api.getEventById(id, authHeader)
@@ -48,10 +53,16 @@ class RemoteDataSource @Inject constructor(
 
     // ── Analytics ─────────────────────────────────────────────────
 
-    /**
-     * Получить аналитику мероприятия: просмотры, участники.
-     */
     suspend fun getEventAnalytics(id: String): EventAnalyticDto = api.getEventAnalytics(id)
+
+    suspend fun updateEvent(
+        id: String,
+        title: RequestBody? = null,
+        announcement: RequestBody? = null,
+        description: RequestBody? = null,
+        startDateTime: RequestBody? = null,
+        endDateTime: RequestBody? = null
+    ) = api.updateEvent(id, title, announcement, description, startDateTime, endDateTime)
 
     // ── Participants ──────────────────────────────────────────────
 

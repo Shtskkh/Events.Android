@@ -41,4 +41,14 @@ sealed interface NavigationRoute {
 
     @Serializable
     data object Admin : NavigationRoute   // ← только для ADMIN
+
+    /**
+     * Экран редактирования мероприятия.
+     * Доступен только для ADMIN.
+     * [id] — UUID мероприятия.
+     */
+    @Serializable
+    data class EditEvent(
+        val id: String
+    ) : NavigationRoute
 }

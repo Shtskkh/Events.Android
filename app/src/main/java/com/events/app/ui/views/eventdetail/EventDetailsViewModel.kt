@@ -91,7 +91,13 @@ class EventDetailsViewModel @Inject constructor(
         viewModelScope.launch {
             _analyticsLoading.value = true
             try {
-                _analytics.value = remoteDataSource.getEventAnalytics(eventId)
+                val analytic = remoteDataSource.getEventAnalytics(eventId)
+                _analytics.value = analytic
+                // Обогащаем event данными из аналитики (participantsCount, viewsCount)
+                _event.value = _event.value?.copy(
+                    participantsCount = analytic.participantsCount,
+                    viewsCount        = analytic.viewsCount
+                )
             } catch (_: Exception) {
                 // Аналитика — некритична, молча игнорируем
                 _analytics.value = null
