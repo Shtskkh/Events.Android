@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.events.app.data.RemoteDataSource
 import com.events.app.data.local.EventLocationCache
+import com.events.app.data.remote.dto.EventAnalyticDto
 import com.events.app.domain.models.events.Event
 import com.events.app.domain.models.users.UserRole
 import com.events.app.domain.repositories.auth.AuthRepository
@@ -41,6 +42,14 @@ class EventDetailsViewModel @Inject constructor(
     private val _isAdmin = MutableStateFlow(false)
     val isAdmin = _isAdmin.asStateFlow()
 
+    // ── Аналитика ─────────────────────────────────────────────────
+
+    private val _analytics = MutableStateFlow<EventAnalyticDto?>(null)
+    val analytics = _analytics.asStateFlow()
+
+    private val _analyticsLoading = MutableStateFlow(false)
+    val analyticsLoading = _analyticsLoading.asStateFlow()
+
     init {
         viewModelScope.launch {
             authRepository.currentUser.collect { user ->
@@ -55,7 +64,12 @@ class EventDetailsViewModel @Inject constructor(
             _isLoading.value = true
             _error.value = null
             try {
-                val loaded = getEventByIdUseCase(eventId)
+                // Передаём accessToken → бэкенд записывает просмотр на пользователя.
+                // Для неавторизованного пользователя accessToken = null (просто не записывается).
+                val accessToken = authRepository.currentUser.value?.accessToken
+                val loaded = getEventByIdUseCase(eventId, accessToken)
+
+                // Обогащаем локацией из кэша если бэкенд не вернул
                 val locationTitle = if (loaded.location.isBlank()) {
                     locationCache.get(eventId) ?: ""
                 } else {
@@ -66,6 +80,23 @@ class EventDetailsViewModel @Inject constructor(
                 _error.value = "Ошибка загрузки мероприятия"
             } finally {
                 _isLoading.value = false
+            }
+
+            // Загружаем аналитику параллельно — некритично, не влияет на отображение основного контента
+            loadAnalytics(eventId)
+        }
+    }
+
+    private fun loadAnalytics(eventId: String) {
+        viewModelScope.launch {
+            _analyticsLoading.value = true
+            try {
+                _analytics.value = remoteDataSource.getEventAnalytics(eventId)
+            } catch (_: Exception) {
+                // Аналитика — некритична, молча игнорируем
+                _analytics.value = null
+            } finally {
+                _analyticsLoading.value = false
             }
         }
     }

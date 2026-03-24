@@ -1,6 +1,7 @@
 package com.events.app.data
 
 import com.events.app.data.remote.EventsApi
+import com.events.app.data.remote.dto.EventAnalyticDto
 import com.events.app.data.remote.dto.EventDetailDto
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
@@ -24,7 +25,11 @@ class RemoteDataSource @Inject constructor(
     ): List<ShortEventDto> =
         api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId)
 
-    suspend fun getEventById(id: String): EventDetailDto = api.getEventById(id)
+    suspend fun getEventById(id: String, accessToken: String? = null): EventDetailDto {
+        val authHeader = accessToken?.let { "Bearer $it" }
+        return api.getEventById(id, authHeader)
+    }
+
     suspend fun getPlaceholders(): List<String> = api.getPlaceholders()
     suspend fun getEventTypes(): List<EventTypeDto> = api.getEventTypes()
     suspend fun getEventFormats(): List<EventFormatDto> = api.getEventFormats()
@@ -40,6 +45,13 @@ class RemoteDataSource @Inject constructor(
         userId, title, announcement, description, startDateTime, endDateTime,
         eventTypeId, eventFormatId, needsRegistration, maxParticipants, placeId, placeholder, preview
     )
+
+    // ── Analytics ─────────────────────────────────────────────────
+
+    /**
+     * Получить аналитику мероприятия: просмотры, участники.
+     */
+    suspend fun getEventAnalytics(id: String): EventAnalyticDto = api.getEventAnalytics(id)
 
     // ── Participants ──────────────────────────────────────────────
 
@@ -62,7 +74,6 @@ class RemoteDataSource @Inject constructor(
 
     // ── Users ─────────────────────────────────────────────────────
 
-    // Size и Page обязательны — передаём явно
     suspend fun getUsers(size: Int = 20, page: Int = 1): List<UserDto> =
         api.getUsers(size, page)
 
@@ -75,4 +86,7 @@ class RemoteDataSource @Inject constructor(
     ): String = api.createUser(firstName, lastName, email, password, patronymic)
 
     suspend fun deleteUser(id: String) = api.deleteUser(id)
+
+    suspend fun getRecentEvents(userId: String): List<ShortEventDto> =
+        api.getRecentEvents(userId)
 }

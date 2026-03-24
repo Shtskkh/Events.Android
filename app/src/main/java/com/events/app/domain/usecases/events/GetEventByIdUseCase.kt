@@ -7,7 +7,11 @@ import javax.inject.Inject
 class GetEventByIdUseCase @Inject constructor(
     private val repository: EventRepository
 ) {
-    suspend operator fun invoke(id: String): Event {
-        return repository.getEventById(id)
+    /**
+     * [accessToken] — передаётся в заголовок Authorization чтобы бэкенд
+     * записал просмотр мероприятия на конкретного пользователя.
+     */
+    suspend operator fun invoke(id: String, accessToken: String? = null): Event {
+        return repository.getEventById(id, accessToken)
     }
 }

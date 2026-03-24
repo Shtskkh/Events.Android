@@ -1,5 +1,6 @@
 package com.events.app.domain.repositories.events
 
+import com.events.app.data.remote.dto.EventAnalyticDto
 import com.events.app.domain.models.events.Event
 
 interface EventRepository {
@@ -13,5 +14,18 @@ interface EventRepository {
         formatId: Int? = null
     ): List<Event>
 
-    suspend fun getEventById(id: String): Event
+    /**
+     * [accessToken] передаётся чтобы бэкенд записал просмотр на пользователя.
+     */
+    suspend fun getEventById(id: String, accessToken: String? = null): Event
+
+    /**
+     * Получить аналитику мероприятия.
+     */
+    suspend fun getEventAnalytics(id: String): EventAnalyticDto
+
+    /**
+     * Последние 10 просмотренных мероприятий для данного пользователя.
+     */
+    suspend fun getRecentEvents(userId: String): List<Event>
 }

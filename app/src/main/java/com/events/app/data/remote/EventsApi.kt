@@ -1,5 +1,6 @@
 package com.events.app.data.remote
 
+import com.events.app.data.remote.dto.EventAnalyticDto
 import com.events.app.data.remote.dto.EventDetailDto
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
@@ -27,7 +28,10 @@ interface EventsApi {
     ): List<ShortEventDto>
 
     @GET("api/v/1/events/{id}")
-    suspend fun getEventById(@Path("id") id: String): EventDetailDto
+    suspend fun getEventById(
+        @Path("id") id: String,
+        @Header("Authorization") authorization: String? = null
+    ): EventDetailDto
 
     @GET("api/v/1/events/placeholders")
     suspend fun getPlaceholders(): List<String>
@@ -58,6 +62,15 @@ interface EventsApi {
         @Part("Placeholder") placeholder: RequestBody? = null,
         @Part preview: MultipartBody.Part? = null
     ): String
+
+    // ── Analytics ─────────────────────────────────────────────────
+
+    /**
+     * Получить аналитику мероприятия: просмотры по дням, общее количество просмотров,
+     * количество участников и максимальное количество участников.
+     */
+    @GET("api/v/1/events/{id}/analytics")
+    suspend fun getEventAnalytics(@Path("id") id: String): EventAnalyticDto
 
     // ── Participants ──────────────────────────────────────────────
 
@@ -91,6 +104,7 @@ interface EventsApi {
     @DELETE("api/v/1/locations/{id}")
     suspend fun deleteLocation(@Path("id") id: Int)
 
+    // ── Users ─────────────────────────────────────────────────────
 
     @GET("api/v/1/users")
     suspend fun getUsers(
@@ -110,4 +124,7 @@ interface EventsApi {
 
     @DELETE("api/v/1/users/{id}")
     suspend fun deleteUser(@Path("id") id: String)
+
+    @GET("api/v/1/users/{id}/events/recent")
+    suspend fun getRecentEvents(@Path("id") id: String): List<ShortEventDto>
 }
