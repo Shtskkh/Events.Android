@@ -14,6 +14,20 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
+// UUID regex: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+private val UUID_REGEX = Regex(
+    "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+/**
+ * Возвращает true если строка похожа на UUID (полный или частичный — от 8+ символов hex).
+ * Частичный: начало UUID без дефисов тоже считаем поиском по ID.
+ */
+private fun String.looksLikeUuid(): Boolean {
+    val clean = trim()
+    return UUID_REGEX.matches(clean) || (clean.length >= 8 && clean.all { it.isLetterOrDigit() || it == '-' } && clean.contains('-'))
+}
+
 @HiltViewModel
 class AdminViewModel @Inject constructor(
     private val remoteDataSource: RemoteDataSource
@@ -36,21 +50,38 @@ class AdminViewModel @Inject constructor(
 
     fun clearMessages() { _error.value = null; _successMessage.value = null }
 
-    // ─────────────────────────────────────────────────────────────
-    // МЕРОПРИЯТИЯ — size max 30 (ограничение бэкенда)
-    // ─────────────────────────────────────────────────────────────
+    // ── МЕРОПРИЯТИЯ ───────────────────────────────────────────────
 
+    // Все загруженные с сервера события (без фильтра)
+    private val _allEvents = MutableStateFlow<List<ShortEventDto>>(emptyList())
+
+    // Отображаемые события (после фильтра по ID на клиенте или серверного поиска)
     private val _events = MutableStateFlow<List<ShortEventDto>>(emptyList())
     val events = _events.asStateFlow()
 
     private val _eventsLoading = MutableStateFlow(false)
     val eventsLoading = _eventsLoading.asStateFlow()
 
-    private var eventsPage = 1
+    private var eventsPage    = 1
     private var eventsHasMore = true
 
+    /**
+     * Загрузить/обновить список мероприятий.
+     * [query] — строка поиска. Если похожа на UUID — фильтруем локально.
+     * Иначе — передаём на сервер (полнотекстовый поиск по названию/анонсу/описанию).
+     */
     fun loadEvents(query: String? = null, reset: Boolean = true) {
-        if (reset) { eventsPage = 1; eventsHasMore = true; _events.value = emptyList() }
+        val q = query?.trim()
+
+        // ── Поиск по ID — локально ───────────────────────────────
+        if (!q.isNullOrBlank() && q.looksLikeUuid()) {
+            val filtered = _allEvents.value.filter { it.id.contains(q, ignoreCase = true) }
+            _events.value = filtered
+            return
+        }
+
+        // ── Обычный поиск — на сервер ────────────────────────────
+        if (reset) { eventsPage = 1; eventsHasMore = true; _allEvents.value = emptyList(); _events.value = emptyList() }
         if (!eventsHasMore) return
 
         viewModelScope.launch {
@@ -59,13 +90,16 @@ class AdminViewModel @Inject constructor(
                 val page = remoteDataSource.getEvents(
                     size = 30,
                     page = eventsPage,
-                    text = query?.trim()?.takeIf { it.length >= 2 }
+                    text = q?.takeIf { it.length >= 2 }
                 )
-                _events.value = if (reset) page else _events.value + page
+                val merged = if (reset) page else _allEvents.value + page
+                _allEvents.value = merged
+                _events.value    = merged
                 if (page.size < 30) eventsHasMore = false else eventsPage++
             } catch (e: retrofit2.HttpException) {
                 if (e.code() == 404) {
-                    _events.value = emptyList()   // 404 = просто нет — не ошибка
+                    _allEvents.value = emptyList()
+                    _events.value    = emptyList()
                 } else {
                     _error.value = "Ошибка загрузки: HTTP ${e.code()}"
                 }
@@ -86,7 +120,8 @@ class AdminViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 remoteDataSource.deleteEvent(id)
-                _events.value = _events.value.filter { it.id != id }
+                _allEvents.value = _allEvents.value.filter { it.id != id }
+                _events.value    = _events.value.filter { it.id != id }
                 _successMessage.value = "Мероприятие удалено"
                 onDone()
             } catch (e: Exception) {
@@ -95,10 +130,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // ПОЛЬЗОВАТЕЛИ — GET /api/v/1/users?Size=20&Page=1
-    // POST /api/v/1/users: FirstName, LastName, Email, Password, Patronymic?
-    // ─────────────────────────────────────────────────────────────
+    // ── ПОЛЬЗОВАТЕЛИ ──────────────────────────────────────────────
 
     private val _users = MutableStateFlow<List<UserDto>>(emptyList())
     val users = _users.asStateFlow()
@@ -110,35 +142,25 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             _usersLoading.value = true
             try {
-                // Size и Page обязательны!
                 _users.value = remoteDataSource.getUsers(size = 20, page = 1)
             } catch (e: retrofit2.HttpException) {
-                if (e.code() != 404) {
-                    _error.value = "Ошибка загрузки пользователей: HTTP ${e.code()}"
-                }
+                if (e.code() != 404) _error.value = "Ошибка загрузки пользователей: HTTP ${e.code()}"
                 _users.value = emptyList()
             } catch (e: Exception) {
                 _users.value = emptyList()
-            } finally {
-                _usersLoading.value = false
-            }
+            } finally { _usersLoading.value = false }
         }
     }
 
     fun createUser(
-        firstName: String,
-        lastName: String,
-        email: String,
-        password: String,
-        patronymic: String,
-        onDone: () -> Unit = {}
+        firstName: String, lastName: String, email: String,
+        password: String, patronymic: String, onDone: () -> Unit = {}
     ) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             try {
                 fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
-
                 remoteDataSource.createUser(
                     firstName  = firstName.trim().toBody(),
                     lastName   = lastName.trim().toBody(),
@@ -175,9 +197,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // ЛОКАЦИИ
-    // ─────────────────────────────────────────────────────────────
+    // ── ЛОКАЦИИ ───────────────────────────────────────────────────
 
     private val _locations = MutableStateFlow<List<LocationDto>>(emptyList())
     val locations = _locations.asStateFlow()
@@ -205,8 +225,7 @@ class AdminViewModel @Inject constructor(
             try {
                 fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
                 val newId = remoteDataSource.createLocation(title.trim().toBody(), address.trim().toBody())
-                _locations.value = _locations.value +
-                        LocationDto(id = newId, title = title.trim(), address = address.trim())
+                _locations.value = _locations.value + LocationDto(id = newId, title = title.trim(), address = address.trim())
                 _successMessage.value = "Локация «${title.trim()}» создана"
                 onDone()
             } catch (e: Exception) {
