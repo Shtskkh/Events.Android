@@ -30,7 +30,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-
 import coil.compose.AsyncImage
 import com.events.app.data.remote.dto.ParticipantDto
 import com.events.app.domain.models.events.Event
@@ -101,6 +100,7 @@ fun EventDetailsScreen(
             isDeleting          = isDeleting,
             isRegistered        = isRegistered,
             registrationLoading = registrationLoading,
+            participants        = participants,
             onDelete            = { viewModel.deleteEvent(event!!.id) },
             onEdit              = { onEdit?.invoke(event!!.id) },
             onRegister          = { viewModel.toggleRegistration() },
@@ -138,6 +138,7 @@ private fun EventContent(
     isDeleting: Boolean,
     isRegistered: Boolean,
     registrationLoading: Boolean,
+    participants: List<ParticipantDto>,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
     onRegister: () -> Unit,
@@ -330,21 +331,34 @@ private fun EventContent(
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
+                    // Участники / макс. — показываем всегда когда maxParticipants != null
                     if (event.maxParticipants != null) {
                         DetailDivider()
-                        // Если есть данные аналитики — показываем "X из Y"
-                        val participantsText = if (event.participantsCount != null) {
-                            "${event.participantsCount} из ${event.maxParticipants}"
-                        } else {
-                            "${event.maxParticipants}"
+                        // Берём из аналитики или из загруженного списка участников
+                        val registered = event.participantsCount
+                            ?: participants.size.takeIf { participants.isNotEmpty() }
+                        val isFull = registered != null && registered >= event.maxParticipants
+                        val isAlmostFull = registered != null &&
+                                registered >= (event.maxParticipants * 0.8).toInt()
+                        // Если зарегистрированных нет — показываем просто максимум
+                        val participantsText = when {
+                            registered != null -> "$registered из ${event.maxParticipants}"
+                            event.needsRegistration -> "до ${event.maxParticipants}"
+                            else -> "${event.maxParticipants}"
                         }
                         DetailRow(
                             icon       = Icons.Outlined.Group,
-                            label      = if (event.participantsCount != null) "Участников / макс." else "Макс. участников",
+                            label      = when {
+                                registered != null -> "Зарегистрировано / макс."
+                                event.needsRegistration -> "Макс. участников"
+                                else -> "Макс. участников"
+                            },
                             value      = participantsText,
-                            valueColor = if (event.participantsCount != null &&
-                                event.participantsCount >= event.maxParticipants)
-                                RedEnd else Color.Unspecified
+                            valueColor = when {
+                                isFull       -> RedEnd
+                                isAlmostFull -> Color(0xFFF59E0B)
+                                else         -> Color.Unspecified
+                            }
                         )
                     }
 
@@ -417,9 +431,12 @@ private fun EventContent(
                 ) {
                     Icon(Icons.Outlined.Groups, null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    val count = event.participantsCount
+                    val displayCount = event.participantsCount
+                        ?: participants.size.takeIf { participants.isNotEmpty() }
+                    val maxStr = event.maxParticipants?.let { " / $it" } ?: ""
                     Text(
-                        if (count != null) "Участники ($count)" else "Список участников",
+                        if (displayCount != null) "Участники ($displayCount$maxStr)"
+                        else "Список участников",
                         fontSize = 15.sp, fontWeight = FontWeight.Medium
                     )
                 }
@@ -471,38 +488,70 @@ private fun EventContent(
 
                 // Авторизован, не завершено — показываем кнопку регистрации
                 else -> {
-                    Button(
-                        onClick  = onRegister,
-                        enabled  = !registrationLoading,
-                        modifier = Modifier.fillMaxWidth().height(54.dp),
-                        shape    = RoundedCornerShape(16.dp),
-                        colors   = if (isRegistered) {
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor   = MaterialTheme.colorScheme.onErrorContainer
+                    // Мест нет — заблокировать если не зарегистрирован
+                    val isFull = event.needsRegistration &&
+                            event.maxParticipants != null &&
+                            (event.participantsCount
+                                ?: participants.size.takeIf { participants.isNotEmpty() }
+                                ?: 0) >= event.maxParticipants
+                    val isBlocked = isFull && !isRegistered
+
+                    if (isRegistered) {
+                        // Уже записан — красноватая кнопка с иконкой отмены
+                        Button(
+                            onClick  = onRegister,
+                            enabled  = !registrationLoading,
+                            modifier = Modifier.fillMaxWidth().height(54.dp),
+                            shape    = RoundedCornerShape(16.dp),
+                            colors   = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
+                                contentColor   = MaterialTheme.colorScheme.error,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                disabledContentColor   = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        } else {
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor   = MaterialTheme.colorScheme.onPrimary
-                            )
+                        ) {
+                            if (registrationLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(22.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            } else {
+                                Icon(Icons.Outlined.PersonRemove, null, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Отменить запись",
+                                    fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            }
                         }
-                    ) {
-                        if (registrationLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(22.dp),
-                                strokeWidth = 2.dp,
-                                color = if (isRegistered) MaterialTheme.colorScheme.onErrorContainer
-                                else MaterialTheme.colorScheme.onPrimary)
-                        } else {
-                            Icon(
-                                if (isRegistered) Icons.Outlined.PersonRemove else Icons.Outlined.HowToReg,
-                                null, modifier = Modifier.size(20.dp)
+                    } else {
+                        // Не записан — синяя главная кнопка
+                        Button(
+                            onClick  = onRegister,
+                            enabled  = !registrationLoading && !isBlocked,
+                            modifier = Modifier.fillMaxWidth().height(54.dp),
+                            shape    = RoundedCornerShape(16.dp),
+                            colors   = ButtonDefaults.buttonColors(
+                                containerColor         = MaterialTheme.colorScheme.primary,
+                                contentColor           = MaterialTheme.colorScheme.onPrimary,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                disabledContentColor   = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                if (isRegistered) "Отменить запись" else "Записаться",
-                                fontSize = 16.sp, fontWeight = FontWeight.SemiBold
-                            )
+                        ) {
+                            if (registrationLoading) {
+                                CircularProgressIndicator(modifier = Modifier.size(22.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary)
+                            } else {
+                                Icon(
+                                    if (isBlocked) Icons.Outlined.EventBusy else Icons.Outlined.HowToReg,
+                                    null, modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    if (isBlocked) "Мест нет" else "Записаться",
+                                    fontSize = 16.sp, fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
                 }

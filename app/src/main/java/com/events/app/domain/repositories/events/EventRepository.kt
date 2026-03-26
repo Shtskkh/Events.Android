@@ -14,18 +14,9 @@ interface EventRepository {
         formatId: Int? = null
     ): List<Event>
 
-    /**
-     * [accessToken] передаётся чтобы бэкенд записал просмотр на пользователя.
-     */
     suspend fun getEventById(id: String, accessToken: String? = null): Event
 
-    /**
-     * Получить аналитику мероприятия.
-     */
     suspend fun getEventAnalytics(id: String): EventAnalyticDto
 
-    /**
-     * Последние 10 просмотренных мероприятий для данного пользователя.
-     */
     suspend fun getRecentEvents(userId: String): List<Event>
 }

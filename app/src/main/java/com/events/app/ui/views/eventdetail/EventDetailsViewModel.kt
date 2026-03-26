@@ -48,6 +48,7 @@ class EventDetailsViewModel @Inject constructor(
     private val _isAdmin = MutableStateFlow(false)
     val isAdmin = _isAdmin.asStateFlow()
 
+    /** true = авторизован (ADMIN или USER), может регистрироваться */
     private val _canRegister = MutableStateFlow(false)
     val canRegister = _canRegister.asStateFlow()
 
@@ -69,6 +70,7 @@ class EventDetailsViewModel @Inject constructor(
     private val _participantsLoading = MutableStateFlow(false)
     val participantsLoading = _participantsLoading.asStateFlow()
 
+    /** true если текущий пользователь уже зарегистрирован */
     private val _isRegistered = MutableStateFlow(false)
     val isRegistered = _isRegistered.asStateFlow()
 
@@ -124,9 +126,22 @@ class EventDetailsViewModel @Inject constructor(
             try {
                 val analytic = remoteDataSource.getEventAnalytics(eventId)
                 _analytics.value = analytic
-                _event.value = _event.value?.copy(
+
+                // Ждём пока основной запрос загрузит event (на случай race condition)
+                var attempts = 0
+                while (_event.value == null && attempts < 10) {
+                    kotlinx.coroutines.delay(100)
+                    attempts++
+                }
+
+                val current = _event.value ?: return@launch
+                _event.value = current.copy(
                     participantsCount = analytic.participantsCount,
-                    viewsCount        = analytic.viewsCount
+                    viewsCount        = analytic.viewsCount,
+                    // maxParticipantsCount из аналитики используем как fallback
+                    // если detail не вернул maxParticipants
+                    maxParticipants   = current.maxParticipants
+                        ?: analytic.maxParticipantsCount
                 )
             } catch (_: Exception) {
                 _analytics.value = null

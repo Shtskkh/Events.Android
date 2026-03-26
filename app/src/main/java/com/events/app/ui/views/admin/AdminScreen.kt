@@ -112,7 +112,7 @@ val AdminViewModel.AdminTab.icon: ImageVector get() = when (this) {
 @Composable
 private fun EventsTab(
     viewModel: AdminViewModel,
-    onEventClick: (String) -> Unit   // ← пробрасываем дальше
+    onEventClick: (String) -> Unit
 ) {
     val events    by viewModel.events.collectAsState()
     val isLoading by viewModel.eventsLoading.collectAsState()
@@ -166,9 +166,9 @@ private fun EventsTab(
                 ) {
                     items(events, key = { it.id }) { event ->
                         AdminEventCard(
-                            event     = event,
-                            onClick   = { onEventClick(event.id) },   // ← клик по карточке
-                            onDelete  = { eventToDelete = event }
+                            event    = event,
+                            onClick  = { onEventClick(event.id) },
+                            onDelete = { eventToDelete = event }
                         )
                     }
                     if (isLoading) {
@@ -203,7 +203,7 @@ private fun AdminEventCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },   // ← вся карточка кликабельная
+            .clickable { onClick() },
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp
@@ -214,7 +214,6 @@ private fun AdminEventCard(
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Иконка
             Surface(shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier.size(40.dp)) {
@@ -226,7 +225,6 @@ private fun AdminEventCard(
 
             Spacer(Modifier.width(12.dp))
 
-            // Текст
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = event.title ?: "Без названия",
@@ -252,7 +250,6 @@ private fun AdminEventCard(
                 }
             }
 
-            // Стрелка — подсказка что карточка кликабельная
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = null,
@@ -262,7 +259,6 @@ private fun AdminEventCard(
 
             Spacer(Modifier.width(4.dp))
 
-            // Кнопка удаления — stopPropagation через отдельный IconButton
             IconButton(
                 onClick = onDelete,
                 modifier = Modifier.size(36.dp)
@@ -284,28 +280,82 @@ private fun UsersTab(viewModel: AdminViewModel) {
     val isLoading by viewModel.usersLoading.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var userToDelete     by remember { mutableStateOf<UserDto?>(null) }
+    var searchQuery      by remember { mutableStateOf("") }
+
+    // Локальная фильтрация по имени, фамилии или UUID пользователя
+    val filteredUsers = remember(users, searchQuery) {
+        val q = searchQuery.trim()
+        if (q.isBlank()) users
+        else users.filter { user ->
+            user.id.contains(q, ignoreCase = true) ||
+                    user.displayName.contains(q, ignoreCase = true) ||
+                    user.lastName?.contains(q, ignoreCase = true) == true ||
+                    user.firstName?.contains(q, ignoreCase = true) == true ||
+                    user.patronymic?.contains(q, ignoreCase = true) == true
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+
+        // ── Строка поиска ─────────────────────────────────────────
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Поиск по имени или ID пользователя...") },
+            leadingIcon = { Icon(Icons.Outlined.Search, null) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Outlined.Close, null)
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
-            Text("Всего: ${users.size}", fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Button(onClick = { showCreateDialog = true }, shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (searchQuery.isBlank()) "Всего: ${users.size}"
+                else "Найдено: ${filteredUsers.size} из ${users.size}",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(
+                onClick = { showCreateDialog = true },
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
                 Icon(Icons.Outlined.PersonAdd, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Создать", fontSize = 14.sp)
             }
         }
+
         Box(modifier = Modifier.weight(1f)) {
             when {
                 isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                users.isEmpty() -> EmptyState(Icons.Outlined.PeopleOutline, "Пользователи не найдены")
-                else -> LazyColumn(modifier = Modifier.fillMaxSize(),
+                filteredUsers.isEmpty() -> EmptyState(
+                    icon = if (searchQuery.isBlank()) Icons.Outlined.PeopleOutline
+                    else Icons.Outlined.SearchOff,
+                    text = if (searchQuery.isBlank()) "Пользователи не найдены"
+                    else "Ничего не найдено по запросу «$searchQuery»"
+                )
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(users, key = { it.id }) { user ->
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filteredUsers, key = { it.id }) { user ->
                         AdminUserCard(user, onDelete = { userToDelete = user })
                     }
                     item { Spacer(Modifier.height(16.dp)) }
@@ -611,7 +661,8 @@ private fun EmptyState(icon: ImageVector, text: String) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
                 modifier = Modifier.size(48.dp))
             Spacer(Modifier.height(12.dp))
-            Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontSize = 14.sp)
+            Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                fontSize = 14.sp)
         }
     }
 }

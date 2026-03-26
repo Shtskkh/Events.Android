@@ -90,11 +90,15 @@ fun CreateEventStep2Screen(
     val placeRequired = isOfflineOrHybrid
     val placeValid = if (placeRequired) selectedPlace != null else true
 
+    val maxParticipantsValid = !needsRegistration ||
+            (maxParticipants.isNotBlank() && maxParticipants.trim().toIntOrNull() != null && maxParticipants.trim().toInt() > 0)
+
     val isFormValid = startDateTime.isNotBlank()
             && endDateTime.isNotBlank()
             && selectedType != null
             && selectedFormat != null
-            && placeValid   // ← добавлена проверка помещения
+            && placeValid
+            && maxParticipantsValid
 
     val scrollState = rememberScrollState()
 
@@ -353,6 +357,8 @@ fun CreateEventStep2Screen(
 
         if (needsRegistration) {
             Spacer(modifier = Modifier.height(12.dp))
+            val maxIsInvalid = maxParticipants.isNotBlank() &&
+                    (maxParticipants.trim().toIntOrNull() == null || maxParticipants.trim().toInt() <= 0)
             OutlinedTextField(
                 value = maxParticipants,
                 onValueChange = { viewModel.maxParticipants.value = it.filter { c -> c.isDigit() } },
@@ -360,7 +366,20 @@ fun CreateEventStep2Screen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = maxIsInvalid || (maxParticipants.isBlank()),
+                supportingText = {
+                    when {
+                        maxIsInvalid ->
+                            Text("Введите число больше 0", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                        maxParticipants.isBlank() ->
+                            Text("Обязательное поле при включённой регистрации", fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.error.copy(0.8f))
+                        else ->
+                            Text("Максимальное число участников мероприятия", fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.7f))
+                    }
+                }
             )
         }
 
