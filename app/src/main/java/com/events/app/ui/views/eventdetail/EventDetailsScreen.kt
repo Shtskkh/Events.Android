@@ -5,7 +5,10 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -14,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -25,8 +29,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+
 import coil.compose.AsyncImage
+import com.events.app.data.remote.dto.ParticipantDto
 import com.events.app.domain.models.events.Event
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -36,6 +42,11 @@ import java.util.Locale
 private val GreenStart = Color(0xFF22C55E)
 private val RedEnd     = Color(0xFFEF4444)
 
+// ═══════════════════════════════════════════════════════════════════
+// EventDetailsScreen
+// ═══════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventDetailsScreen(
     eventId: String,
@@ -45,14 +56,31 @@ fun EventDetailsScreen(
 ) {
     LaunchedEffect(eventId) { viewModel.loadEvent(eventId) }
 
-    val event         by viewModel.event.collectAsState()
-    val isLoading     by viewModel.isLoading.collectAsState()
-    val error         by viewModel.error.collectAsState()
-    val isAdmin       by viewModel.isAdmin.collectAsState()
-    val deleteSuccess by viewModel.deleteSuccess.collectAsState()
-    val isDeleting    by viewModel.isDeleting.collectAsState()
+    val event               by viewModel.event.collectAsState()
+    val isLoading           by viewModel.isLoading.collectAsState()
+    val error               by viewModel.error.collectAsState()
+    val isAdmin             by viewModel.isAdmin.collectAsState()
+    val canRegister         by viewModel.canRegister.collectAsState()
+    val deleteSuccess       by viewModel.deleteSuccess.collectAsState()
+    val isDeleting          by viewModel.isDeleting.collectAsState()
+    val participants        by viewModel.participants.collectAsState()
+    val participantsLoading by viewModel.participantsLoading.collectAsState()
+    val isRegistered        by viewModel.isRegistered.collectAsState()
+    val registrationLoading by viewModel.registrationLoading.collectAsState()
+    val registrationError   by viewModel.registrationError.collectAsState()
+
+    val context = LocalContext.current
 
     LaunchedEffect(deleteSuccess) { if (deleteSuccess) onBack?.invoke() }
+
+    LaunchedEffect(registrationError) {
+        registrationError?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.clearRegistrationError()
+        }
+    }
+
+    var showParticipantsSheet by remember { mutableStateOf(false) }
 
     when {
         isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -67,27 +95,55 @@ fun EventDetailsScreen(
             }
         }
         event != null -> EventContent(
-            event      = event!!,
-            isAdmin    = isAdmin,
-            isDeleting = isDeleting,
-            onDelete   = { viewModel.deleteEvent(event!!.id) },
-            onEdit     = { onEdit?.invoke(event!!.id) }
+            event               = event!!,
+            isAdmin             = isAdmin,
+            canRegister         = canRegister,
+            isDeleting          = isDeleting,
+            isRegistered        = isRegistered,
+            registrationLoading = registrationLoading,
+            onDelete            = { viewModel.deleteEvent(event!!.id) },
+            onEdit              = { onEdit?.invoke(event!!.id) },
+            onRegister          = { viewModel.toggleRegistration() },
+            onShowParticipants  = { showParticipantsSheet = true }
         )
         else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
     }
+
+    // ── Шторка участников ─────────────────────────────────────────
+    if (showParticipantsSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showParticipantsSheet = false },
+            sheetState       = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+        ) {
+            ParticipantsSheetContent(
+                participants = participants,
+                isLoading    = participantsLoading,
+                maxParticipants = event?.maxParticipants
+            )
+        }
+    }
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// EventContent — основной контент карточки
+// ═══════════════════════════════════════════════════════════════════
 
 @Composable
 private fun EventContent(
     event: Event,
     isAdmin: Boolean,
+    canRegister: Boolean,
     isDeleting: Boolean,
+    isRegistered: Boolean,
+    registrationLoading: Boolean,
     onDelete: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onRegister: () -> Unit,
+    onShowParticipants: () -> Unit
 ) {
-    val isOnline = event.format.contains("онлайн", ignoreCase = true) ||
+    val isOnline    = event.format.contains("онлайн", ignoreCase = true) ||
             event.format.contains("online", ignoreCase = true)
     val formatColor = if (isOnline) GreenStart else RedEnd
     val formatIcon  = if (isOnline) Icons.Outlined.Videocam else Icons.Outlined.LocationOn
@@ -103,8 +159,7 @@ private fun EventContent(
 
     val titleBg by animateColorAsState(
         targetValue = if (titleCopied) MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
-        else Color.Transparent,
-        label = "titleCopyBg"
+        else Color.Transparent, label = "titleCopyBg"
     )
 
     fun copyText(text: String, label: String) {
@@ -122,11 +177,11 @@ private fun EventContent(
                     fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             },
             confirmButton = {
-                Button(
-                    onClick = { showDeleteDialog = false; onDelete() },
-                    colors  = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    shape   = RoundedCornerShape(10.dp)
-                ) { Text("Удалить", fontWeight = FontWeight.SemiBold) }
+                Button(onClick = { showDeleteDialog = false; onDelete() },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape  = RoundedCornerShape(10.dp)) {
+                    Text("Удалить", fontWeight = FontWeight.SemiBold)
+                }
             },
             dismissButton = {
                 OutlinedButton(onClick = { showDeleteDialog = false }, shape = RoundedCornerShape(10.dp)) {
@@ -144,78 +199,44 @@ private fun EventContent(
     ) {
         // ── Превью ────────────────────────────────────────────────
         Box(modifier = Modifier.fillMaxWidth().height(280.dp)) {
-            AsyncImage(
-                model = event.previewUrl, contentDescription = null,
-                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth().height(110.dp).align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color.Transparent, MaterialTheme.colorScheme.background)
-                        )
-                    )
-            )
+            AsyncImage(model = event.previewUrl, contentDescription = null,
+                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            Box(modifier = Modifier
+                .fillMaxWidth().height(110.dp).align(Alignment.BottomCenter)
+                .background(Brush.verticalGradient(
+                    listOf(Color.Transparent, MaterialTheme.colorScheme.background))))
 
-            // Бейдж "Завершено"
             if (event.isFinished) {
-                Surface(
-                    modifier = Modifier.align(Alignment.TopStart).padding(14.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color.Black.copy(alpha = 0.55f)
-                ) {
-                    Text(
-                        "Завершено",
+                Surface(modifier = Modifier.align(Alignment.TopStart).padding(14.dp),
+                    shape = RoundedCornerShape(8.dp), color = Color.Black.copy(alpha = 0.55f)) {
+                    Text("Завершено",
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White
-                    )
+                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 }
             }
 
-            // Кнопки для admin
             if (isAdmin) {
-                // Кнопка редактирования — слева сверху (если нет бейджа "Завершено")
+                // Кнопка редактирования — слева (если не завершено)
                 if (!event.isFinished) {
-                    Surface(
-                        modifier = Modifier.align(Alignment.TopStart).padding(14.dp),
+                    Surface(modifier = Modifier.align(Alignment.TopStart).padding(14.dp),
                         shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)
-                    ) {
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)) {
                         IconButton(onClick = onEdit, modifier = Modifier.size(44.dp)) {
-                            Icon(
-                                Icons.Outlined.Edit, "Редактировать",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
+                            Icon(Icons.Outlined.Edit, "Редактировать",
+                                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                         }
                     }
                 }
-
-                // Кнопка удаления — справа сверху
-                Surface(
-                    modifier = Modifier.align(Alignment.TopEnd).padding(14.dp),
+                // Кнопка удаления — справа
+                Surface(modifier = Modifier.align(Alignment.TopEnd).padding(14.dp),
                     shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.92f)
-                ) {
-                    IconButton(
-                        onClick  = { showDeleteDialog = true },
-                        enabled  = !isDeleting,
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        if (isDeleting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        } else {
-                            Icon(
-                                Icons.Outlined.DeleteOutline, "Удалить",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.92f)) {
+                    IconButton(onClick = { showDeleteDialog = true }, enabled = !isDeleting,
+                        modifier = Modifier.size(44.dp)) {
+                        if (isDeleting) CircularProgressIndicator(modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp, color = MaterialTheme.colorScheme.error)
+                        else Icon(Icons.Outlined.DeleteOutline, "Удалить",
+                            tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(22.dp))
                     }
                 }
             }
@@ -225,10 +246,10 @@ private fun EventContent(
             Spacer(Modifier.height(8.dp))
 
             // ── Заголовок — кликабельный ──────────────────────────
-            Surface(modifier = Modifier.fillMaxWidth(), color = titleBg, shape = RoundedCornerShape(12.dp)) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = titleBg,
+                shape = RoundedCornerShape(12.dp)) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth()
                         .clickable {
                             copyText(event.title, "Название")
                             scope.launch { titleCopied = true; delay(300); titleCopied = false }
@@ -237,16 +258,12 @@ private fun EventContent(
                     verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = event.title,
-                        fontSize = 24.sp, fontWeight = FontWeight.ExtraBold,
+                    Text(event.title, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold,
                         letterSpacing = (-0.5).sp,
                         color = MaterialTheme.colorScheme.onBackground, lineHeight = 30.sp,
-                        modifier = Modifier.weight(1f)
-                    )
+                        modifier = Modifier.weight(1f))
                     Icon(
-                        imageVector = if (titleCopied) Icons.Outlined.CheckCircle
-                        else Icons.Outlined.ContentCopy,
+                        imageVector = if (titleCopied) Icons.Outlined.CheckCircle else Icons.Outlined.ContentCopy,
                         contentDescription = null,
                         tint = if (titleCopied) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
@@ -261,20 +278,10 @@ private fun EventContent(
             SectionTitle("Дата и время")
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CompactInfoCard(
-                    icon     = Icons.Outlined.PlayArrow,
-                    iconTint = GreenStart,
-                    label    = "Начало",
-                    value    = event.startDate.format(dateFormatter),
-                    modifier = Modifier.weight(1f)
-                )
-                CompactInfoCard(
-                    icon     = Icons.Outlined.Stop,
-                    iconTint = RedEnd,
-                    label    = "Конец",
-                    value    = event.endDate.format(dateFormatter),
-                    modifier = Modifier.weight(1f)
-                )
+                CompactInfoCard(Icons.Outlined.PlayArrow, GreenStart, "Начало",
+                    event.startDate.format(dateFormatter), Modifier.weight(1f))
+                CompactInfoCard(Icons.Outlined.Stop, RedEnd, "Конец",
+                    event.endDate.format(dateFormatter), Modifier.weight(1f))
             }
 
             Spacer(Modifier.height(16.dp))
@@ -283,33 +290,38 @@ private fun EventContent(
             SectionTitle("О мероприятии")
             Spacer(Modifier.height(8.dp))
 
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape    = RoundedCornerShape(16.dp),
-                color    = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-            ) {
+            Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)) {
                 Column(modifier = Modifier.padding(4.dp)) {
+
+                    // ID мероприятия — только admin
                     if (isAdmin) {
                         CopyableDetailRow(Icons.Outlined.Key, "ID мероприятия", event.id,
-                            onCopy = { copyText(event.id, "ID") })
+                            onCopy = { copyText(event.id, "ID мероприятия") })
                         DetailDivider()
                     }
-                    if (event.type.isNotBlank()) {
-                        DetailRow(Icons.Outlined.Category, "Тип", event.type)
+
+                    // ID создателя — только admin
+                    if (isAdmin && !event.userId.isNullOrBlank()) {
+                        CopyableDetailRow(Icons.Outlined.PersonSearch, "ID создателя", event.userId,
+                            onCopy = { copyText(event.userId, "ID создателя") })
                         DetailDivider()
+                    }
+
+                    if (event.type.isNotBlank()) {
+                        DetailRow(Icons.Outlined.Category, "Тип", event.type); DetailDivider()
                     }
                     if (event.format.isNotBlank()) {
-                        DetailRow(formatIcon, "Формат", event.format, formatColor)
-                        DetailDivider()
+                        DetailRow(formatIcon, "Формат", event.format, formatColor); DetailDivider()
                     }
                     if (event.location.isNotBlank()) {
-                        DetailRow(Icons.Outlined.LocationOn, "Локация", event.location)
-                        DetailDivider()
+                        DetailRow(Icons.Outlined.LocationOn, "Локация", event.location); DetailDivider()
                     }
                     if (!event.placeNumber.isNullOrBlank()) {
-                        DetailRow(Icons.Outlined.MeetingRoom, "Помещение №", event.placeNumber)
-                        DetailDivider()
+                        DetailRow(Icons.Outlined.MeetingRoom, "Помещение №", event.placeNumber); DetailDivider()
                     }
+
+                    // Регистрация
                     DetailRow(
                         icon       = if (event.needsRegistration) Icons.Outlined.HowToReg else Icons.Outlined.PersonOff,
                         label      = "Регистрация",
@@ -317,29 +329,29 @@ private fun EventContent(
                         valueColor = if (event.needsRegistration) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (event.needsRegistration && event.maxParticipants != null) {
-                        DetailDivider()
-                        DetailRow(Icons.Outlined.Group, "Макс. участников", event.maxParticipants.toString())
-                    }
 
-                    // ── Аналитика — только для admin ───────────────
-                    if (isAdmin && event.participantsCount != null) {
+                    if (event.maxParticipants != null) {
                         DetailDivider()
+                        // Если есть данные аналитики — показываем "X из Y"
+                        val participantsText = if (event.participantsCount != null) {
+                            "${event.participantsCount} из ${event.maxParticipants}"
+                        } else {
+                            "${event.maxParticipants}"
+                        }
                         DetailRow(
                             icon       = Icons.Outlined.Group,
-                            label      = "Записалось",
-                            value      = event.participantsCount.toString() +
-                                    (event.maxParticipants?.let { " / $it" } ?: ""),
-                            valueColor = MaterialTheme.colorScheme.primary
+                            label      = if (event.participantsCount != null) "Участников / макс." else "Макс. участников",
+                            value      = participantsText,
+                            valueColor = if (event.participantsCount != null &&
+                                event.participantsCount >= event.maxParticipants)
+                                RedEnd else Color.Unspecified
                         )
                     }
+
+                    // Просмотры — только admin
                     if (isAdmin && event.viewsCount != null) {
                         DetailDivider()
-                        DetailRow(
-                            icon  = Icons.Outlined.Visibility,
-                            label = "Просмотры",
-                            value = event.viewsCount.toString()
-                        )
+                        DetailRow(Icons.Outlined.Visibility, "Просмотры", "${event.viewsCount}")
                     }
 
                     DetailDivider()
@@ -353,8 +365,7 @@ private fun EventContent(
                         icon       = if (event.isFinished) Icons.Outlined.EventBusy else Icons.Outlined.Event,
                         label      = "Статус",
                         value      = if (event.isFinished) "Завершено" else "Предстоящее",
-                        valueColor = if (event.isFinished) MaterialTheme.colorScheme.onSurfaceVariant
-                        else GreenStart
+                        valueColor = if (event.isFinished) MaterialTheme.colorScheme.onSurfaceVariant else GreenStart
                     )
                     if (!event.organizerName.isNullOrBlank()) {
                         DetailDivider()
@@ -371,16 +382,11 @@ private fun EventContent(
                 Spacer(Modifier.height(16.dp))
                 SectionTitle("Описание")
                 Spacer(Modifier.height(8.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape    = RoundedCornerShape(14.dp),
-                    color    = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                ) {
-                    Text(
-                        event.description, modifier = Modifier.padding(16.dp),
+                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)) {
+                    Text(event.description, modifier = Modifier.padding(16.dp),
                         fontSize = 15.sp, lineHeight = 24.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -388,42 +394,117 @@ private fun EventContent(
                 Spacer(Modifier.height(16.dp))
                 SectionTitle("Анонс")
                 Spacer(Modifier.height(8.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape    = RoundedCornerShape(14.dp),
-                    color    = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                ) {
-                    Text(
-                        event.announcement, modifier = Modifier.padding(16.dp),
+                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)) {
+                    Text(event.announcement, modifier = Modifier.padding(16.dp),
                         fontSize = 14.sp, lineHeight = 22.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(24.dp))
 
-            if (!isAdmin) {
-                Button(
-                    onClick  = { },
-                    modifier = Modifier.fillMaxWidth().height(54.dp),
-                    shape    = RoundedCornerShape(16.dp),
-                    enabled  = !event.isFinished,
-                    colors   = ButtonDefaults.buttonColors(
-                        containerColor         = MaterialTheme.colorScheme.primary,
-                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        disabledContentColor   = MaterialTheme.colorScheme.onSurfaceVariant
+            // ── Кнопка участников ─────────────────────────────────
+            // Показываем всем если регистрация требуется
+            if (event.needsRegistration) {
+                OutlinedButton(
+                    onClick  = onShowParticipants,
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape    = RoundedCornerShape(14.dp),
+                    colors   = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
-                    Icon(
-                        if (event.isFinished) Icons.Outlined.EventBusy else Icons.Outlined.HowToReg,
-                        null, modifier = Modifier.size(20.dp)
-                    )
+                    Icon(Icons.Outlined.Groups, null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
+                    val count = event.participantsCount
                     Text(
-                        if (event.isFinished) "Мероприятие завершено" else "Записаться",
-                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold
+                        if (count != null) "Участники ($count)" else "Список участников",
+                        fontSize = 15.sp, fontWeight = FontWeight.Medium
                     )
+                }
+                Spacer(Modifier.height(10.dp))
+            }
+
+            // ── Кнопка записаться / отменить / гость ─────────────
+            when {
+                // Гость — не может регистрироваться
+                !canRegister -> {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape    = RoundedCornerShape(14.dp),
+                        color    = MaterialTheme.colorScheme.surfaceVariant.copy(0.5f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Outlined.LockPerson, null,
+                                tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Войдите чтобы записаться",
+                                fontSize = 14.sp,
+                                color    = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                // Авторизован, мероприятие завершено
+                event.isFinished -> {
+                    Button(
+                        onClick  = {},
+                        enabled  = false,
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape    = RoundedCornerShape(16.dp),
+                        colors   = ButtonDefaults.buttonColors(
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            disabledContentColor   = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    ) {
+                        Icon(Icons.Outlined.EventBusy, null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Мероприятие завершено", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+
+                // Авторизован, не завершено — показываем кнопку регистрации
+                else -> {
+                    Button(
+                        onClick  = onRegister,
+                        enabled  = !registrationLoading,
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape    = RoundedCornerShape(16.dp),
+                        colors   = if (isRegistered) {
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor   = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        } else {
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor   = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    ) {
+                        if (registrationLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.dp,
+                                color = if (isRegistered) MaterialTheme.colorScheme.onErrorContainer
+                                else MaterialTheme.colorScheme.onPrimary)
+                        } else {
+                            Icon(
+                                if (isRegistered) Icons.Outlined.PersonRemove else Icons.Outlined.HowToReg,
+                                null, modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (isRegistered) "Отменить запись" else "Записаться",
+                                fontSize = 16.sp, fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
             }
 
@@ -432,43 +513,138 @@ private fun EventContent(
     }
 }
 
-// ── Оригинальная карточка даты с параметром цвета иконки ──────────
+// ═══════════════════════════════════════════════════════════════════
+// Шторка участников
+// ═══════════════════════════════════════════════════════════════════
+
 @Composable
-private fun CompactInfoCard(
-    icon: ImageVector,
-    iconTint: Color,
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
+private fun ParticipantsSheetContent(
+    participants: List<ParticipantDto>,
+    isLoading: Boolean,
+    maxParticipants: Int?
 ) {
-    Surface(
-        modifier = modifier,
-        shape    = RoundedCornerShape(12.dp),
-        color    = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Row(
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector        = icon,
-                    contentDescription = null,
-                    tint               = iconTint,
-                    modifier           = Modifier.size(13.dp)
-                )
-                Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        // Заголовок
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Outlined.Groups, null,
+                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                Text("Участники", style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold)
             }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface, lineHeight = 18.sp
-            )
+            // Счётчик X / max
+            val countText = if (maxParticipants != null) "${participants.size} / $maxParticipants"
+            else "${participants.size}"
+            Surface(shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer) {
+                Text(countText,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+        }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(0.4f))
+        Spacer(Modifier.height(8.dp))
+
+        when {
+            isLoading -> Box(Modifier.fillMaxWidth().height(120.dp),
+                contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+
+            participants.isEmpty() -> Box(
+                Modifier.fillMaxWidth().height(120.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Outlined.PersonOff, null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.3f),
+                        modifier = Modifier.size(36.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text("Нет зарегистрированных участников",
+                        fontSize = 13.sp,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f))
+                }
+            }
+
+            else -> LazyColumn(
+                modifier            = Modifier.fillMaxWidth(),
+                contentPadding      = PaddingValues(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(participants, key = { it.id }) { participant ->
+                    ParticipantRow(participant)
+                }
+            }
         }
     }
 }
 
-// ── Кликабельная строка с копированием ───────────────────────────
+@Composable
+private fun ParticipantRow(participant: ParticipantDto) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Аватар с инициалами
+        Box(
+            modifier        = Modifier.size(40.dp).clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(participant.initials, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer)
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(participant.displayName, fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (!participant.registrationTime.isNullOrBlank()) {
+                val time = try {
+                    java.time.OffsetDateTime.parse(participant.registrationTime)
+                        .atZoneSameInstant(java.time.ZoneId.systemDefault())
+                        .format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
+                } catch (_: Exception) { participant.registrationTime }
+                Text("Зарегистрирован: $time", fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Вспомогательные компоненты
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+private fun CompactInfoCard(
+    icon: ImageVector, iconTint: Color, label: String, value: String, modifier: Modifier = Modifier
+) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(icon, null, tint = iconTint, modifier = Modifier.size(13.dp))
+                Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface, lineHeight = 18.sp)
+        }
+    }
+}
+
 @Composable
 private fun CopyableDetailRow(
     icon: ImageVector, label: String, value: String, onCopy: () -> Unit
@@ -481,25 +657,23 @@ private fun CopyableDetailRow(
     )
     Surface(modifier = Modifier.fillMaxWidth(), color = bgColor, shape = RoundedCornerShape(12.dp)) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
                 .clickable { onCopy(); scope.launch { copied = true; delay(300); copied = false } }
                 .padding(horizontal = 14.dp, vertical = 11.dp),
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    value, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                Text(value, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
-                )
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Icon(
-                imageVector = if (copied) Icons.Outlined.CheckCircle else Icons.Outlined.ContentCopy,
-                contentDescription = null,
+                if (copied) Icons.Outlined.CheckCircle else Icons.Outlined.ContentCopy,
+                null,
                 tint = if (copied) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier.size(15.dp)
@@ -508,40 +682,33 @@ private fun CopyableDetailRow(
     }
 }
 
-// ── Обычная строка ────────────────────────────────────────────────
 @Composable
 private fun DetailRow(
     icon: ImageVector, label: String, value: String, valueColor: Color = Color.Unspecified
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
-        verticalAlignment     = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(
-                value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                color = if (valueColor == Color.Unspecified) MaterialTheme.colorScheme.onSurface else valueColor,
-                maxLines = 2, overflow = TextOverflow.Ellipsis
-            )
+            Text(value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                color = if (valueColor == Color.Unspecified) MaterialTheme.colorScheme.onSurface
+                else valueColor,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
 
 @Composable
 private fun DetailDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(horizontal = 14.dp),
-        color    = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-    )
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 14.dp),
+        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
 }
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(
-        text, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-        letterSpacing = 0.8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    Text(text, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+        letterSpacing = 0.8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }

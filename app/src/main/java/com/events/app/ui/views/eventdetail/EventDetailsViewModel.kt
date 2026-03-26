@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.events.app.data.RemoteDataSource
 import com.events.app.data.local.EventLocationCache
 import com.events.app.data.remote.dto.EventAnalyticDto
+import com.events.app.data.remote.dto.ParticipantDto
 import com.events.app.domain.models.events.Event
 import com.events.app.domain.models.users.UserRole
 import com.events.app.domain.repositories.auth.AuthRepository
@@ -23,6 +24,8 @@ class EventDetailsViewModel @Inject constructor(
     private val remoteDataSource: RemoteDataSource
 ) : ViewModel() {
 
+    // ── Мероприятие ───────────────────────────────────────────────
+
     private val _event = MutableStateFlow<Event?>(null)
     val event = _event.asStateFlow()
 
@@ -32,15 +35,23 @@ class EventDetailsViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
 
+    // ── Удаление ──────────────────────────────────────────────────
+
     private val _isDeleting = MutableStateFlow(false)
     val isDeleting = _isDeleting.asStateFlow()
 
     private val _deleteSuccess = MutableStateFlow(false)
     val deleteSuccess = _deleteSuccess.asStateFlow()
 
-    // Реактивный флаг admin — подписываемся на currentUser
+    // ── Роль пользователя ─────────────────────────────────────────
+
     private val _isAdmin = MutableStateFlow(false)
     val isAdmin = _isAdmin.asStateFlow()
+
+    private val _canRegister = MutableStateFlow(false)
+    val canRegister = _canRegister.asStateFlow()
+
+    val currentUserId: String? get() = authRepository.currentUser.value?.id
 
     // ── Аналитика ─────────────────────────────────────────────────
 
@@ -50,13 +61,37 @@ class EventDetailsViewModel @Inject constructor(
     private val _analyticsLoading = MutableStateFlow(false)
     val analyticsLoading = _analyticsLoading.asStateFlow()
 
+    // ── Участники ─────────────────────────────────────────────────
+
+    private val _participants = MutableStateFlow<List<ParticipantDto>>(emptyList())
+    val participants = _participants.asStateFlow()
+
+    private val _participantsLoading = MutableStateFlow(false)
+    val participantsLoading = _participantsLoading.asStateFlow()
+
+    private val _isRegistered = MutableStateFlow(false)
+    val isRegistered = _isRegistered.asStateFlow()
+
+    private val _registrationLoading = MutableStateFlow(false)
+    val registrationLoading = _registrationLoading.asStateFlow()
+
+    private val _registrationError = MutableStateFlow<String?>(null)
+    val registrationError = _registrationError.asStateFlow()
+
+    fun clearRegistrationError() { _registrationError.value = null }
+
+    // ── Init ──────────────────────────────────────────────────────
+
     init {
         viewModelScope.launch {
             authRepository.currentUser.collect { user ->
-                _isAdmin.value = user?.role == UserRole.ADMIN
+                _isAdmin.value    = user?.role == UserRole.ADMIN
+                _canRegister.value = user?.role == UserRole.ADMIN || user?.role == UserRole.USER
             }
         }
     }
+
+    // ── Загрузка мероприятия ──────────────────────────────────────
 
     fun loadEvent(eventId: String) {
         if (eventId.isBlank()) return
@@ -64,28 +99,24 @@ class EventDetailsViewModel @Inject constructor(
             _isLoading.value = true
             _error.value = null
             try {
-                // Передаём accessToken → бэкенд записывает просмотр на пользователя.
-                // Для неавторизованного пользователя accessToken = null (просто не записывается).
                 val accessToken = authRepository.currentUser.value?.accessToken
                 val loaded = getEventByIdUseCase(eventId, accessToken)
-
-                // Обогащаем локацией из кэша если бэкенд не вернул
                 val locationTitle = if (loaded.location.isBlank()) {
                     locationCache.get(eventId) ?: ""
-                } else {
-                    loaded.location
-                }
+                } else loaded.location
                 _event.value = loaded.copy(location = locationTitle)
             } catch (e: Exception) {
                 _error.value = "Ошибка загрузки мероприятия"
             } finally {
                 _isLoading.value = false
             }
-
-            // Загружаем аналитику параллельно — некритично, не влияет на отображение основного контента
-            loadAnalytics(eventId)
         }
+        // Параллельно грузим аналитику и участников
+        loadAnalytics(eventId)
+        loadParticipants(eventId)
     }
+
+    // ── Аналитика ─────────────────────────────────────────────────
 
     private fun loadAnalytics(eventId: String) {
         viewModelScope.launch {
@@ -93,19 +124,78 @@ class EventDetailsViewModel @Inject constructor(
             try {
                 val analytic = remoteDataSource.getEventAnalytics(eventId)
                 _analytics.value = analytic
-                // Обогащаем event данными из аналитики (participantsCount, viewsCount)
                 _event.value = _event.value?.copy(
                     participantsCount = analytic.participantsCount,
                     viewsCount        = analytic.viewsCount
                 )
             } catch (_: Exception) {
-                // Аналитика — некритична, молча игнорируем
                 _analytics.value = null
             } finally {
                 _analyticsLoading.value = false
             }
         }
     }
+
+    // ── Участники ─────────────────────────────────────────────────
+
+    fun loadParticipants(eventId: String) {
+        viewModelScope.launch {
+            _participantsLoading.value = true
+            try {
+                val list = remoteDataSource.getParticipants(eventId)
+                _participants.value = list
+                // Проверяем зарегистрирован ли текущий пользователь
+                val userId = authRepository.currentUser.value?.id
+                _isRegistered.value = userId != null && list.any { it.id == userId }
+            } catch (e: retrofit2.HttpException) {
+                // 404 = нет участников — нормально
+                if (e.code() == 404) {
+                    _participants.value = emptyList()
+                    _isRegistered.value = false
+                }
+            } catch (_: Exception) {
+                _participants.value = emptyList()
+            } finally {
+                _participantsLoading.value = false
+            }
+        }
+    }
+
+    // ── Регистрация / отмена ──────────────────────────────────────
+
+    fun toggleRegistration() {
+        val eventId = _event.value?.id ?: return
+        val userId  = authRepository.currentUser.value?.id ?: return
+
+        viewModelScope.launch {
+            _registrationLoading.value = true
+            _registrationError.value   = null
+            try {
+                if (_isRegistered.value) {
+                    remoteDataSource.leaveEvent(eventId, userId)
+                    _isRegistered.value = false
+                    _participants.value = _participants.value.filter { it.id != userId }
+                } else {
+                    remoteDataSource.registerForEvent(eventId, userId)
+                    _isRegistered.value = true
+                    loadParticipants(eventId)
+                }
+            } catch (e: retrofit2.HttpException) {
+                _registrationError.value = when (e.code()) {
+                    400  -> "Мероприятие уже заполнено"
+                    404  -> "Мероприятие не найдено"
+                    409  -> "Вы уже зарегистрированы"
+                    else -> "Ошибка регистрации: ${e.code()}"
+                }
+            } catch (e: Exception) {
+                _registrationError.value = "Нет соединения с сервером"
+            } finally {
+                _registrationLoading.value = false
+            }
+        }
+    }
+
+    // ── Удаление ──────────────────────────────────────────────────
 
     fun deleteEvent(id: String) {
         viewModelScope.launch {

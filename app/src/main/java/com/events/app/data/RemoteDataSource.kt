@@ -6,6 +6,7 @@ import com.events.app.data.remote.dto.EventDetailDto
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
+import com.events.app.data.remote.dto.ParticipantDto
 import com.events.app.data.remote.dto.PlaceDto
 import com.events.app.data.remote.dto.ShortEventDto
 import com.events.app.data.remote.dto.UserDto
@@ -25,11 +26,6 @@ class RemoteDataSource @Inject constructor(
     ): List<ShortEventDto> =
         api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId)
 
-    /**
-     * Получить мероприятие по ID.
-     * [accessToken] — токен пользователя для фиксации просмотра на бэкенде.
-     * Передаётся как "Bearer {token}". Если null — просмотр не записывается на пользователя.
-     */
     suspend fun getEventById(id: String, accessToken: String? = null): EventDetailDto {
         val authHeader = accessToken?.let { "Bearer $it" }
         return api.getEventById(id, authHeader)
@@ -71,6 +67,9 @@ class RemoteDataSource @Inject constructor(
 
     suspend fun leaveEvent(eventId: String, participantId: String) =
         api.leaveEvent(eventId, participantId)
+
+    suspend fun getParticipants(eventId: String): List<ParticipantDto> =
+        api.getParticipants(eventId)
 
     // ── Locations ─────────────────────────────────────────────────
 

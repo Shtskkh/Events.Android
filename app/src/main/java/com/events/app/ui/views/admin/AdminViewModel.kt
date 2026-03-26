@@ -19,10 +19,6 @@ private val UUID_REGEX = Regex(
     "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
 
-/**
- * Возвращает true если строка похожа на UUID (полный или частичный — от 8+ символов hex).
- * Частичный: начало UUID без дефисов тоже считаем поиском по ID.
- */
 private fun String.looksLikeUuid(): Boolean {
     val clean = trim()
     return UUID_REGEX.matches(clean) || (clean.length >= 8 && clean.all { it.isLetterOrDigit() || it == '-' } && clean.contains('-'))

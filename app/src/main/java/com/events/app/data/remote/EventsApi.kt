@@ -5,6 +5,7 @@ import com.events.app.data.remote.dto.EventDetailDto
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
+import com.events.app.data.remote.dto.ParticipantDto
 import com.events.app.data.remote.dto.PlaceDto
 import com.events.app.data.remote.dto.ShortEventDto
 import com.events.app.data.remote.dto.UserDto
@@ -75,6 +76,7 @@ interface EventsApi {
     )
 
     // ── Analytics ─────────────────────────────────────────────────
+
     @GET("api/v/1/events/{id}/analytics")
     suspend fun getEventAnalytics(@Path("id") id: String): EventAnalyticDto
 
@@ -91,6 +93,9 @@ interface EventsApi {
         @Path("eventId") eventId: String,
         @Query("participantId") participantId: String
     )
+
+    @GET("api/v/1/events/{id}/participants")
+    suspend fun getParticipants(@Path("id") id: String): List<ParticipantDto>
 
     // ── Locations ─────────────────────────────────────────────────
 

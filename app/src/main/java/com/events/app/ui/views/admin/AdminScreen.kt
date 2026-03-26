@@ -27,7 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.events.app.data.remote.dto.LocationDto
 import com.events.app.data.remote.dto.ShortEventDto
 import com.events.app.data.remote.dto.UserDto
@@ -38,7 +38,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AdminScreen(
     viewModel: AdminViewModel = hiltViewModel(),
-    onEventClick: (String) -> Unit = {}   // ← принимаем колбэк навигации
+    onEventClick: (String) -> Unit = {}
 ) {
     val selectedTab    by viewModel.selectedTab.collectAsState()
     val error          by viewModel.error.collectAsState()

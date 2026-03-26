@@ -1,6 +1,5 @@
 package com.events.app.ui.views.events
 
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -24,9 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.ui.components.eventscards.UpcomingEventCard
@@ -40,32 +37,17 @@ import java.time.format.DateTimeFormatter
 
 // ── Вспомогательные форматтеры ────────────────────────────────────
 
-/** Формат для отображения пользователю: 25.03.2026 */
 private val DISPLAY_FMT = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
-/** ISO формат для API: 2026-03-25T00:00:00 */
 private val ISO_FMT = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
-/**
- * Конвертирует миллисекунды (DatePicker) в LocalDate в зоне устройства.
- */
 private fun millisToLocalDate(millis: Long): LocalDate =
     Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
 
-/**
- * LocalDate → ISO строка начала дня для API: "2026-03-25T00:00:00"
- */
 private fun LocalDate.toStartIso(): String = atStartOfDay().format(ISO_FMT)
 
-/**
- * LocalDate → ISO строка конца дня для API: "2026-03-25T23:59:59"
- */
 private fun LocalDate.toEndIso(): String = atTime(23, 59, 59).format(ISO_FMT)
 
-/**
- * ISO строка → отображаемая строка "25.03.2026" (для чипа и т.д.)
- * Принимает строку вида "2026-03-25T..." и возвращает "25.03.2026"
- */
 private fun isoToDisplay(iso: String?): String? {
     if (iso.isNullOrBlank()) return null
     return try {

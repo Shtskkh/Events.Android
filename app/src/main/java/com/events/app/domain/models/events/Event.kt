@@ -22,7 +22,9 @@ data class Event(
     val needsRegistration: Boolean,
     val maxParticipants: Int?,
     val organizerName: String?,
+    // ID создателя мероприятия — показывается только admin
+    val userId: String? = null,
     // Из аналитики GET /api/v/1/events/{id}/analytics
-    val participantsCount: Int?,
-    val viewsCount: Int?,
+    val participantsCount: Int? = null,
+    val viewsCount: Int? = null,
 )

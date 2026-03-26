@@ -17,19 +17,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.events.app.domain.models.events.Event
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/**
- * Экран редактирования мероприятия.
- * [event] — текущие данные для предзаполнения формы.
- * [onSuccess] — вызывается после успешного сохранения.
- * [onBack] — вызывается при нажатии «Отмена».
- */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditEventScreen(
@@ -38,7 +33,7 @@ fun EditEventScreen(
     onSuccess: () -> Unit,
     onBack: () -> Unit
 ) {
-    // Предзаполняем один раз при открытии
+
     val isoFormatter     = DateTimeFormatter.ISO_LOCAL_DATE_TIME
     val displayFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
 
