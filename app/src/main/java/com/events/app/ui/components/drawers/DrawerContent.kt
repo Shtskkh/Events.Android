@@ -30,7 +30,6 @@ fun DrawerContent(
     val currentRoute = navBackStackEntry?.destination?.route
     val scope = rememberCoroutineScope()
 
-    // Получаем текущего пользователя для проверки роли
     val appViewModel: AppViewModel = hiltViewModel()
     val user by appViewModel.authRepository.currentUser.collectAsState()
     val isAdmin = user?.role == UserRole.ADMIN
@@ -82,6 +81,17 @@ fun DrawerContent(
                 onClick = { closeDrawer() },
             )
 
+            // ── Локации — видят все ────────────────────────────────
+            DrawerNavItem(
+                route = NavItem.Locations.route,
+                label = NavItem.Locations.title,
+                iconOutlined = NavItem.Locations.iconOutlined,
+                iconSelected = NavItem.Locations.iconSelected,
+                currentRoute = currentRoute,
+                navController = navController,
+                onClick = { closeDrawer() },
+            )
+
             HorizontalDivider(modifier = Modifier.padding(8.dp))
 
             DrawerNavItem(
@@ -104,7 +114,7 @@ fun DrawerContent(
                 onClick = { closeDrawer() },
             )
 
-            // ── Только для администратора ──────────────────────
+            // ── Только для администратора ──────────────────────────
             if (isAdmin) {
                 HorizontalDivider(modifier = Modifier.padding(8.dp))
 

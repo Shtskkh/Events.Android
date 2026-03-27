@@ -7,6 +7,7 @@ import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
 import com.events.app.data.remote.dto.ParticipantDto
 import com.events.app.data.remote.dto.PlaceDto
+import com.events.app.data.remote.dto.PlaceTypeDto
 import com.events.app.data.remote.dto.ShortEventDto
 import com.events.app.data.remote.dto.UserDto
 import okhttp3.MultipartBody
@@ -19,7 +20,7 @@ interface EventsApi {
 
     @GET("api/v/1/events")
     suspend fun getEvents(
-        @Query("Size") size: Int = 20,       // max 30 по Scalar!
+        @Query("Size") size: Int = 20,
         @Query("Page") page: Int = 1,
         @Query("Text") text: String? = null,
         @Query("StartDateTime") startDateTime: String? = null,
@@ -102,8 +103,8 @@ interface EventsApi {
     @GET("api/v/1/locations")
     suspend fun getLocations(): List<LocationDto>
 
-    @GET("api/v/1/locations/{locationId}/places")
-    suspend fun getPlacesByLocation(@Path("locationId") locationId: Int): List<PlaceDto>
+    @GET("api/v/1/locations/{id}")
+    suspend fun getLocationById(@Path("id") id: Int): LocationDto
 
     @Multipart
     @POST("api/v/1/locations")
@@ -112,8 +113,56 @@ interface EventsApi {
         @Part("Address") address: RequestBody
     ): Int
 
+    @Multipart
+    @PATCH("api/v/1/locations/{id}")
+    suspend fun updateLocation(
+        @Path("id") id: Int,
+        @Part("Title") title: RequestBody? = null,
+        @Part("Address") address: RequestBody? = null
+    )
+
     @DELETE("api/v/1/locations/{id}")
     suspend fun deleteLocation(@Path("id") id: Int)
+
+    // ── Places ────────────────────────────────────────────────────
+
+    @GET("api/v/1/locations/{locationId}/places")
+    suspend fun getPlacesByLocation(@Path("locationId") locationId: Int): List<PlaceDto>
+
+    @GET("api/v/1/locations/{locationId}/places/{placeId}")
+    suspend fun getPlaceById(
+        @Path("locationId") locationId: Int,
+        @Path("placeId") placeId: Int
+    ): PlaceDto
+
+    @Multipart
+    @POST("api/v/1/locations/{locationId}/places")
+    suspend fun createPlace(
+        @Path("locationId") locationId: Int,
+        @Part("Number") number: RequestBody,
+        @Part("Capacity") capacity: RequestBody,
+        @Part("Type") type: RequestBody,
+        @Part("Title") title: RequestBody? = null
+    ): Int
+
+    @Multipart
+    @PATCH("api/v/1/locations/{locationId}/places/{placeId}")
+    suspend fun updatePlace(
+        @Path("locationId") locationId: Int,
+        @Path("placeId") placeId: Int,
+        @Part("Title") title: RequestBody? = null,
+        @Part("Type") type: RequestBody? = null,
+        @Part("Capacity") capacity: RequestBody? = null
+    ): PlaceDto
+
+    @DELETE("api/v/1/locations/{locationId}/places/{placeId}")
+    suspend fun deletePlace(
+        @Path("locationId") locationId: Int,
+        @Path("placeId") placeId: Int
+    )
+
+    @GET("api/v/1/locations/places/types")
+    suspend fun getPlaceTypes(): List<PlaceTypeDto>
 
     // ── Users ─────────────────────────────────────────────────────
 
@@ -131,7 +180,7 @@ interface EventsApi {
         @Part("Email") email: RequestBody,
         @Part("Password") password: RequestBody,
         @Part("Patronymic") patronymic: RequestBody? = null
-    ): String   // возвращает UUID созданного пользователя
+    ): String
 
     @DELETE("api/v/1/users/{id}")
     suspend fun deleteUser(@Path("id") id: String)

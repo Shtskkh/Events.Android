@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Add
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.outlined.AdminPanelSettings
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -57,6 +59,13 @@ sealed class NavItem(
         iconSelected = { Icon(Icons.Filled.BarChart, "Статистика") }
     )
 
+    object Locations : NavItem(
+        route = NavigationRoute.Locations,
+        title = "Локации",
+        iconOutlined = { Icon(Icons.Outlined.LocationOn, "Локации") },
+        iconSelected = { Icon(Icons.Filled.LocationOn, "Локации") }
+    )
+
     object Settings : NavItem(
         route = NavigationRoute.Settings,
         title = "Настройки",
@@ -71,7 +80,6 @@ sealed class NavItem(
         iconSelected = { Icon(Icons.Filled.AccountCircle, "Аккаунт") }
     )
 
-    // Только для ADMIN — добавляется в Drawer условно
     object Admin : NavItem(
         route = NavigationRoute.Admin,
         title = "Администрирование",

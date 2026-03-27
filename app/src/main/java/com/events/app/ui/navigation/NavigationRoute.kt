@@ -40,10 +40,21 @@ sealed interface NavigationRoute {
     data object Statistics : NavigationRoute
 
     @Serializable
-    data object Admin : NavigationRoute   // ← только для ADMIN
+    data object Admin : NavigationRoute
 
     @Serializable
     data class EditEvent(
         val id: String
+    ) : NavigationRoute
+
+    // ── Локации и помещения ───────────────────────────────────────
+
+    @Serializable
+    data object Locations : NavigationRoute
+
+    @Serializable
+    data class PlaceDetail(
+        val locationId: Int,
+        val placeId: Int
     ) : NavigationRoute
 }

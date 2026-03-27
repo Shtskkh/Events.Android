@@ -8,6 +8,7 @@ import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
 import com.events.app.data.remote.dto.ParticipantDto
 import com.events.app.data.remote.dto.PlaceDto
+import com.events.app.data.remote.dto.PlaceTypeDto
 import com.events.app.data.remote.dto.ShortEventDto
 import com.events.app.data.remote.dto.UserDto
 import okhttp3.MultipartBody
@@ -74,13 +75,44 @@ class RemoteDataSource @Inject constructor(
     // ── Locations ─────────────────────────────────────────────────
 
     suspend fun getLocations(): List<LocationDto> = api.getLocations()
-    suspend fun getPlacesByLocation(locationId: Int): List<PlaceDto> =
-        api.getPlacesByLocation(locationId)
+
+    suspend fun getLocationById(id: Int): LocationDto = api.getLocationById(id)
 
     suspend fun createLocation(title: RequestBody, address: RequestBody): Int =
         api.createLocation(title, address)
 
+    suspend fun updateLocation(id: Int, title: RequestBody? = null, address: RequestBody? = null) =
+        api.updateLocation(id, title, address)
+
     suspend fun deleteLocation(id: Int) = api.deleteLocation(id)
+
+    // ── Places ────────────────────────────────────────────────────
+
+    suspend fun getPlacesByLocation(locationId: Int): List<PlaceDto> =
+        api.getPlacesByLocation(locationId)
+
+    suspend fun getPlaceById(locationId: Int, placeId: Int): PlaceDto =
+        api.getPlaceById(locationId, placeId)
+
+    suspend fun createPlace(
+        locationId: Int,
+        number: RequestBody,
+        capacity: RequestBody,
+        type: RequestBody,
+        title: RequestBody? = null
+    ): Int = api.createPlace(locationId, number, capacity, type, title)
+
+    suspend fun updatePlace(
+        locationId: Int, placeId: Int,
+        title: RequestBody? = null,
+        type: RequestBody? = null,
+        capacity: RequestBody? = null
+    ): PlaceDto = api.updatePlace(locationId, placeId, title, type, capacity)
+
+    suspend fun deletePlace(locationId: Int, placeId: Int) =
+        api.deletePlace(locationId, placeId)
+
+    suspend fun getPlaceTypes(): List<PlaceTypeDto> = api.getPlaceTypes()
 
     // ── Users ─────────────────────────────────────────────────────
 

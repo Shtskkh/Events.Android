@@ -30,6 +30,7 @@ import com.events.app.ui.views.eventdetail.EventDetailsScreen
 import com.events.app.ui.views.eventdetail.EventDetailsViewModel
 import com.events.app.ui.views.events.EventsScreen
 import com.events.app.ui.views.eventsfilter.FiltersScreen
+import com.events.app.ui.views.locations.LocationsScreen
 import com.events.app.ui.views.main.MainScreen
 import com.events.app.ui.views.settings.SettingsScreen
 import com.events.app.ui.views.statistics.StatisticsScreen
@@ -81,7 +82,7 @@ fun AppGraph(
             }
         }
 
-        // ── Создание мероприятия — вложенный граф (shared ViewModel) ──
+        // ── Создание мероприятия ──────────────────────────────────
         navigation<NavigationRoute.CreateEventGraph>(
             startDestination = NavigationRoute.CreateEvent
         ) {
@@ -144,6 +145,19 @@ fun AppGraph(
             }
         }
 
+        // ── Локации ───────────────────────────────────────────────
+        composable<NavigationRoute.Locations> {
+            AppDrawer(drawerState = drawerState, navController = navController) {
+                AppTopBar(
+                    title                 = "Локации",
+                    drawerState           = drawerState,
+                    onNavigationToAccount = { navToAccount() },
+                ) {
+                    LocationsScreen()
+                }
+            }
+        }
+
         // ── Настройки ─────────────────────────────────────────────
         composable<NavigationRoute.Settings> {
             AppDrawer(drawerState = drawerState, navController = navController) {
@@ -180,8 +194,6 @@ fun AppGraph(
                 EventDetailsScreen(
                     eventId = details.id,
                     onBack  = { navBack() },
-                    // Передаём onEdit только для admin — кнопка в экране сама скрыта для обычных пользователей,
-                    // но навигация всё равно только для admin
                     onEdit  = if (isAdmin) { { id -> navToEditEvent(id) } } else null
                 )
             }
@@ -192,8 +204,6 @@ fun AppGraph(
             composable<NavigationRoute.EditEvent> { backStackEntry ->
                 val route: NavigationRoute.EditEvent = backStackEntry.toRoute()
 
-                // Берём EventDetailsViewModel из предыдущего backstack entry,
-                // чтобы не делать лишний сетевой запрос — event уже загружен
                 val detailsEntry = remember(backStackEntry) {
                     navController.getBackStackEntry<NavigationRoute.EventDetails>()
                 }
