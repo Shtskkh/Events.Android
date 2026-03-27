@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.events.app.data.RemoteDataSource
+import com.events.app.data.local.EventLocationCache
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
@@ -23,6 +24,7 @@ import javax.inject.Inject
 class CreateEventViewModel @Inject constructor(
     private val remoteDataSource: RemoteDataSource,
     private val authRepository: AuthRepository,
+    private val locationCache: EventLocationCache,
     application: Application
 ) : AndroidViewModel(application) {
 
@@ -91,7 +93,6 @@ class CreateEventViewModel @Inject constructor(
         }
     }
 
-    // Загружаем помещения при выборе локации
     fun loadPlaces(locationId: Int) {
         viewModelScope.launch {
             try {
@@ -153,28 +154,43 @@ class CreateEventViewModel @Inject constructor(
                 val placeholderBody = selectedPlaceholder.value
                     ?.takeIf { previewPart == null }?.toBody()
 
-                // MaxParticipants — только если включена регистрация
-                val maxParticipantsBody = if (needsRegistration.value && maxParticipants.value.isNotBlank())
-                    maxParticipants.value.toBody() else null
+                // MaxParticipants: пустое поле при включённой регистрации → 999999
+                val maxParticipantsBody = if (needsRegistration.value) {
+                    val entered = maxParticipants.value.trim()
+                    val value = if (entered.isBlank()) "999999" else entered
+                    value.toBody()
+                } else null
 
                 // PlaceId — только если выбрано помещение
                 val placeIdBody = selectedPlaceId.value?.toString()?.toBody()
 
-                remoteDataSource.createEvent(
-                    userId = userId.toBody(),
-                    title = title.value.toBody(),
-                    announcement = announcement.value.toBody(),
-                    description = description.value.toBody(),
-                    startDateTime = startDateTime.value.toBody(),
-                    endDateTime = endDateTime.value.toBody(),
-                    eventTypeId = selectedTypeId.value.toString().toBody(),
-                    eventFormatId = selectedFormatId.value.toString().toBody(),
+                val newEventId = remoteDataSource.createEvent(
+                    userId            = userId.toBody(),
+                    title             = title.value.toBody(),
+                    announcement      = announcement.value.toBody(),
+                    description       = description.value.toBody(),
+                    startDateTime     = startDateTime.value.toBody(),
+                    endDateTime       = endDateTime.value.toBody(),
+                    eventTypeId       = selectedTypeId.value.toString().toBody(),
+                    eventFormatId     = selectedFormatId.value.toString().toBody(),
                     needsRegistration = needsRegistration.value.toString().toBody(),
-                    maxParticipants = maxParticipantsBody,
-                    placeId = placeIdBody,
-                    placeholder = placeholderBody,
-                    preview = previewPart
+                    maxParticipants   = maxParticipantsBody,
+                    placeId           = placeIdBody,
+                    placeholder       = placeholderBody,
+                    preview           = previewPart
                 )
+
+                // ── Сохраняем название локации в кэш ─────────────────
+                // Бэкенд не возвращает locationTitle в GET /events/{id},
+                // поэтому кэшируем вручную при создании мероприятия.
+                val locId = selectedLocationId.value
+                if (locId != null && newEventId.isNotBlank()) {
+                    val locTitle = _locations.value.find { it.id == locId }?.title
+                    if (!locTitle.isNullOrBlank()) {
+                        locationCache.put(newEventId, locTitle)
+                    }
+                }
+
                 _success.value = true
             } catch (e: Exception) {
                 _error.value = e.message ?: "Ошибка при создании мероприятия"

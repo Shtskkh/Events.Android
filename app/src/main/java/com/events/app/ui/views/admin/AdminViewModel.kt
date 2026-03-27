@@ -3,7 +3,6 @@ package com.events.app.ui.views.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.events.app.data.RemoteDataSource
-import com.events.app.data.remote.dto.LocationDto
 import com.events.app.data.remote.dto.ShortEventDto
 import com.events.app.data.remote.dto.UserDto
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,7 +28,7 @@ class AdminViewModel @Inject constructor(
     private val remoteDataSource: RemoteDataSource
 ) : ViewModel() {
 
-    enum class AdminTab { EVENTS, USERS, LOCATIONS }
+    enum class AdminTab { EVENTS, USERS }
 
     private val _selectedTab = MutableStateFlow(AdminTab.EVENTS)
     val selectedTab = _selectedTab.asStateFlow()
@@ -193,60 +192,8 @@ class AdminViewModel @Inject constructor(
         }
     }
 
-    // ── ЛОКАЦИИ ───────────────────────────────────────────────────
-
-    private val _locations = MutableStateFlow<List<LocationDto>>(emptyList())
-    val locations = _locations.asStateFlow()
-
-    private val _locationsLoading = MutableStateFlow(false)
-    val locationsLoading = _locationsLoading.asStateFlow()
-
-    fun loadLocations() {
-        viewModelScope.launch {
-            _locationsLoading.value = true
-            try {
-                _locations.value = remoteDataSource.getLocations()
-            } catch (e: retrofit2.HttpException) {
-                if (e.code() != 404) _error.value = "Ошибка загрузки локаций"
-                _locations.value = emptyList()
-            } catch (e: Exception) {
-                _locations.value = emptyList()
-            } finally { _locationsLoading.value = false }
-        }
-    }
-
-    fun createLocation(title: String, address: String, onDone: () -> Unit = {}) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
-                val newId = remoteDataSource.createLocation(title.trim().toBody(), address.trim().toBody())
-                _locations.value = _locations.value + LocationDto(id = newId, title = title.trim(), address = address.trim())
-                _successMessage.value = "Локация «${title.trim()}» создана"
-                onDone()
-            } catch (e: Exception) {
-                _error.value = "Ошибка создания локации: ${e.message}"
-            } finally { _isLoading.value = false }
-        }
-    }
-
-    fun deleteLocation(id: Int, onDone: () -> Unit = {}) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                remoteDataSource.deleteLocation(id)
-                _locations.value = _locations.value.filter { it.id != id }
-                _successMessage.value = "Локация удалена"
-                onDone()
-            } catch (e: Exception) {
-                _error.value = "Ошибка при удалении: ${e.message}"
-            } finally { _isLoading.value = false }
-        }
-    }
-
     init {
         loadEvents()
         loadUsers()
-        loadLocations()
     }
 }

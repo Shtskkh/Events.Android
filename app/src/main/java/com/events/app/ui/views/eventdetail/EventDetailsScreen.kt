@@ -275,14 +275,43 @@ private fun EventContent(
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Дата и время ──────────────────────────────────────
-            SectionTitle("Дата и время")
+            // ── Секция "Дата и место" ────────────────────────────
+            // Строка 1: Начало / Конец
+            SectionTitle("Дата и место")
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CompactInfoCard(Icons.Outlined.PlayArrow, GreenStart, "Начало",
                     event.startDate.format(dateFormatter), Modifier.weight(1f))
                 CompactInfoCard(Icons.Outlined.Stop, RedEnd, "Конец",
                     event.endDate.format(dateFormatter), Modifier.weight(1f))
+            }
+
+            // Строка 2: Локация / Помещение (если есть)
+            if (event.location.isNotBlank() || !event.placeNumber.isNullOrBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (event.location.isNotBlank()) {
+                        CompactInfoCard(
+                            icon     = Icons.Outlined.LocationOn,
+                            iconTint = MaterialTheme.colorScheme.tertiary,
+                            label    = "Локация",
+                            value    = event.location,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (!event.placeNumber.isNullOrBlank()) {
+                        CompactInfoCard(
+                            icon     = Icons.Outlined.MeetingRoom,
+                            iconTint = MaterialTheme.colorScheme.secondary,
+                            label    = "Помещение №",
+                            value    = event.placeNumber,
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        // только локация — вторая колонка пустая
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
             }
 
             Spacer(Modifier.height(16.dp))
@@ -294,6 +323,17 @@ private fun EventContent(
             Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)) {
                 Column(modifier = Modifier.padding(4.dp)) {
+
+                    // Тип и формат — первые в блоке
+                    if (event.type.isNotBlank()) {
+                        DetailRow(Icons.Outlined.Category, "Тип", event.type,
+                            MaterialTheme.colorScheme.primary)
+                        DetailDivider()
+                    }
+                    if (event.format.isNotBlank()) {
+                        DetailRow(formatIcon, "Формат", event.format, formatColor)
+                        DetailDivider()
+                    }
 
                     // ID мероприятия — только admin
                     if (isAdmin) {
@@ -307,19 +347,6 @@ private fun EventContent(
                         CopyableDetailRow(Icons.Outlined.PersonSearch, "ID создателя", event.userId,
                             onCopy = { copyText(event.userId, "ID создателя") })
                         DetailDivider()
-                    }
-
-                    if (event.type.isNotBlank()) {
-                        DetailRow(Icons.Outlined.Category, "Тип", event.type); DetailDivider()
-                    }
-                    if (event.format.isNotBlank()) {
-                        DetailRow(formatIcon, "Формат", event.format, formatColor); DetailDivider()
-                    }
-                    if (event.location.isNotBlank()) {
-                        DetailRow(Icons.Outlined.LocationOn, "Локация", event.location); DetailDivider()
-                    }
-                    if (!event.placeNumber.isNullOrBlank()) {
-                        DetailRow(Icons.Outlined.MeetingRoom, "Помещение №", event.placeNumber); DetailDivider()
                     }
 
                     // Регистрация
