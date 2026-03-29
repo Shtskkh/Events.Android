@@ -7,14 +7,18 @@ data class Event(
     val title: String,
     val announcement: String,
     val description: String,
-    val startDate: LocalDateTime,
-    val endDate: LocalDateTime,
     val type: String,
     val format: String,
+    val startDate: LocalDateTime,
+    val endDate: LocalDateTime,
     val places: Int,
     val location: String,
-    // Номер помещения из placeInfo.number
+    val locationAddress: String? = null,
     val placeNumber: String?,
+    val placeTitle: String? = null,
+    val placeCapacity: Int? = null,
+    val placeId: Int? = null,
+    val locationId: Int? = null,
     val link: String?,
     val isPublic: Boolean,
     val isFinished: Boolean,
@@ -22,9 +26,7 @@ data class Event(
     val needsRegistration: Boolean,
     val maxParticipants: Int?,
     val organizerName: String?,
-    // ID создателя мероприятия — показывается только admin
     val userId: String? = null,
-    // Из аналитики GET /api/v/1/events/{id}/analytics
     val participantsCount: Int? = null,
     val viewsCount: Int? = null,
 )

@@ -29,7 +29,6 @@ import com.events.app.ui.views.editevent.EditEventScreen
 import com.events.app.ui.views.eventdetail.EventDetailsScreen
 import com.events.app.ui.views.eventdetail.EventDetailsViewModel
 import com.events.app.ui.views.events.EventsScreen
-import com.events.app.ui.views.eventsfilter.FiltersScreen
 import com.events.app.ui.views.locations.LocationsScreen
 import com.events.app.ui.views.main.MainScreen
 import com.events.app.ui.views.settings.SettingsScreen
@@ -223,16 +222,6 @@ fun AppGraph(
                         )
                     }
                 }
-            }
-        }
-
-        // ── Фильтры ───────────────────────────────────────────────
-        composable<NavigationRoute.Filters> {
-            FiltersTopBar(
-                onBack     = { navBack() },
-                onResetAll = { }
-            ) {
-                FiltersScreen()
             }
         }
 

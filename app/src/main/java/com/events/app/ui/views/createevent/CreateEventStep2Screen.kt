@@ -276,41 +276,84 @@ fun CreateEventStep2Screen(
             }
         }
 
-        // ── Помещение ─────────────────────────────────────────────
-        if (selectedLocation != null && places.isNotEmpty()) {
+// ── Помещение (показываем только если выбрана локация) ────
+        if (selectedLocation != null) {
             Spacer(modifier = Modifier.height(12.dp))
-            ExposedDropdownMenuBox(expanded = placeExpanded, onExpandedChange = { placeExpanded = it }) {
-                OutlinedTextField(
-                    value         = places.find { it.id == selectedPlace }
-                        ?.let { "${it.title ?: "Помещение"} №${it.number ?: ""} (вместимость: ${it.capacity})" } ?: "",
-                    onValueChange = {},
-                    readOnly      = true,
-                    label         = { Text(if (placeRequired) "Помещение *" else "Помещение") },
-                    trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = placeExpanded) },
-                    modifier      = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                    shape         = RoundedCornerShape(12.dp),
-                    isError       = placeRequired && selectedPlace == null
-                )
-                ExposedDropdownMenu(expanded = placeExpanded, onDismissRequest = { placeExpanded = false }) {
-                    if (selectedPlace != null && !placeRequired) {
-                        DropdownMenuItem(
-                            text    = { Text("Не указывать", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                            onClick = { viewModel.selectedPlaceId.value = null; placeExpanded = false }
-                        )
-                        HorizontalDivider()
-                    }
-                    places.forEach { place ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text("${place.title ?: "Помещение"} №${place.number ?: ""}",
-                                        fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                    Text("Вместимость: ${place.capacity}", fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            if (places.isEmpty()) {
+                // Локация выбрана, но помещений нет — показываем сообщение
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape    = RoundedCornerShape(12.dp),
+                    color    = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Text(
+                        "В выбранной локации нет помещений",
+                        modifier = Modifier.padding(16.dp),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                ExposedDropdownMenuBox(
+                    expanded = placeExpanded,
+                    onExpandedChange = { placeExpanded = it }
+                ) {
+                    val selectedPlaceObj = places.find { it.id == selectedPlace }
+                    val placeDisplayValue = selectedPlaceObj?.let { place ->
+                        val titlePart = place.title?.takeIf { it.isNotBlank() } ?: "Помещение"
+                        val numberPart = place.number?.takeIf { it.isNotBlank() }?.let { " №$it" } ?: ""
+                        "$titlePart$numberPart (вместимость: ${place.capacity})"
+                    } ?: ""
+
+                    OutlinedTextField(
+                        value         = placeDisplayValue,
+                        onValueChange = {},
+                        readOnly      = true,
+                        label         = { Text(if (placeRequired) "Помещение *" else "Помещение") },
+                        trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = placeExpanded) },
+                        modifier      = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                        shape         = RoundedCornerShape(12.dp),
+                        isError       = placeRequired && selectedPlace == null
+                    )
+                    ExposedDropdownMenu(
+                        expanded = placeExpanded,
+                        onDismissRequest = { placeExpanded = false }
+                    ) {
+                        // Пункт "не указывать" — только если не обязательно
+                        if (selectedPlace != null && !placeRequired) {
+                            DropdownMenuItem(
+                                text    = { Text("Не указывать", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                onClick = { viewModel.selectedPlaceId.value = null; placeExpanded = false }
+                            )
+                            HorizontalDivider()
+                        }
+                        places.forEach { place ->
+                            val titlePart = place.title?.takeIf { it.isNotBlank() } ?: "Помещение"
+                            val numberPart = place.number?.takeIf { it.isNotBlank() }?.let { " №$it" } ?: ""
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(
+                                            "$titlePart$numberPart",
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize   = 14.sp
+                                        )
+                                        Text(
+                                            "Вместимость: ${place.capacity}  •  Тип: ${place.type ?: "—"}",
+                                            fontSize = 12.sp,
+                                            color    = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    viewModel.selectedPlaceId.value = place.id
+                                    placeExpanded = false
                                 }
-                            },
-                            onClick = { viewModel.selectedPlaceId.value = place.id; placeExpanded = false }
-                        )
+                            )
+                        }
                     }
                 }
             }
