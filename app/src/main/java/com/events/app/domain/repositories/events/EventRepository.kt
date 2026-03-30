@@ -11,7 +11,8 @@ interface EventRepository {
         startDateTime: String? = null,
         endDateTime: String? = null,
         typeId: Int? = null,
-        formatId: Int? = null
+        formatId: Int? = null,
+        placeId: Int? = null
     ): List<Event>
 
     suspend fun getEventById(id: String, accessToken: String? = null): Event

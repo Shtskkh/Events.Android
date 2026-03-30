@@ -20,13 +20,14 @@ interface EventsApi {
 
     @GET("api/v/1/events")
     suspend fun getEvents(
-        @Query("Size") size: Int = 20,
-        @Query("Page") page: Int = 1,
-        @Query("Text") text: String? = null,
+        @Query("Size")          size: Int = 20,
+        @Query("Page")          page: Int = 1,
+        @Query("Text")          text: String? = null,
         @Query("StartDateTime") startDateTime: String? = null,
-        @Query("EndDateTime") endDateTime: String? = null,
-        @Query("TypeId") typeId: Int? = null,
-        @Query("FormatId") formatId: Int? = null
+        @Query("EndDateTime")   endDateTime: String? = null,
+        @Query("TypeId")        typeId: Int? = null,
+        @Query("FormatId")      formatId: Int? = null,
+        @Query("PlaceId")       placeId: Int? = null
     ): List<ShortEventDto>
 
     @GET("api/v/1/events/{id}")
@@ -50,30 +51,30 @@ interface EventsApi {
     @Multipart
     @POST("api/v/1/events")
     suspend fun createEvent(
-        @Part("UserId") userId: RequestBody,
-        @Part("Title") title: RequestBody,
-        @Part("Announcement") announcement: RequestBody,
-        @Part("Description") description: RequestBody,
-        @Part("StartDateTime") startDateTime: RequestBody,
-        @Part("EndDateTime") endDateTime: RequestBody,
-        @Part("EventTypeId") eventTypeId: RequestBody,
-        @Part("EventFormatId") eventFormatId: RequestBody,
+        @Part("UserId")            userId: RequestBody,
+        @Part("Title")             title: RequestBody,
+        @Part("Announcement")      announcement: RequestBody,
+        @Part("Description")       description: RequestBody,
+        @Part("StartDateTime")     startDateTime: RequestBody,
+        @Part("EndDateTime")       endDateTime: RequestBody,
+        @Part("EventTypeId")       eventTypeId: RequestBody,
+        @Part("EventFormatId")     eventFormatId: RequestBody,
         @Part("NeedsRegistration") needsRegistration: RequestBody,
-        @Part("MaxParticipants") maxParticipants: RequestBody? = null,
-        @Part("PlaceId") placeId: RequestBody? = null,
-        @Part("Placeholder") placeholder: RequestBody? = null,
-        @Part preview: MultipartBody.Part? = null
+        @Part("MaxParticipants")   maxParticipants: RequestBody? = null,
+        @Part("PlaceId")           placeId: RequestBody? = null,
+        @Part("Placeholder")       placeholder: RequestBody? = null,
+        @Part                      preview: MultipartBody.Part? = null
     ): String
 
     @Multipart
     @PATCH("api/v/1/events/{id}")
     suspend fun updateEvent(
-        @Path("id") id: String,
-        @Part("Title") title: RequestBody? = null,
+        @Path("id")           id: String,
+        @Part("Title")        title: RequestBody? = null,
         @Part("Announcement") announcement: RequestBody? = null,
-        @Part("Description") description: RequestBody? = null,
+        @Part("Description")  description: RequestBody? = null,
         @Part("StartDateTime") startDateTime: RequestBody? = null,
-        @Part("EndDateTime") endDateTime: RequestBody? = null
+        @Part("EndDateTime")  endDateTime: RequestBody? = null
     )
 
     // ── Analytics ─────────────────────────────────────────────────
@@ -85,14 +86,14 @@ interface EventsApi {
 
     @POST("api/v/1/events/{eventId}/participants")
     suspend fun registerForEvent(
-        @Path("eventId") eventId: String,
-        @Query("participantId") participantId: String
+        @Path("eventId")          eventId: String,
+        @Query("participantId")   participantId: String
     )
 
     @DELETE("api/v/1/events/{eventId}/participants")
     suspend fun leaveEvent(
-        @Path("eventId") eventId: String,
-        @Query("participantId") participantId: String
+        @Path("eventId")          eventId: String,
+        @Query("participantId")   participantId: String
     )
 
     @GET("api/v/1/events/{id}/participants")
@@ -109,15 +110,15 @@ interface EventsApi {
     @Multipart
     @POST("api/v/1/locations")
     suspend fun createLocation(
-        @Part("Title") title: RequestBody,
+        @Part("Title")   title: RequestBody,
         @Part("Address") address: RequestBody
     ): Int
 
     @Multipart
     @PATCH("api/v/1/locations/{id}")
     suspend fun updateLocation(
-        @Path("id") id: Int,
-        @Part("Title") title: RequestBody? = null,
+        @Path("id")      id: Int,
+        @Part("Title")   title: RequestBody? = null,
         @Part("Address") address: RequestBody? = null
     )
 
@@ -132,33 +133,33 @@ interface EventsApi {
     @GET("api/v/1/locations/{locationId}/places/{placeId}")
     suspend fun getPlaceById(
         @Path("locationId") locationId: Int,
-        @Path("placeId") placeId: Int
+        @Path("placeId")    placeId: Int
     ): PlaceDto
 
     @Multipart
     @POST("api/v/1/locations/{locationId}/places")
     suspend fun createPlace(
-        @Path("locationId") locationId: Int,
-        @Part("Number") number: RequestBody,
-        @Part("Capacity") capacity: RequestBody,
-        @Part("Type") type: RequestBody,
-        @Part("Title") title: RequestBody? = null
+        @Path("locationId")  locationId: Int,
+        @Part("Number")      number: RequestBody,
+        @Part("Capacity")    capacity: RequestBody,
+        @Part("Type")        type: RequestBody,
+        @Part("Title")       title: RequestBody? = null
     ): Int
 
     @Multipart
     @PATCH("api/v/1/locations/{locationId}/places/{placeId}")
     suspend fun updatePlace(
         @Path("locationId") locationId: Int,
-        @Path("placeId") placeId: Int,
-        @Part("Title") title: RequestBody? = null,
-        @Part("Type") type: RequestBody? = null,
-        @Part("Capacity") capacity: RequestBody? = null
+        @Path("placeId")    placeId: Int,
+        @Part("Title")      title: RequestBody? = null,
+        @Part("Type")       type: RequestBody? = null,
+        @Part("Capacity")   capacity: RequestBody? = null
     ): PlaceDto
 
     @DELETE("api/v/1/locations/{locationId}/places/{placeId}")
     suspend fun deletePlace(
         @Path("locationId") locationId: Int,
-        @Path("placeId") placeId: Int
+        @Path("placeId")    placeId: Int
     )
 
     @GET("api/v/1/locations/places/types")
@@ -175,10 +176,10 @@ interface EventsApi {
     @Multipart
     @POST("api/v/1/users")
     suspend fun createUser(
-        @Part("FirstName") firstName: RequestBody,
-        @Part("LastName") lastName: RequestBody,
-        @Part("Email") email: RequestBody,
-        @Part("Password") password: RequestBody,
+        @Part("FirstName")  firstName: RequestBody,
+        @Part("LastName")   lastName: RequestBody,
+        @Part("Email")      email: RequestBody,
+        @Part("Password")   password: RequestBody,
         @Part("Patronymic") patronymic: RequestBody? = null
     ): String
 

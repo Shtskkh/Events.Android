@@ -23,9 +23,10 @@ class RemoteDataSource @Inject constructor(
     suspend fun getEvents(
         size: Int = 20, page: Int = 1, text: String? = null,
         startDateTime: String? = null, endDateTime: String? = null,
-        typeId: Int? = null, formatId: Int? = null
+        typeId: Int? = null, formatId: Int? = null,
+        placeId: Int? = null
     ): List<ShortEventDto> =
-        api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId)
+        api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId, placeId)
 
     suspend fun getEventById(id: String, accessToken: String? = null): EventDetailDto {
         val authHeader = accessToken?.let { "Bearer $it" }
@@ -54,10 +55,8 @@ class RemoteDataSource @Inject constructor(
 
     suspend fun updateEvent(
         id: String,
-        title: RequestBody? = null,
-        announcement: RequestBody? = null,
-        description: RequestBody? = null,
-        startDateTime: RequestBody? = null,
+        title: RequestBody? = null, announcement: RequestBody? = null,
+        description: RequestBody? = null, startDateTime: RequestBody? = null,
         endDateTime: RequestBody? = null
     ) = api.updateEvent(id, title, announcement, description, startDateTime, endDateTime)
 
@@ -75,7 +74,6 @@ class RemoteDataSource @Inject constructor(
     // ── Locations ─────────────────────────────────────────────────
 
     suspend fun getLocations(): List<LocationDto> = api.getLocations()
-
     suspend fun getLocationById(id: Int): LocationDto = api.getLocationById(id)
 
     suspend fun createLocation(title: RequestBody, address: RequestBody): Int =
@@ -95,18 +93,13 @@ class RemoteDataSource @Inject constructor(
         api.getPlaceById(locationId, placeId)
 
     suspend fun createPlace(
-        locationId: Int,
-        number: RequestBody,
-        capacity: RequestBody,
-        type: RequestBody,
-        title: RequestBody? = null
+        locationId: Int, number: RequestBody, capacity: RequestBody,
+        type: RequestBody, title: RequestBody? = null
     ): Int = api.createPlace(locationId, number, capacity, type, title)
 
     suspend fun updatePlace(
         locationId: Int, placeId: Int,
-        title: RequestBody? = null,
-        type: RequestBody? = null,
-        capacity: RequestBody? = null
+        title: RequestBody? = null, type: RequestBody? = null, capacity: RequestBody? = null
     ): PlaceDto = api.updatePlace(locationId, placeId, title, type, capacity)
 
     suspend fun deletePlace(locationId: Int, placeId: Int) =
@@ -120,11 +113,8 @@ class RemoteDataSource @Inject constructor(
         api.getUsers(size, page)
 
     suspend fun createUser(
-        firstName: RequestBody,
-        lastName: RequestBody,
-        email: RequestBody,
-        password: RequestBody,
-        patronymic: RequestBody? = null
+        firstName: RequestBody, lastName: RequestBody, email: RequestBody,
+        password: RequestBody, patronymic: RequestBody? = null
     ): String = api.createUser(firstName, lastName, email, password, patronymic)
 
     suspend fun deleteUser(id: String) = api.deleteUser(id)

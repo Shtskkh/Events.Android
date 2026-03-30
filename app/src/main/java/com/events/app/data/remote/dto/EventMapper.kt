@@ -32,63 +32,65 @@ private fun buildPreviewUrl(previewInfo: PreviewInfoDto?): String? {
 fun ShortEventDto.toDomain(): Event {
     val parsedEnd = parseDateTime(endDateTime)
     return Event(
-        id               = id,
-        title            = title ?: "",
-        announcement     = announcement ?: "",
-        description      = "",
-        startDate        = parseDateTime(startDateTime),
-        endDate          = parsedEnd,
-        format           = format ?: "",
-        places           = 0,
-        location         = locationTitle ?: "",
-        locationAddress  = null,
-        placeNumber      = null,
-        placeTitle       = null,
-        placeCapacity    = null,
-        placeId          = null,
-        locationId       = null,
-        link             = null,
-        type             = type ?: "",
-        isPublic         = true,
-        isFinished       = LocalDateTime.now().isAfter(parsedEnd),
-        previewUrl       = buildPreviewUrl(previewInfo),
+        id                = id,
+        title             = title ?: "",
+        announcement      = announcement ?: "",
+        description       = "",
+        startDate         = parseDateTime(startDateTime),
+        endDate           = parsedEnd,
+        format            = format ?: "",
+        places            = 0,
+        // API не возвращает locationTitle в ShortEventDto —
+        // location будет подставлен из EventLocationCache в EventsViewModel
+        location          = "",
+        locationAddress   = null,
+        placeNumber       = null,
+        placeTitle        = null,
+        placeCapacity     = null,
+        placeId           = null,
+        locationId        = null,
+        link              = null,
+        type              = type ?: "",
+        isPublic          = true,
+        isFinished        = LocalDateTime.now().isAfter(parsedEnd),
+        previewUrl        = buildPreviewUrl(previewInfo),
         needsRegistration = false,
-        maxParticipants  = null,
-        organizerName    = null,
-        userId           = null,
+        maxParticipants   = null,
+        organizerName     = null,
+        userId            = userId,
         participantsCount = null,
-        viewsCount       = null,
+        viewsCount        = null,
     )
 }
 
 fun EventDetailDto.toDomain(): Event {
     val parsedEnd = parseDateTime(endDateTime)
     return Event(
-        id               = id,
-        title            = title ?: "",
-        announcement     = announcement ?: "",
-        type             = type ?: "",
-        description      = description ?: "",
-        startDate        = parseDateTime(startDateTime),
-        endDate          = parsedEnd,
-        format           = format ?: "",
-        places           = maxParticipants ?: 0,
-        location         = locationTitle ?: "",
-        locationAddress  = null,
-        placeNumber      = placeInfo?.number,
-        placeTitle       = null,       // заполняется в ViewModel после дозапроса
-        placeCapacity    = null,       // заполняется в ViewModel после дозапроса
-        placeId          = placeInfo?.placeId,
-        locationId       = null,       // заполняется в ViewModel после дозапроса
-        link             = null,
-        isPublic         = isPublic ?: true,
-        isFinished       = LocalDateTime.now().isAfter(parsedEnd),
-        previewUrl       = buildPreviewUrl(previewInfo),
+        id                = id,
+        title             = title ?: "",
+        announcement      = announcement ?: "",
+        type              = type ?: "",
+        description       = description ?: "",
+        startDate         = parseDateTime(startDateTime),
+        endDate           = parsedEnd,
+        format            = format ?: "",
+        places            = maxParticipants ?: 0,
+        location          = "",       // заполняется в EventDetailsViewModel после дозапроса
+        locationAddress   = null,     // заполняется в EventDetailsViewModel после дозапроса
+        placeNumber       = placeInfo?.number,
+        placeTitle        = null,     // заполняется в EventDetailsViewModel после дозапроса
+        placeCapacity     = null,     // заполняется в EventDetailsViewModel после дозапроса
+        placeId           = placeInfo?.placeId,
+        locationId        = null,     // заполняется в EventDetailsViewModel после дозапроса
+        link              = null,
+        isPublic          = isPublic ?: true,
+        isFinished        = LocalDateTime.now().isAfter(parsedEnd),
+        previewUrl        = buildPreviewUrl(previewInfo),
         needsRegistration = needsRegistration ?: false,
-        maxParticipants  = maxParticipants,
-        organizerName    = organizerName,
-        userId           = userId,
+        maxParticipants   = maxParticipants,
+        organizerName     = organizerName,
+        userId            = userId,
         participantsCount = null,
-        viewsCount       = null,
+        viewsCount        = null,
     )
 }

@@ -14,8 +14,9 @@ class GetEventsUseCase @Inject constructor(
         startDateTime: String? = null,
         endDateTime: String? = null,
         typeId: Int? = null,
-        formatId: Int? = null
+        formatId: Int? = null,
+        placeId: Int? = null
     ): List<Event> {
-        return repository.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId)
+        return repository.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId, placeId)
     }
 }

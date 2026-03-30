@@ -31,10 +31,8 @@ class EventsViewModel @Inject constructor(
     private val locationCache: EventLocationCache
 ) : ViewModel() {
 
-    // Все загруженные события — нужны для локальной фильтрации по ID
     private val _allLoadedEvents = MutableStateFlow<List<Event>>(emptyList())
 
-    // Отображаемые события (либо все, либо отфильтрованные по ID)
     private val _displayedEvents = MutableStateFlow<List<Event>>(emptyList())
     val displayedEvents = _displayedEvents.asStateFlow()
 
@@ -50,7 +48,8 @@ class EventsViewModel @Inject constructor(
     private var currentPage = 1
     private val pageSize    = 20
 
-    // Текущий текст поиска (для серверного поиска)
+    // ── Серверные фильтры ─────────────────────────────────────────
+
     private val _searchText = MutableStateFlow<String?>(null)
     val searchText = _searchText.asStateFlow()
 
@@ -66,6 +65,8 @@ class EventsViewModel @Inject constructor(
     private val _filterFormatId = MutableStateFlow<Int?>(null)
     val filterFormatId = _filterFormatId.asStateFlow()
 
+    // ── Справочники ───────────────────────────────────────────────
+
     private val _eventTypes = MutableStateFlow<List<EventTypeDto>>(emptyList())
     val eventTypes = _eventTypes.asStateFlow()
 
@@ -79,30 +80,21 @@ class EventsViewModel @Inject constructor(
 
     private fun loadReferenceData() {
         viewModelScope.launch {
-            try { _eventTypes.value  = remoteDataSource.getEventTypes()   } catch (_: Exception) {}
+            try { _eventTypes.value   = remoteDataSource.getEventTypes()   } catch (_: Exception) {}
             try { _eventFormats.value = remoteDataSource.getEventFormats() } catch (_: Exception) {}
         }
     }
 
-    /**
-     * Установить текст поиска.
-     * Если текст похож на UUID — фильтруем локально по уже загруженным событиям.
-     * Иначе — серверный полнотекстовый поиск.
-     */
+    // ── Публичные методы изменения фильтров ───────────────────────
+
     fun setSearchText(text: String?) {
         val trimmed = text?.trim()
-
-        // ── Поиск по ID — клиентски ──────────────────────────────
         if (!trimmed.isNullOrBlank() && trimmed.looksLikeUuid()) {
-            val filtered = _allLoadedEvents.value.filter {
-                it.id.contains(trimmed, ignoreCase = true)
-            }
-            _displayedEvents.value = filtered
+            _displayedEvents.value = _allLoadedEvents.value
+                .filter { it.id.contains(trimmed, ignoreCase = true) }
             _hasMore.value = false
             return
         }
-
-        // ── Обычный поиск — на сервер ────────────────────────────
         _searchText.value = trimmed?.takeIf { it.length >= 2 }
         loadEvents(reset = true)
     }
@@ -124,18 +116,13 @@ class EventsViewModel @Inject constructor(
     }
 
     fun applyAllFilters(
-        text: String?, startDate: String?, endDate: String?,
-        typeId: Int?, formatId: Int?
+        text: String?,
+        startDate: String?,
+        endDate: String?,
+        typeId: Int?,
+        formatId: Int?
     ) {
         val trimmed = text?.trim()
-        // UUID-поиск применяем сразу клиентски, не трогаем остальные фильтры
-        if (!trimmed.isNullOrBlank() && trimmed.looksLikeUuid()) {
-            _displayedEvents.value = _allLoadedEvents.value.filter {
-                it.id.contains(trimmed, ignoreCase = true)
-            }
-            _hasMore.value = false
-            return
-        }
         _searchText.value      = trimmed?.takeIf { it.length >= 2 }
         _filterStartDate.value = startDate
         _filterEndDate.value   = endDate
@@ -162,8 +149,8 @@ class EventsViewModel @Inject constructor(
     private fun loadEvents(reset: Boolean = false) {
         if (reset) {
             currentPage = 1
-            _displayedEvents.value  = emptyList()
-            _allLoadedEvents.value  = emptyList()
+            _displayedEvents.value = emptyList()
+            _allLoadedEvents.value = emptyList()
         }
         viewModelScope.launch {
             _isLoading.value = true
@@ -178,7 +165,7 @@ class EventsViewModel @Inject constructor(
                     typeId        = _filterTypeId.value,
                     formatId      = _filterFormatId.value
                 )
-                // Обогащаем локацией из кэша
+
                 val enriched = events.map { event ->
                     if (event.location.isBlank()) {
                         val cached = locationCache.get(event.id)
@@ -187,9 +174,9 @@ class EventsViewModel @Inject constructor(
                 }
 
                 val merged = if (reset) enriched else _allLoadedEvents.value + enriched
-                _allLoadedEvents.value  = merged
-                _displayedEvents.value  = merged
-                _hasMore.value          = events.size >= pageSize
+                _allLoadedEvents.value = merged
+                _displayedEvents.value = merged
+                _hasMore.value         = events.size >= pageSize
                 if (events.size >= pageSize) currentPage++
 
             } catch (e: retrofit2.HttpException) {

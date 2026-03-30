@@ -12,6 +12,5 @@ data class ShortEventDto(
     val startDateTime: String,
     val endDateTime: String,
     val previewInfo: PreviewInfoDto?,
-    val locationTitle: String? = null,
-    val userId: String? = null   // ← ID создателя (API уже возвращает)
+    val userId: String? = null
 )
