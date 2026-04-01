@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
@@ -15,11 +15,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.events.app.domain.models.users.User
 import com.events.app.domain.models.users.UserRole
-import com.events.app.ui.AppViewModel
 import com.events.app.ui.components.appbar.AppTopBar
 import com.events.app.ui.components.appbar.EventDetailsTopBar
 import com.events.app.ui.components.appbar.EventsTopBar
-import com.events.app.ui.components.appbar.FiltersTopBar
 import com.events.app.ui.components.drawers.AppDrawer
 import com.events.app.ui.views.admin.AdminScreen
 import com.events.app.ui.views.createevent.CreateEventScreen
@@ -139,7 +137,10 @@ fun AppGraph(
                     drawerState           = drawerState,
                     onNavigationToAccount = { navToAccount() },
                 ) {
-                    StatisticsScreen()
+                    // ← ИСПРАВЛЕНО: передаём onEventClick для навигации из графиков
+                    StatisticsScreen(
+                        onEventClick = { id -> navToEventDetails(id) }
+                    )
                 }
             }
         }

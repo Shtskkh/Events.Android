@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.events.app.data.RemoteDataSource
 import com.events.app.data.local.EventLocationCache
+import com.events.app.data.local.EventRefreshBus
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
@@ -25,25 +26,26 @@ class CreateEventViewModel @Inject constructor(
     private val remoteDataSource: RemoteDataSource,
     private val authRepository: AuthRepository,
     private val locationCache: EventLocationCache,
+    private val refreshBus: EventRefreshBus,         // ← новый параметр
     application: Application
 ) : AndroidViewModel(application) {
 
     // --- Шаг 1 ---
-    val title = MutableStateFlow("")
-    val announcement = MutableStateFlow("")
-    val description = MutableStateFlow("")
-    val selectedImageUri = MutableStateFlow<Uri?>(null)
+    val title               = MutableStateFlow("")
+    val announcement        = MutableStateFlow("")
+    val description         = MutableStateFlow("")
+    val selectedImageUri    = MutableStateFlow<Uri?>(null)
     val selectedPlaceholder = MutableStateFlow<String?>(null)
 
     // --- Шаг 2 ---
-    val startDateTime = MutableStateFlow("")
-    val endDateTime = MutableStateFlow("")
-    val needsRegistration = MutableStateFlow(false)
-    val maxParticipants = MutableStateFlow("")
-    val selectedTypeId = MutableStateFlow<Int?>(null)
-    val selectedFormatId = MutableStateFlow<Int?>(null)
+    val startDateTime      = MutableStateFlow("")
+    val endDateTime        = MutableStateFlow("")
+    val needsRegistration  = MutableStateFlow(false)
+    val maxParticipants    = MutableStateFlow("")
+    val selectedTypeId     = MutableStateFlow<Int?>(null)
+    val selectedFormatId   = MutableStateFlow<Int?>(null)
     val selectedLocationId = MutableStateFlow<Int?>(null)
-    val selectedPlaceId = MutableStateFlow<Int?>(null)
+    val selectedPlaceId    = MutableStateFlow<Int?>(null)
 
     // --- Справочники ---
     private val _placeholders = MutableStateFlow<List<String>>(emptyList())
@@ -87,9 +89,9 @@ class CreateEventViewModel @Inject constructor(
     private fun loadReferenceData() {
         viewModelScope.launch {
             try { _placeholders.value = remoteDataSource.getPlaceholders() } catch (_: Exception) {}
-            try { _eventTypes.value = remoteDataSource.getEventTypes() } catch (_: Exception) {}
+            try { _eventTypes.value   = remoteDataSource.getEventTypes()   } catch (_: Exception) {}
             try { _eventFormats.value = remoteDataSource.getEventFormats() } catch (_: Exception) {}
-            try { _locations.value = remoteDataSource.getLocations() } catch (_: Exception) {}
+            try { _locations.value    = remoteDataSource.getLocations()    } catch (_: Exception) {}
         }
     }
 
@@ -154,14 +156,12 @@ class CreateEventViewModel @Inject constructor(
                 val placeholderBody = selectedPlaceholder.value
                     ?.takeIf { previewPart == null }?.toBody()
 
-                // MaxParticipants: пустое поле при включённой регистрации → 999999
                 val maxParticipantsBody = if (needsRegistration.value) {
                     val entered = maxParticipants.value.trim()
-                    val value = if (entered.isBlank()) "999999" else entered
+                    val value   = if (entered.isBlank()) "999999" else entered
                     value.toBody()
                 } else null
 
-                // PlaceId — только если выбрано помещение
                 val placeIdBody = selectedPlaceId.value?.toString()?.toBody()
 
                 val newEventId = remoteDataSource.createEvent(
@@ -180,9 +180,7 @@ class CreateEventViewModel @Inject constructor(
                     preview           = previewPart
                 )
 
-                // ── Сохраняем название локации в кэш ─────────────────
-                // Бэкенд не возвращает locationTitle в GET /events/{id},
-                // поэтому кэшируем вручную при создании мероприятия.
+                // Кэшируем название локации
                 val locId = selectedLocationId.value
                 if (locId != null && newEventId.isNotBlank()) {
                     val locTitle = _locations.value.find { it.id == locId }?.title
@@ -191,7 +189,11 @@ class CreateEventViewModel @Inject constructor(
                     }
                 }
 
+                // ── Уведомляем все экраны о появлении нового мероприятия ──
+                refreshBus.notifyRefresh()
+
                 _success.value = true
+
             } catch (e: Exception) {
                 _error.value = e.message ?: "Ошибка при создании мероприятия"
             } finally {

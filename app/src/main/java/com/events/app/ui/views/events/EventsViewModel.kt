@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.events.app.data.RemoteDataSource
 import com.events.app.data.local.EventLocationCache
+import com.events.app.data.local.EventRefreshBus
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.domain.models.events.Event
@@ -28,7 +29,8 @@ private fun String.looksLikeUuid(): Boolean {
 class EventsViewModel @Inject constructor(
     private val getEventsUseCase: GetEventsUseCase,
     private val remoteDataSource: RemoteDataSource,
-    private val locationCache: EventLocationCache
+    private val locationCache: EventLocationCache,
+    private val refreshBus: EventRefreshBus          // ← новый параметр
 ) : ViewModel() {
 
     private val _allLoadedEvents = MutableStateFlow<List<Event>>(emptyList())
@@ -76,6 +78,13 @@ class EventsViewModel @Inject constructor(
     init {
         loadEvents(reset = true)
         loadReferenceData()
+
+        // Слушаем шину: когда создаётся новое мероприятие — сбрасываем и перезагружаем
+        viewModelScope.launch {
+            refreshBus.events.collect {
+                resetAllFilters()
+            }
+        }
     }
 
     private fun loadReferenceData() {

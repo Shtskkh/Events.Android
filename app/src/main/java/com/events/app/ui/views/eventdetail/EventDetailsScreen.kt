@@ -29,7 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.events.app.data.remote.dto.ParticipantDto
 import com.events.app.domain.models.events.Event
@@ -201,10 +201,10 @@ private fun EventContent(
         // ── Превью ────────────────────────────────────────────────
         Box(modifier = Modifier.fillMaxWidth().height(280.dp)) {
             AsyncImage(
-                model            = event.previewUrl,
+                model              = event.previewUrl,
                 contentDescription = null,
-                contentScale     = ContentScale.Crop,
-                modifier         = Modifier.fillMaxSize()
+                contentScale       = ContentScale.Crop,
+                modifier           = Modifier.fillMaxSize()
             )
             Box(
                 modifier = Modifier
@@ -301,7 +301,6 @@ private fun EventContent(
             SectionTitle("Дата и место")
             Spacer(Modifier.height(8.dp))
 
-            // Строка 1: Начало / Конец
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CompactInfoCard(Icons.Outlined.PlayArrow, GreenStart, "Начало",
                     event.startDate.format(dateFormatter), Modifier.weight(1f))
@@ -309,15 +308,12 @@ private fun EventContent(
                     event.endDate.format(dateFormatter), Modifier.weight(1f))
             }
 
-            // Строка 2: Локация / Помещение — только одна строка, без дублирования
             val hasLocation = event.location.isNotBlank()
 
-            // Собираем строку помещения: "кабинет №20  50 мест"
             val placeDisplay: String? = run {
                 val titlePart  = event.placeTitle?.takeIf { it.isNotBlank() }
                 val numberPart = event.placeNumber?.takeIf { it.isNotBlank() }
                 val capPart    = event.placeCapacity?.let { "${it} мест" }
-
                 val namePart = when {
                     titlePart != null && numberPart != null -> "$titlePart №$numberPart"
                     titlePart != null                       -> titlePart
@@ -383,12 +379,14 @@ private fun EventContent(
                         DetailDivider()
                     }
 
+                    // ID мероприятия — только для админа
                     if (isAdmin) {
                         CopyableDetailRow(Icons.Outlined.Key, "ID мероприятия", event.id,
                             onCopy = { copyText(event.id, "ID мероприятия") })
                         DetailDivider()
                     }
 
+                    // ID создателя — только для админа
                     if (isAdmin && !event.userId.isNullOrBlank()) {
                         CopyableDetailRow(Icons.Outlined.PersonSearch, "ID создателя", event.userId,
                             onCopy = { copyText(event.userId, "ID создателя") })
@@ -575,10 +573,14 @@ private fun EventContent(
                             )
                         ) {
                             if (registrationLoading) {
-                                CircularProgressIndicator(modifier = Modifier.size(22.dp),
-                                    strokeWidth = 2.dp, color = MaterialTheme.colorScheme.error)
+                                CircularProgressIndicator(
+                                    modifier    = Modifier.size(22.dp),
+                                    strokeWidth = 2.dp,
+                                    color       = MaterialTheme.colorScheme.error
+                                )
                             } else {
-                                Icon(Icons.Outlined.PersonRemove, null, modifier = Modifier.size(20.dp))
+                                // Крестик вместо иконки "убрать пользователя"
+                                Icon(Icons.Outlined.Close, null, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text("Отменить запись", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                             }
@@ -597,8 +599,11 @@ private fun EventContent(
                             )
                         ) {
                             if (registrationLoading) {
-                                CircularProgressIndicator(modifier = Modifier.size(22.dp),
-                                    strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                CircularProgressIndicator(
+                                    modifier    = Modifier.size(22.dp),
+                                    strokeWidth = 2.dp,
+                                    color       = MaterialTheme.colorScheme.onPrimary
+                                )
                             } else {
                                 Icon(
                                     if (isBlocked) Icons.Outlined.EventBusy else Icons.Outlined.HowToReg,

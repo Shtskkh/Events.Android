@@ -3,6 +3,7 @@ package com.events.app.ui.views.main
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.events.app.data.local.EventLocationCache
+import com.events.app.data.local.EventRefreshBus
 import com.events.app.domain.models.events.Event
 import com.events.app.domain.repositories.auth.AuthRepository
 import com.events.app.domain.usecases.events.GetEventsUseCase
@@ -18,7 +19,8 @@ class MainViewModel @Inject constructor(
     private val getEventsUseCase: GetEventsUseCase,
     private val getRecentEventsUseCase: GetRecentEventsUseCase,
     private val locationCache: EventLocationCache,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val refreshBus: EventRefreshBus          // ← новый параметр
 ) : ViewModel() {
 
     private val _events = MutableStateFlow<List<Event>>(emptyList())
@@ -30,8 +32,6 @@ class MainViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
 
-    // ── Недавно просмотренные ──────────────────────────────────────
-
     private val _recentEvents = MutableStateFlow<List<Event>>(emptyList())
     val recentEvents = _recentEvents.asStateFlow()
 
@@ -39,6 +39,19 @@ class MainViewModel @Inject constructor(
     val recentLoading = _recentLoading.asStateFlow()
 
     init {
+        loadEvents()
+        loadRecentEvents()
+
+        // Слушаем шину: когда создаётся новое мероприятие — обновляем оба списка
+        viewModelScope.launch {
+            refreshBus.events.collect {
+                loadEvents()
+                loadRecentEvents()
+            }
+        }
+    }
+
+    fun refresh() {
         loadEvents()
         loadRecentEvents()
     }
@@ -56,11 +69,8 @@ class MainViewModel @Inject constructor(
                     } else event
                 }
             } catch (e: retrofit2.HttpException) {
-                if (e.code() == 404) {
-                    _events.value = emptyList()
-                } else {
-                    _error.value = "Ошибка сервера: ${e.code()}"
-                }
+                if (e.code() == 404) _events.value = emptyList()
+                else _error.value = "Ошибка сервера: ${e.code()}"
             } catch (e: Exception) {
                 _error.value = "Нет соединения с сервером"
             } finally {
@@ -83,7 +93,6 @@ class MainViewModel @Inject constructor(
                 }
             } catch (e: retrofit2.HttpException) {
                 if (e.code() == 404) _recentEvents.value = emptyList()
-                // остальные ошибки — некритично для главной
             } catch (_: Exception) {
                 _recentEvents.value = emptyList()
             } finally {
