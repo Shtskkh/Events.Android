@@ -1,6 +1,8 @@
 package com.events.app.data
 
 import com.events.app.data.remote.EventsApi
+import com.events.app.data.remote.dto.EquipmentDto
+import com.events.app.data.remote.dto.EquipmentTypeDto
 import com.events.app.data.remote.dto.EventAnalyticDto
 import com.events.app.data.remote.dto.EventDetailDto
 import com.events.app.data.remote.dto.EventFormatDto
@@ -23,8 +25,7 @@ class RemoteDataSource @Inject constructor(
     suspend fun getEvents(
         size: Int = 20, page: Int = 1, text: String? = null,
         startDateTime: String? = null, endDateTime: String? = null,
-        typeId: Int? = null, formatId: Int? = null,
-        placeId: Int? = null
+        typeId: Int? = null, formatId: Int? = null, placeId: Int? = null
     ): List<ShortEventDto> =
         api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId, placeId)
 
@@ -54,8 +55,7 @@ class RemoteDataSource @Inject constructor(
     suspend fun getEventAnalytics(id: String): EventAnalyticDto = api.getEventAnalytics(id)
 
     suspend fun updateEvent(
-        id: String,
-        title: RequestBody? = null, announcement: RequestBody? = null,
+        id: String, title: RequestBody? = null, announcement: RequestBody? = null,
         description: RequestBody? = null, startDateTime: RequestBody? = null,
         endDateTime: RequestBody? = null
     ) = api.updateEvent(id, title, announcement, description, startDateTime, endDateTime)
@@ -106,6 +106,28 @@ class RemoteDataSource @Inject constructor(
         api.deletePlace(locationId, placeId)
 
     suspend fun getPlaceTypes(): List<PlaceTypeDto> = api.getPlaceTypes()
+
+    // ── Equipment ─────────────────────────────────────────────────
+
+    suspend fun getEquipment(
+        placeId: Int? = null,
+        equipmentTypeId: Int? = null,
+        inventoryNumber: String? = null,
+        size: Int = 30,
+        page: Int = 1
+    ): List<EquipmentDto> =
+        api.getEquipment(size, page, placeId, equipmentTypeId, inventoryNumber)
+
+    suspend fun createEquipment(
+        title: RequestBody,
+        inventoryNumber: RequestBody,
+        equipmentTypeId: RequestBody,
+        placeId: RequestBody? = null
+    ): Int = api.createEquipment(title, inventoryNumber, equipmentTypeId, placeId)
+
+    suspend fun deleteEquipment(id: Int) = api.deleteEquipment(id)
+
+    suspend fun getEquipmentTypes(): List<EquipmentTypeDto> = api.getEquipmentTypes()
 
     // ── Users ─────────────────────────────────────────────────────
 

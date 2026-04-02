@@ -1,5 +1,7 @@
 package com.events.app.data.remote
 
+import com.events.app.data.remote.dto.EquipmentDto
+import com.events.app.data.remote.dto.EquipmentTypeDto
 import com.events.app.data.remote.dto.EventAnalyticDto
 import com.events.app.data.remote.dto.EventDetailDto
 import com.events.app.data.remote.dto.EventFormatDto
@@ -69,12 +71,12 @@ interface EventsApi {
     @Multipart
     @PATCH("api/v/1/events/{id}")
     suspend fun updateEvent(
-        @Path("id")           id: String,
-        @Part("Title")        title: RequestBody? = null,
-        @Part("Announcement") announcement: RequestBody? = null,
-        @Part("Description")  description: RequestBody? = null,
+        @Path("id")            id: String,
+        @Part("Title")         title: RequestBody? = null,
+        @Part("Announcement")  announcement: RequestBody? = null,
+        @Part("Description")   description: RequestBody? = null,
         @Part("StartDateTime") startDateTime: RequestBody? = null,
-        @Part("EndDateTime")  endDateTime: RequestBody? = null
+        @Part("EndDateTime")   endDateTime: RequestBody? = null
     )
 
     // ── Analytics ─────────────────────────────────────────────────
@@ -86,14 +88,14 @@ interface EventsApi {
 
     @POST("api/v/1/events/{eventId}/participants")
     suspend fun registerForEvent(
-        @Path("eventId")          eventId: String,
-        @Query("participantId")   participantId: String
+        @Path("eventId")        eventId: String,
+        @Query("participantId") participantId: String
     )
 
     @DELETE("api/v/1/events/{eventId}/participants")
     suspend fun leaveEvent(
-        @Path("eventId")          eventId: String,
-        @Query("participantId")   participantId: String
+        @Path("eventId")        eventId: String,
+        @Query("participantId") participantId: String
     )
 
     @GET("api/v/1/events/{id}/participants")
@@ -139,11 +141,11 @@ interface EventsApi {
     @Multipart
     @POST("api/v/1/locations/{locationId}/places")
     suspend fun createPlace(
-        @Path("locationId")  locationId: Int,
-        @Part("Number")      number: RequestBody,
-        @Part("Capacity")    capacity: RequestBody,
-        @Part("Type")        type: RequestBody,
-        @Part("Title")       title: RequestBody? = null
+        @Path("locationId") locationId: Int,
+        @Part("Number")     number: RequestBody,
+        @Part("Capacity")   capacity: RequestBody,
+        @Part("Type")       type: RequestBody,
+        @Part("Title")      title: RequestBody? = null
     ): Int
 
     @Multipart
@@ -164,6 +166,36 @@ interface EventsApi {
 
     @GET("api/v/1/locations/places/types")
     suspend fun getPlaceTypes(): List<PlaceTypeDto>
+
+    // ── Equipment ─────────────────────────────────────────────────
+
+    /** Получить оборудование по фильтру. PlaceId — для конкретного помещения. */
+    @GET("api/v/1/equipment")
+    suspend fun getEquipment(
+        @Query("Size")                size: Int = 30,
+        @Query("Page")                page: Int = 1,
+        @Query("PlaceId")             placeId: Int? = null,
+        @Query("EquipmentTypeId")     equipmentTypeId: Int? = null,
+        @Query("InventoryNumber")     inventoryNumber: String? = null
+    ): List<EquipmentDto>
+
+    /** Создать оборудование (admin). */
+    @Multipart
+    @POST("api/v/1/equipment")
+    suspend fun createEquipment(
+        @Part("Title")            title: RequestBody,
+        @Part("InventoryNumber")  inventoryNumber: RequestBody,
+        @Part("EquipmentTypeId")  equipmentTypeId: RequestBody,
+        @Part("PlaceId")          placeId: RequestBody? = null
+    ): Int
+
+    /** Удалить оборудование (admin). */
+    @DELETE("api/v/1/equipment/{id}")
+    suspend fun deleteEquipment(@Path("id") id: Int)
+
+    /** Получить все типы оборудования. */
+    @GET("api/v/1/equipment/types")
+    suspend fun getEquipmentTypes(): List<EquipmentTypeDto>
 
     // ── Users ─────────────────────────────────────────────────────
 
