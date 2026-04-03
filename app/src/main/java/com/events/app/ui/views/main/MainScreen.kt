@@ -7,8 +7,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.History
@@ -23,7 +23,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.events.app.ui.components.eventscards.UpcomingEventCard
 
 @Composable
@@ -32,15 +32,18 @@ fun MainScreen(
     onEventClick: (String) -> Unit = {},
     onViewAllClick: () -> Unit = {}
 ) {
-    val events        = viewModel.events.collectAsState().value
-    val isLoading     = viewModel.isLoading.collectAsState().value
-    val error         = viewModel.error.collectAsState().value
-    val recentEvents  = viewModel.recentEvents.collectAsState().value
-    val recentLoading = viewModel.recentLoading.collectAsState().value
+    // ИСПРАВЛЕНО: теперь три отдельных StateFlow вместо дублирующей фильтрации
+    val upcomingEvents  = viewModel.events.collectAsState().value
+    val myEvents        = viewModel.myEvents.collectAsState().value
+    val myEventsLoading = viewModel.myEventsLoading.collectAsState().value
+    val isLoading       = viewModel.isLoading.collectAsState().value
+    val error           = viewModel.error.collectAsState().value
+    val recentEvents    = viewModel.recentEvents.collectAsState().value
+    val recentLoading   = viewModel.recentLoading.collectAsState().value
 
-    val myEvents        = events.filter { !it.isFinished }.sortedBy { it.startDate }
-    val upcomingEvents  = events.filter { !it.isFinished }.sortedBy { it.startDate }
-    val completedEvents = events.filter { it.isFinished }.sortedByDescending { it.startDate }
+    val upcomingFiltered = upcomingEvents.filter { !it.isFinished }.sortedBy { it.startDate }
+    val completedEvents  = upcomingEvents.filter { it.isFinished }.sortedByDescending { it.startDate }
+    val myUpcoming       = myEvents.filter { !it.isFinished }.sortedBy { it.startDate }
 
     when {
         isLoading -> {
@@ -51,7 +54,7 @@ fun MainScreen(
                 CircularProgressIndicator()
             }
         }
-        error != null && events.isEmpty() -> {
+        error != null && upcomingEvents.isEmpty() -> {
             Box(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                 contentAlignment = Alignment.Center
@@ -71,11 +74,11 @@ fun MainScreen(
                 if (recentEvents.isNotEmpty() || recentLoading) {
                     item {
                         SectionLabel(
-                            title = "Недавно просмотренные",
-                            icon  = Icons.Outlined.History,
+                            title       = "Недавно просмотренные",
+                            icon        = Icons.Outlined.History,
                             accentColor = Color(0xFF0EA5E9),
-                            showAll = false,
-                            onViewAll = {}
+                            showAll     = false,
+                            onViewAll   = {}
                         )
                     }
                     if (recentLoading) {
@@ -95,19 +98,28 @@ fun MainScreen(
                 }
 
                 // ── Созданные вами ─────────────────────────────────
+                // ИСПРАВЛЕНО: теперь показывает реальные мероприятия пользователя
+                // через серверный фильтр UserId, а не дублирует список "Ближайшие"
                 item {
                     SectionLabel(
-                        title = "Созданные вами",
-                        icon  = Icons.Outlined.Edit,
+                        title       = "Созданные вами",
+                        icon        = Icons.Outlined.Edit,
                         accentColor = MaterialTheme.colorScheme.primary,
-                        showAll = myEvents.size > 3,
-                        onViewAll = onViewAllClick
+                        showAll     = myUpcoming.size > 3,
+                        onViewAll   = onViewAllClick
                     )
                 }
-                if (myEvents.isEmpty()) {
-                    item { EmptySection("Вы ещё не создали ни одного мероприятия") }
-                } else {
-                    items(myEvents.take(3)) { event ->
+                when {
+                    myEventsLoading -> item {
+                        Box(
+                            Modifier.fillMaxWidth().padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) { CircularProgressIndicator(modifier = Modifier.size(24.dp)) }
+                    }
+                    myUpcoming.isEmpty() -> item {
+                        EmptySection("Вы ещё не создали ни одного мероприятия")
+                    }
+                    else -> items(myUpcoming.take(3)) { event ->
                         UpcomingEventCard(event = event, onClick = { onEventClick(event.id) })
                         Spacer(Modifier.height(16.dp))
                     }
@@ -117,17 +129,17 @@ fun MainScreen(
                 // ── Ближайшие ──────────────────────────────────────
                 item {
                     SectionLabel(
-                        title = "Ближайшие",
-                        icon  = Icons.Outlined.Schedule,
+                        title       = "Ближайшие",
+                        icon        = Icons.Outlined.Schedule,
                         accentColor = Color(0xFF3B82F6),
-                        showAll = upcomingEvents.size > 3,
-                        onViewAll = onViewAllClick
+                        showAll     = upcomingFiltered.size > 3,
+                        onViewAll   = onViewAllClick
                     )
                 }
-                if (upcomingEvents.isEmpty()) {
+                if (upcomingFiltered.isEmpty()) {
                     item { EmptySection("Нет предстоящих мероприятий") }
                 } else {
-                    items(upcomingEvents.take(3)) { event ->
+                    items(upcomingFiltered.take(3)) { event ->
                         UpcomingEventCard(event = event, onClick = { onEventClick(event.id) })
                         Spacer(Modifier.height(16.dp))
                     }
@@ -138,11 +150,11 @@ fun MainScreen(
                     item { Spacer(Modifier.height(4.dp)) }
                     item {
                         SectionLabel(
-                            title = "Завершённые",
-                            icon  = Icons.Outlined.CheckCircle,
+                            title       = "Завершённые",
+                            icon        = Icons.Outlined.CheckCircle,
                             accentColor = Color(0xFF9E9E9E),
-                            showAll = completedEvents.size > 3,
-                            onViewAll = onViewAllClick
+                            showAll     = completedEvents.size > 3,
+                            onViewAll   = onViewAllClick
                         )
                     }
                     items(completedEvents.take(3)) { event ->
@@ -157,8 +169,11 @@ fun MainScreen(
 
 @Composable
 private fun SectionLabel(
-    title: String, icon: ImageVector, accentColor: Color,
-    showAll: Boolean, onViewAll: () -> Unit
+    title: String,
+    icon: ImageVector,
+    accentColor: Color,
+    showAll: Boolean,
+    onViewAll: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -172,8 +187,8 @@ private fun SectionLabel(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = accentColor.copy(alpha = 0.13f),
+                shape    = RoundedCornerShape(10.dp),
+                color    = accentColor.copy(alpha = 0.13f),
                 modifier = Modifier.size(36.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -181,16 +196,16 @@ private fun SectionLabel(
                 }
             }
             Text(
-                text = title,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize   = 20.sp,
+                text          = title,
+                fontWeight    = FontWeight.ExtraBold,
+                fontSize      = 20.sp,
                 letterSpacing = (-0.4).sp,
-                color = MaterialTheme.colorScheme.onBackground
+                color         = MaterialTheme.colorScheme.onBackground
             )
         }
         if (showAll) {
             Row(
-                modifier = Modifier.clickable(onClick = onViewAll),
+                modifier          = Modifier.clickable(onClick = onViewAll),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Все", fontSize = 14.sp, color = accentColor, fontWeight = FontWeight.SemiBold)

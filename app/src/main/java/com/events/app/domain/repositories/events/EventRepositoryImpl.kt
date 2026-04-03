@@ -11,12 +11,18 @@ class EventRepositoryImpl @Inject constructor(
 ) : EventRepository {
 
     override suspend fun getEvents(
-        size: Int, page: Int, text: String?,
-        startDateTime: String?, endDateTime: String?,
-        typeId: Int?, formatId: Int?, placeId: Int?
+        size: Int,
+        page: Int,
+        text: String?,
+        startDateTime: String?,
+        endDateTime: String?,
+        typeId: Int?,
+        formatId: Int?,
+        placeId: Int?,
+        userId: String?   // ДОБАВЛЕНО
     ): List<Event> {
         return remoteDataSource.getEvents(
-            size, page, text, startDateTime, endDateTime, typeId, formatId, placeId
+            size, page, text, startDateTime, endDateTime, typeId, formatId, placeId, userId
         ).map { it.toDomain() }
     }
 

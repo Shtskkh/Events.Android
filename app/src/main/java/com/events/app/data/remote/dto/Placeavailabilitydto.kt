@@ -3,11 +3,11 @@ package com.events.app.data.remote.dto
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class PlaceDto(
+data class PlaceAvailabilityDto(
     val id: Int,
     val number: String?,
     val capacity: Int,
     val type: String?,
-    val title: String?,
-    val preview: String? = null
+    val isAvailable: Boolean,
+    val title: String?
 )

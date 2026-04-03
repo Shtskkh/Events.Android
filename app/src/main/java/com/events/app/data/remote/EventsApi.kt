@@ -8,6 +8,7 @@ import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
 import com.events.app.data.remote.dto.ParticipantDto
+import com.events.app.data.remote.dto.PlaceAvailabilityDto
 import com.events.app.data.remote.dto.PlaceDto
 import com.events.app.data.remote.dto.PlaceTypeDto
 import com.events.app.data.remote.dto.ShortEventDto
@@ -29,7 +30,8 @@ interface EventsApi {
         @Query("EndDateTime")   endDateTime: String? = null,
         @Query("TypeId")        typeId: Int? = null,
         @Query("FormatId")      formatId: Int? = null,
-        @Query("PlaceId")       placeId: Int? = null
+        @Query("PlaceId")       placeId: Int? = null,
+        @Query("UserId")        userId: String? = null
     ): List<ShortEventDto>
 
     @GET("api/v/1/events/{id}")
@@ -132,6 +134,13 @@ interface EventsApi {
     @GET("api/v/1/locations/{locationId}/places")
     suspend fun getPlacesByLocation(@Path("locationId") locationId: Int): List<PlaceDto>
 
+    @GET("api/v/1/locations/{locationId}/places/availability")
+    suspend fun getPlacesAvailability(
+        @Path("locationId") locationId: Int,
+        @Query("start")     start: String? = null,
+        @Query("end")       end: String? = null
+    ): List<PlaceAvailabilityDto>
+
     @GET("api/v/1/locations/{locationId}/places/{placeId}")
     suspend fun getPlaceById(
         @Path("locationId") locationId: Int,
@@ -169,31 +178,27 @@ interface EventsApi {
 
     // ── Equipment ─────────────────────────────────────────────────
 
-    /** Получить оборудование по фильтру. PlaceId — для конкретного помещения. */
     @GET("api/v/1/equipment")
     suspend fun getEquipment(
-        @Query("Size")                size: Int = 30,
-        @Query("Page")                page: Int = 1,
-        @Query("PlaceId")             placeId: Int? = null,
-        @Query("EquipmentTypeId")     equipmentTypeId: Int? = null,
-        @Query("InventoryNumber")     inventoryNumber: String? = null
+        @Query("Size")            size: Int = 30,
+        @Query("Page")            page: Int = 1,
+        @Query("PlaceId")         placeId: Int? = null,
+        @Query("EquipmentTypeId") equipmentTypeId: Int? = null,
+        @Query("InventoryNumber") inventoryNumber: String? = null
     ): List<EquipmentDto>
 
-    /** Создать оборудование (admin). */
     @Multipart
     @POST("api/v/1/equipment")
     suspend fun createEquipment(
-        @Part("Title")            title: RequestBody,
-        @Part("InventoryNumber")  inventoryNumber: RequestBody,
-        @Part("EquipmentTypeId")  equipmentTypeId: RequestBody,
-        @Part("PlaceId")          placeId: RequestBody? = null
+        @Part("Title")           title: RequestBody,
+        @Part("InventoryNumber") inventoryNumber: RequestBody,
+        @Part("EquipmentTypeId") equipmentTypeId: RequestBody,
+        @Part("PlaceId")         placeId: RequestBody? = null
     ): Int
 
-    /** Удалить оборудование (admin). */
     @DELETE("api/v/1/equipment/{id}")
     suspend fun deleteEquipment(@Path("id") id: Int)
 
-    /** Получить все типы оборудования. */
     @GET("api/v/1/equipment/types")
     suspend fun getEquipmentTypes(): List<EquipmentTypeDto>
 
@@ -217,6 +222,14 @@ interface EventsApi {
 
     @DELETE("api/v/1/users/{id}")
     suspend fun deleteUser(@Path("id") id: String)
+
+    @Multipart
+    @PATCH("api/v/1/users/{id}/password")
+    suspend fun changePassword(
+        @Path("id")          id: String,
+        @Part("OldPassword") oldPassword: RequestBody,
+        @Part("NewPassword") newPassword: RequestBody
+    )
 
     @GET("api/v/1/users/{id}/events/recent")
     suspend fun getRecentEvents(@Path("id") id: String): List<ShortEventDto>

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.events.app.data.RemoteDataSource
 import com.events.app.data.local.EventLocationCache
+import com.events.app.data.remote.dto.EquipmentDto
 import com.events.app.data.remote.dto.EventAnalyticDto
 import com.events.app.data.remote.dto.ParticipantDto
 import com.events.app.data.remote.dto.toDomain
@@ -81,6 +82,14 @@ class EventDetailsViewModel @Inject constructor(
 
     fun clearRegistrationError() { _registrationError.value = null }
 
+    // ── Оборудование помещения ────────────────────────────────────
+
+    private val _placeEquipment = MutableStateFlow<List<EquipmentDto>>(emptyList())
+    val placeEquipment = _placeEquipment.asStateFlow()
+
+    private val _equipmentLoading = MutableStateFlow(false)
+    val equipmentLoading = _equipmentLoading.asStateFlow()
+
     // ── Init ──────────────────────────────────────────────────────
 
     init {
@@ -132,17 +141,20 @@ class EventDetailsViewModel @Inject constructor(
                         }
                         result
                     } catch (_: Exception) {
-                        // дозапрос не удался — показываем что есть
                         base
                     }
                 } else {
-                    // Нет placeId — пробуем взять locationTitle из кэша если пусто
                     if (base.location.isBlank()) {
                         base.copy(location = locationCache.get(eventId) ?: "")
                     } else base
                 }
 
                 _event.value = enriched
+
+                // 3. Если есть placeId — параллельно загружаем оборудование
+                if (enriched.placeId != null) {
+                    loadEquipmentForPlace(enriched.placeId)
+                }
 
             } catch (e: Exception) {
                 _error.value = "Ошибка загрузки мероприятия"
@@ -154,6 +166,23 @@ class EventDetailsViewModel @Inject constructor(
         // Параллельно грузим аналитику и участников
         loadAnalytics(eventId)
         loadParticipants(eventId)
+    }
+
+    // ── Оборудование ──────────────────────────────────────────────
+
+    private fun loadEquipmentForPlace(placeId: Int) {
+        viewModelScope.launch {
+            _equipmentLoading.value = true
+            try {
+                _placeEquipment.value = remoteDataSource.getEquipment(placeId = placeId)
+            } catch (e: retrofit2.HttpException) {
+                if (e.code() == 404) _placeEquipment.value = emptyList()
+            } catch (_: Exception) {
+                _placeEquipment.value = emptyList()
+            } finally {
+                _equipmentLoading.value = false
+            }
+        }
     }
 
     // ── Аналитика ─────────────────────────────────────────────────

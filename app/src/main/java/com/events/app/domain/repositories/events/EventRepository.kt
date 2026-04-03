@@ -4,6 +4,7 @@ import com.events.app.data.remote.dto.EventAnalyticDto
 import com.events.app.domain.models.events.Event
 
 interface EventRepository {
+
     suspend fun getEvents(
         size: Int = 20,
         page: Int = 1,
@@ -12,7 +13,8 @@ interface EventRepository {
         endDateTime: String? = null,
         typeId: Int? = null,
         formatId: Int? = null,
-        placeId: Int? = null
+        placeId: Int? = null,
+        userId: String? = null   // ДОБАВЛЕНО: фильтр по создателю
     ): List<Event>
 
     suspend fun getEventById(id: String, accessToken: String? = null): Event

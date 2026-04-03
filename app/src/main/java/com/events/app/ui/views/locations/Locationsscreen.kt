@@ -463,8 +463,14 @@ private fun PlaceDetailSheet(
                     PlaceDetailDivider()
                     PlaceDetailRow(Icons.Outlined.EventSeat, "Вместимость", "${place.capacity} мест")
                     PlaceDetailDivider()
-                    PlaceDetailRow(Icons.Outlined.LocationOn, "Локация",
-                        "${location.title ?: "—"}${if (!location.address.isNullOrBlank()) "\n${location.address}" else ""}")
+                    PlaceDetailRow(Icons.Outlined.LocationOn, "Локация", buildString {
+                        append(location.title ?: "—")
+                        // Показываем адрес только если он не совпадает с названием
+                        if (!location.address.isNullOrBlank() &&
+                            location.address.trim() != location.title?.trim()) {
+                            append("\n${location.address}")
+                        }
+                    })
                 }
             }
 

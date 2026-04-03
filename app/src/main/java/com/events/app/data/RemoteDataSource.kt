@@ -9,12 +9,15 @@ import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
 import com.events.app.data.remote.dto.ParticipantDto
+import com.events.app.data.remote.dto.PlaceAvailabilityDto
 import com.events.app.data.remote.dto.PlaceDto
 import com.events.app.data.remote.dto.PlaceTypeDto
 import com.events.app.data.remote.dto.ShortEventDto
 import com.events.app.data.remote.dto.UserDto
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
 class RemoteDataSource @Inject constructor(
@@ -23,11 +26,17 @@ class RemoteDataSource @Inject constructor(
     // ── Events ────────────────────────────────────────────────────
 
     suspend fun getEvents(
-        size: Int = 20, page: Int = 1, text: String? = null,
-        startDateTime: String? = null, endDateTime: String? = null,
-        typeId: Int? = null, formatId: Int? = null, placeId: Int? = null
+        size: Int = 20,
+        page: Int = 1,
+        text: String? = null,
+        startDateTime: String? = null,
+        endDateTime: String? = null,
+        typeId: Int? = null,
+        formatId: Int? = null,
+        placeId: Int? = null,
+        userId: String? = null
     ): List<ShortEventDto> =
-        api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId, placeId)
+        api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId, placeId, userId)
 
     suspend fun getEventById(id: String, accessToken: String? = null): EventDetailDto {
         val authHeader = accessToken?.let { "Bearer $it" }
@@ -40,25 +49,36 @@ class RemoteDataSource @Inject constructor(
     suspend fun deleteEvent(id: String) = api.deleteEvent(id)
 
     suspend fun createEvent(
-        userId: RequestBody, title: RequestBody, announcement: RequestBody,
-        description: RequestBody, startDateTime: RequestBody, endDateTime: RequestBody,
-        eventTypeId: RequestBody, eventFormatId: RequestBody, needsRegistration: RequestBody,
-        maxParticipants: RequestBody? = null, placeId: RequestBody? = null,
-        placeholder: RequestBody? = null, preview: MultipartBody.Part? = null
+        userId: RequestBody,
+        title: RequestBody,
+        announcement: RequestBody,
+        description: RequestBody,
+        startDateTime: RequestBody,
+        endDateTime: RequestBody,
+        eventTypeId: RequestBody,
+        eventFormatId: RequestBody,
+        needsRegistration: RequestBody,
+        maxParticipants: RequestBody? = null,
+        placeId: RequestBody? = null,
+        placeholder: RequestBody? = null,
+        preview: MultipartBody.Part? = null
     ): String = api.createEvent(
         userId, title, announcement, description, startDateTime, endDateTime,
         eventTypeId, eventFormatId, needsRegistration, maxParticipants, placeId, placeholder, preview
     )
 
+    suspend fun updateEvent(
+        id: String,
+        title: RequestBody? = null,
+        announcement: RequestBody? = null,
+        description: RequestBody? = null,
+        startDateTime: RequestBody? = null,
+        endDateTime: RequestBody? = null
+    ) = api.updateEvent(id, title, announcement, description, startDateTime, endDateTime)
+
     // ── Analytics ─────────────────────────────────────────────────
 
     suspend fun getEventAnalytics(id: String): EventAnalyticDto = api.getEventAnalytics(id)
-
-    suspend fun updateEvent(
-        id: String, title: RequestBody? = null, announcement: RequestBody? = null,
-        description: RequestBody? = null, startDateTime: RequestBody? = null,
-        endDateTime: RequestBody? = null
-    ) = api.updateEvent(id, title, announcement, description, startDateTime, endDateTime)
 
     // ── Participants ──────────────────────────────────────────────
 
@@ -89,17 +109,30 @@ class RemoteDataSource @Inject constructor(
     suspend fun getPlacesByLocation(locationId: Int): List<PlaceDto> =
         api.getPlacesByLocation(locationId)
 
+    suspend fun getPlacesAvailability(
+        locationId: Int,
+        start: String? = null,
+        end: String? = null
+    ): List<PlaceAvailabilityDto> =
+        api.getPlacesAvailability(locationId, start, end)
+
     suspend fun getPlaceById(locationId: Int, placeId: Int): PlaceDto =
         api.getPlaceById(locationId, placeId)
 
     suspend fun createPlace(
-        locationId: Int, number: RequestBody, capacity: RequestBody,
-        type: RequestBody, title: RequestBody? = null
+        locationId: Int,
+        number: RequestBody,
+        capacity: RequestBody,
+        type: RequestBody,
+        title: RequestBody? = null
     ): Int = api.createPlace(locationId, number, capacity, type, title)
 
     suspend fun updatePlace(
-        locationId: Int, placeId: Int,
-        title: RequestBody? = null, type: RequestBody? = null, capacity: RequestBody? = null
+        locationId: Int,
+        placeId: Int,
+        title: RequestBody? = null,
+        type: RequestBody? = null,
+        capacity: RequestBody? = null
     ): PlaceDto = api.updatePlace(locationId, placeId, title, type, capacity)
 
     suspend fun deletePlace(locationId: Int, placeId: Int) =
@@ -126,7 +159,6 @@ class RemoteDataSource @Inject constructor(
     ): Int = api.createEquipment(title, inventoryNumber, equipmentTypeId, placeId)
 
     suspend fun deleteEquipment(id: Int) = api.deleteEquipment(id)
-
     suspend fun getEquipmentTypes(): List<EquipmentTypeDto> = api.getEquipmentTypes()
 
     // ── Users ─────────────────────────────────────────────────────
@@ -135,11 +167,19 @@ class RemoteDataSource @Inject constructor(
         api.getUsers(size, page)
 
     suspend fun createUser(
-        firstName: RequestBody, lastName: RequestBody, email: RequestBody,
-        password: RequestBody, patronymic: RequestBody? = null
+        firstName: RequestBody,
+        lastName: RequestBody,
+        email: RequestBody,
+        password: RequestBody,
+        patronymic: RequestBody? = null
     ): String = api.createUser(firstName, lastName, email, password, patronymic)
 
     suspend fun deleteUser(id: String) = api.deleteUser(id)
+
+    suspend fun changePassword(userId: String, oldPassword: String, newPassword: String) {
+        fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
+        api.changePassword(userId, oldPassword.toBody(), newPassword.toBody())
+    }
 
     suspend fun getRecentEvents(userId: String): List<ShortEventDto> =
         api.getRecentEvents(userId)

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.events.app.data.RemoteDataSource
 import com.events.app.data.local.EventLocationCache
 import com.events.app.data.local.EventRefreshBus
+import com.events.app.data.remote.dto.EquipmentDto
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
@@ -26,18 +27,18 @@ class CreateEventViewModel @Inject constructor(
     private val remoteDataSource: RemoteDataSource,
     private val authRepository: AuthRepository,
     private val locationCache: EventLocationCache,
-    private val refreshBus: EventRefreshBus,         // ← новый параметр
+    private val refreshBus: EventRefreshBus,
     application: Application
 ) : AndroidViewModel(application) {
 
-    // --- Шаг 1 ---
+    // ── Шаг 1 ────────────────────────────────────────────────────
     val title               = MutableStateFlow("")
     val announcement        = MutableStateFlow("")
     val description         = MutableStateFlow("")
     val selectedImageUri    = MutableStateFlow<Uri?>(null)
     val selectedPlaceholder = MutableStateFlow<String?>(null)
 
-    // --- Шаг 2 ---
+    // ── Шаг 2 ────────────────────────────────────────────────────
     val startDateTime      = MutableStateFlow("")
     val endDateTime        = MutableStateFlow("")
     val needsRegistration  = MutableStateFlow(false)
@@ -47,7 +48,7 @@ class CreateEventViewModel @Inject constructor(
     val selectedLocationId = MutableStateFlow<Int?>(null)
     val selectedPlaceId    = MutableStateFlow<Int?>(null)
 
-    // --- Справочники ---
+    // ── Справочники ───────────────────────────────────────────────
     private val _placeholders = MutableStateFlow<List<String>>(emptyList())
     val placeholders = _placeholders.asStateFlow()
 
@@ -63,7 +64,14 @@ class CreateEventViewModel @Inject constructor(
     private val _places = MutableStateFlow<List<PlaceDto>>(emptyList())
     val places = _places.asStateFlow()
 
-    // --- UI состояние ---
+    // ── Оборудование выбранного помещения ─────────────────────────
+    private val _placeEquipment = MutableStateFlow<List<EquipmentDto>>(emptyList())
+    val placeEquipment = _placeEquipment.asStateFlow()
+
+    private val _equipmentLoading = MutableStateFlow(false)
+    val equipmentLoading = _equipmentLoading.asStateFlow()
+
+    // ── UI состояние ──────────────────────────────────────────────
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
@@ -100,10 +108,37 @@ class CreateEventViewModel @Inject constructor(
             try {
                 _places.value = remoteDataSource.getPlacesByLocation(locationId)
                 selectedPlaceId.value = null
+                // Сбрасываем оборудование при смене локации
+                _placeEquipment.value = emptyList()
             } catch (_: Exception) {
                 _places.value = emptyList()
+                _placeEquipment.value = emptyList()
             }
         }
+    }
+
+    /**
+     * Загружает оборудование выбранного помещения.
+     * Вызывается из UI когда пользователь выбирает помещение в дропдауне.
+     */
+    fun loadEquipmentForPlace(placeId: Int) {
+        viewModelScope.launch {
+            _equipmentLoading.value = true
+            try {
+                _placeEquipment.value = remoteDataSource.getEquipment(placeId = placeId)
+            } catch (e: retrofit2.HttpException) {
+                if (e.code() == 404) _placeEquipment.value = emptyList()
+            } catch (_: Exception) {
+                _placeEquipment.value = emptyList()
+            } finally {
+                _equipmentLoading.value = false
+            }
+        }
+    }
+
+    /** Очищает оборудование (например при снятии выбора помещения). */
+    fun clearPlaceEquipment() {
+        _placeEquipment.value = emptyList()
     }
 
     fun openCreateLocationDialog() {
@@ -189,9 +224,7 @@ class CreateEventViewModel @Inject constructor(
                     }
                 }
 
-                // ── Уведомляем все экраны о появлении нового мероприятия ──
                 refreshBus.notifyRefresh()
-
                 _success.value = true
 
             } catch (e: Exception) {

@@ -3,10 +3,12 @@ package com.events.app.ui.views.createevent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.*
@@ -46,6 +48,8 @@ fun CreateEventStep2Screen(
     val selectedFormat    by viewModel.selectedFormatId.collectAsState()
     val selectedLocation  by viewModel.selectedLocationId.collectAsState()
     val selectedPlace     by viewModel.selectedPlaceId.collectAsState()
+    val placeEquipment    by viewModel.placeEquipment.collectAsState()
+    val equipmentLoading  by viewModel.equipmentLoading.collectAsState()
 
     var startDisplay by remember { mutableStateOf("") }
     var endDisplay   by remember { mutableStateOf("") }
@@ -109,11 +113,9 @@ fun CreateEventStep2Screen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // ── Дата начала ───────────────────────────────────────────
-        OutlinedButton(
-            onClick  = { showStartDatePicker = true },
+        OutlinedButton(onClick = { showStartDatePicker = true },
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape    = RoundedCornerShape(12.dp)
-        ) {
+            shape    = RoundedCornerShape(12.dp)) {
             Icon(Icons.Outlined.CalendarMonth, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -126,11 +128,9 @@ fun CreateEventStep2Screen(
         Spacer(modifier = Modifier.height(12.dp))
 
         // ── Дата окончания ────────────────────────────────────────
-        OutlinedButton(
-            onClick  = { showEndDatePicker = true },
+        OutlinedButton(onClick = { showEndDatePicker = true },
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape    = RoundedCornerShape(12.dp)
-        ) {
+            shape    = RoundedCornerShape(12.dp)) {
             Icon(Icons.Outlined.Schedule, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -187,6 +187,7 @@ fun CreateEventStep2Screen(
                             if (isOnline) {
                                 viewModel.selectedLocationId.value = null
                                 viewModel.selectedPlaceId.value    = null
+                                viewModel.clearPlaceEquipment()
                             }
                             formatExpanded = false
                         }
@@ -199,24 +200,16 @@ fun CreateEventStep2Screen(
 
         // ── Предупреждение о необходимости помещения ──────────────
         if (placeRequired && selectedPlace == null) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape    = RoundedCornerShape(12.dp),
-                color    = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
-            ) {
-                Row(
-                    modifier              = Modifier.padding(12.dp),
+            Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)) {
+                Row(modifier = Modifier.padding(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment     = Alignment.CenterVertically
-                ) {
+                    verticalAlignment     = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.Warning, null,
                         tint     = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.size(16.dp))
-                    Text(
-                        "Для офлайн/гибрид формата необходимо выбрать локацию и помещение",
-                        fontSize = 12.sp,
-                        color    = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
+                    Text("Для офлайн/гибрид формата необходимо выбрать локацию и помещение",
+                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onTertiaryContainer)
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -242,6 +235,7 @@ fun CreateEventStep2Screen(
                         onClick = {
                             viewModel.selectedLocationId.value = null
                             viewModel.selectedPlaceId.value    = null
+                            viewModel.clearPlaceEquipment()
                             locationExpanded = false
                         }
                     )
@@ -276,32 +270,23 @@ fun CreateEventStep2Screen(
             }
         }
 
-// ── Помещение (показываем только если выбрана локация) ────
+        // ── Помещение (показываем только если выбрана локация) ────
         if (selectedLocation != null) {
             Spacer(modifier = Modifier.height(12.dp))
 
             if (places.isEmpty()) {
-                // Локация выбрана, но помещений нет — показываем сообщение
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape    = RoundedCornerShape(12.dp),
-                    color    = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    Text(
-                        "В выбранной локации нет помещений",
-                        modifier = Modifier.padding(16.dp),
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant) {
+                    Text("В выбранной локации нет помещений",
+                        modifier  = Modifier.padding(16.dp),
+                        fontSize  = 13.sp,
+                        color     = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
-                ExposedDropdownMenuBox(
-                    expanded = placeExpanded,
-                    onExpandedChange = { placeExpanded = it }
-                ) {
-                    val selectedPlaceObj = places.find { it.id == selectedPlace }
-                    val placeDisplayValue = selectedPlaceObj?.let { place ->
-                        val titlePart = place.title?.takeIf { it.isNotBlank() } ?: "Помещение"
+                ExposedDropdownMenuBox(expanded = placeExpanded, onExpandedChange = { placeExpanded = it }) {
+                    val selectedPlaceObj    = places.find { it.id == selectedPlace }
+                    val placeDisplayValue   = selectedPlaceObj?.let { place ->
+                        val titlePart  = place.title?.takeIf { it.isNotBlank() } ?: "Помещение"
                         val numberPart = place.number?.takeIf { it.isNotBlank() }?.let { " №$it" } ?: ""
                         "$titlePart$numberPart (вместимость: ${place.capacity})"
                     } ?: ""
@@ -312,74 +297,147 @@ fun CreateEventStep2Screen(
                         readOnly      = true,
                         label         = { Text(if (placeRequired) "Помещение *" else "Помещение") },
                         trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = placeExpanded) },
-                        modifier      = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                        modifier      = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
                         shape         = RoundedCornerShape(12.dp),
                         isError       = placeRequired && selectedPlace == null
                     )
-                    ExposedDropdownMenu(
-                        expanded = placeExpanded,
-                        onDismissRequest = { placeExpanded = false }
-                    ) {
-                        // Пункт "не указывать" — только если не обязательно
+                    ExposedDropdownMenu(expanded = placeExpanded, onDismissRequest = { placeExpanded = false }) {
                         if (selectedPlace != null && !placeRequired) {
                             DropdownMenuItem(
                                 text    = { Text("Не указывать", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                                onClick = { viewModel.selectedPlaceId.value = null; placeExpanded = false }
+                                onClick = {
+                                    viewModel.selectedPlaceId.value = null
+                                    viewModel.clearPlaceEquipment()
+                                    placeExpanded = false
+                                }
                             )
                             HorizontalDivider()
                         }
                         places.forEach { place ->
-                            val titlePart = place.title?.takeIf { it.isNotBlank() } ?: "Помещение"
+                            val titlePart  = place.title?.takeIf { it.isNotBlank() } ?: "Помещение"
                             val numberPart = place.number?.takeIf { it.isNotBlank() }?.let { " №$it" } ?: ""
                             DropdownMenuItem(
                                 text = {
                                     Column {
-                                        Text(
-                                            "$titlePart$numberPart",
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize   = 14.sp
-                                        )
-                                        Text(
-                                            "Вместимость: ${place.capacity}  •  Тип: ${place.type ?: "—"}",
+                                        Text("$titlePart$numberPart",
+                                            fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                        Text("Вместимость: ${place.capacity}  •  Тип: ${place.type ?: "—"}",
                                             fontSize = 12.sp,
-                                            color    = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                            color    = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 },
                                 onClick = {
                                     viewModel.selectedPlaceId.value = place.id
+                                    // Загружаем оборудование выбранного помещения
+                                    viewModel.loadEquipmentForPlace(place.id)
                                     placeExpanded = false
                                 }
                             )
                         }
                     }
                 }
+
+                // ── Оборудование выбранного помещения ─────────────
+                // Показывается сразу после выбора помещения
+                if (selectedPlace != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape    = RoundedCornerShape(12.dp),
+                        color    = MaterialTheme.colorScheme.surfaceVariant.copy(0.5f)
+                    ) {
+                        when {
+                            equipmentLoading -> Box(
+                                modifier         = Modifier.fillMaxWidth().padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment     = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    Text("Загрузка оборудования...", fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+
+                            placeEquipment.isEmpty() -> Row(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalAlignment     = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(Icons.Outlined.Devices, null,
+                                    tint     = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f),
+                                    modifier = Modifier.size(14.dp))
+                                Text("В помещении нет оборудования", fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f))
+                            }
+
+                            else -> Column(modifier = Modifier.padding(12.dp)) {
+                                // Заголовок с количеством
+                                Row(
+                                    verticalAlignment     = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                ) {
+                                    Icon(Icons.Outlined.Devices, null,
+                                        tint     = MaterialTheme.colorScheme.tertiary,
+                                        modifier = Modifier.size(14.dp))
+                                    Text("Оборудование помещения",
+                                        fontSize   = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color      = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = MaterialTheme.colorScheme.tertiaryContainer
+                                    ) {
+                                        Text("${placeEquipment.size}",
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                            fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                                            color    = MaterialTheme.colorScheme.onTertiaryContainer)
+                                    }
+                                }
+                                // Список оборудования
+                                placeEquipment.forEach { eq ->
+                                    Row(
+                                        verticalAlignment     = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.padding(vertical = 3.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .background(MaterialTheme.colorScheme.tertiary, CircleShape)
+                                        )
+                                        Text(
+                                            buildString {
+                                                append(eq.title ?: "Оборудование #${eq.id}")
+                                                if (!eq.type.isNullOrBlank()) append(" · ${eq.type}")
+                                                if (!eq.inventoryNumber.isNullOrBlank()) append("  №${eq.inventoryNumber}")
+                                            },
+                                            fontSize = 12.sp,
+                                            color    = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // ── Кнопка "Создать новую локацию" УДАЛЕНА ────────────────
-        // Управление локациями перенесено в отдельный раздел меню
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         // ── Регистрация ───────────────────────────────────────────
-        Surface(
-            shape    = RoundedCornerShape(12.dp),
+        Spacer(modifier = Modifier.height(16.dp))
+        Surface(shape = RoundedCornerShape(12.dp),
             color    = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier          = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
                 Text("Требуется регистрация", modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyLarge)
-                Switch(
-                    checked         = needsRegistration,
-                    onCheckedChange = { viewModel.needsRegistration.value = it }
-                )
+                Switch(checked = needsRegistration,
+                    onCheckedChange = { viewModel.needsRegistration.value = it })
             }
         }
 
@@ -395,10 +453,10 @@ fun CreateEventStep2Screen(
                 modifier      = Modifier.fillMaxWidth(),
                 shape         = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                isError       = maxIsInvalid || maxParticipants.isBlank(),
-                supportingText = {
+                isError         = maxIsInvalid || maxParticipants.isBlank(),
+                supportingText  = {
                     when {
-                        maxIsInvalid     -> Text("Введите число больше 0",
+                        maxIsInvalid -> Text("Введите число больше 0",
                             color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
                         maxParticipants.isBlank() -> Text("Обязательное поле при включённой регистрации",
                             fontSize = 11.sp, color = MaterialTheme.colorScheme.error.copy(0.8f))
@@ -412,11 +470,9 @@ fun CreateEventStep2Screen(
         // ── Ошибка ────────────────────────────────────────────────
         error?.let {
             Spacer(modifier = Modifier.height(12.dp))
-            Surface(
-                shape    = RoundedCornerShape(12.dp),
+            Surface(shape = RoundedCornerShape(12.dp),
                 color    = MaterialTheme.colorScheme.errorContainer,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+                modifier = Modifier.fillMaxWidth()) {
                 Text(it, modifier = Modifier.padding(12.dp),
                     color = MaterialTheme.colorScheme.onErrorContainer)
             }
@@ -445,7 +501,7 @@ fun CreateEventStep2Screen(
     if (showStartDatePicker) {
         DatePickerDialog(
             onDismissRequest = { showStartDatePicker = false },
-            confirmButton    = {
+            confirmButton = {
                 TextButton(onClick = {
                     tempStartDateMillis = startDatePickerState.selectedDateMillis ?: System.currentTimeMillis()
                     showStartDatePicker = false; showStartTimePicker = true
@@ -474,7 +530,7 @@ fun CreateEventStep2Screen(
     if (showEndDatePicker) {
         DatePickerDialog(
             onDismissRequest = { showEndDatePicker = false },
-            confirmButton    = {
+            confirmButton = {
                 TextButton(onClick = {
                     tempEndDateMillis = endDatePickerState.selectedDateMillis ?: System.currentTimeMillis()
                     showEndDatePicker = false; showEndTimePicker = true
@@ -499,7 +555,6 @@ fun CreateEventStep2Screen(
             timePickerState = endTimePickerState
         )
     }
-    // showCreateLocationDialog и CreateLocationDialog полностью убраны
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -510,16 +565,9 @@ private fun TimePickerDialog(
     timePickerState: TimePickerState
 ) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(
-            shape          = RoundedCornerShape(20.dp),
-            color          = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
-            modifier       = Modifier.padding(horizontal = 24.dp)
-        ) {
-            Column(
-                modifier            = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp, modifier = Modifier.padding(horizontal = 24.dp)) {
+            Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Выберите время", style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(20.dp))
