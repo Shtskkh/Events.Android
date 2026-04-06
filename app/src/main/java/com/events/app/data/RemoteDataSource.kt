@@ -26,14 +26,9 @@ class RemoteDataSource @Inject constructor(
     // ── Events ────────────────────────────────────────────────────
 
     suspend fun getEvents(
-        size: Int = 20,
-        page: Int = 1,
-        text: String? = null,
-        startDateTime: String? = null,
-        endDateTime: String? = null,
-        typeId: Int? = null,
-        formatId: Int? = null,
-        placeId: Int? = null,
+        size: Int = 20, page: Int = 1, text: String? = null,
+        startDateTime: String? = null, endDateTime: String? = null,
+        typeId: Int? = null, formatId: Int? = null, placeId: Int? = null,
         userId: String? = null
     ): List<ShortEventDto> =
         api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId, placeId, userId)
@@ -49,30 +44,19 @@ class RemoteDataSource @Inject constructor(
     suspend fun deleteEvent(id: String) = api.deleteEvent(id)
 
     suspend fun createEvent(
-        userId: RequestBody,
-        title: RequestBody,
-        announcement: RequestBody,
-        description: RequestBody,
-        startDateTime: RequestBody,
-        endDateTime: RequestBody,
-        eventTypeId: RequestBody,
-        eventFormatId: RequestBody,
-        needsRegistration: RequestBody,
-        maxParticipants: RequestBody? = null,
-        placeId: RequestBody? = null,
-        placeholder: RequestBody? = null,
-        preview: MultipartBody.Part? = null
+        userId: RequestBody, title: RequestBody, announcement: RequestBody,
+        description: RequestBody, startDateTime: RequestBody, endDateTime: RequestBody,
+        eventTypeId: RequestBody, eventFormatId: RequestBody, needsRegistration: RequestBody,
+        maxParticipants: RequestBody? = null, placeId: RequestBody? = null,
+        placeholder: RequestBody? = null, preview: MultipartBody.Part? = null
     ): String = api.createEvent(
         userId, title, announcement, description, startDateTime, endDateTime,
         eventTypeId, eventFormatId, needsRegistration, maxParticipants, placeId, placeholder, preview
     )
 
     suspend fun updateEvent(
-        id: String,
-        title: RequestBody? = null,
-        announcement: RequestBody? = null,
-        description: RequestBody? = null,
-        startDateTime: RequestBody? = null,
+        id: String, title: RequestBody? = null, announcement: RequestBody? = null,
+        description: RequestBody? = null, startDateTime: RequestBody? = null,
         endDateTime: RequestBody? = null
     ) = api.updateEvent(id, title, announcement, description, startDateTime, endDateTime)
 
@@ -110,29 +94,36 @@ class RemoteDataSource @Inject constructor(
         api.getPlacesByLocation(locationId)
 
     suspend fun getPlacesAvailability(
-        locationId: Int,
-        start: String? = null,
-        end: String? = null
+        locationId: Int, start: String? = null, end: String? = null
     ): List<PlaceAvailabilityDto> =
         api.getPlacesAvailability(locationId, start, end)
 
     suspend fun getPlaceById(locationId: Int, placeId: Int): PlaceDto =
         api.getPlaceById(locationId, placeId)
 
+    /**
+     * Создать помещение с опциональными фото.
+     * [photos] — список байт-массивов изображений (JPEG/PNG).
+     * Каждое фото упаковывается как multipart с именем "Photos".
+     */
     suspend fun createPlace(
         locationId: Int,
         number: RequestBody,
         capacity: RequestBody,
         type: RequestBody,
-        title: RequestBody? = null
-    ): Int = api.createPlace(locationId, number, capacity, type, title)
+        title: RequestBody? = null,
+        photos: List<ByteArray> = emptyList()
+    ): Int {
+        val photoParts = photos.mapIndexed { idx, bytes ->
+            val body = bytes.toRequestBody("image/*".toMediaTypeOrNull())
+            MultipartBody.Part.createFormData("Photos", "photo_${idx + 1}.jpg", body)
+        }
+        return api.createPlace(locationId, number, capacity, type, title, photoParts)
+    }
 
     suspend fun updatePlace(
-        locationId: Int,
-        placeId: Int,
-        title: RequestBody? = null,
-        type: RequestBody? = null,
-        capacity: RequestBody? = null
+        locationId: Int, placeId: Int,
+        title: RequestBody? = null, type: RequestBody? = null, capacity: RequestBody? = null
     ): PlaceDto = api.updatePlace(locationId, placeId, title, type, capacity)
 
     suspend fun deletePlace(locationId: Int, placeId: Int) =
@@ -143,19 +134,14 @@ class RemoteDataSource @Inject constructor(
     // ── Equipment ─────────────────────────────────────────────────
 
     suspend fun getEquipment(
-        placeId: Int? = null,
-        equipmentTypeId: Int? = null,
-        inventoryNumber: String? = null,
-        size: Int = 30,
-        page: Int = 1
+        placeId: Int? = null, equipmentTypeId: Int? = null,
+        inventoryNumber: String? = null, size: Int = 30, page: Int = 1
     ): List<EquipmentDto> =
         api.getEquipment(size, page, placeId, equipmentTypeId, inventoryNumber)
 
     suspend fun createEquipment(
-        title: RequestBody,
-        inventoryNumber: RequestBody,
-        equipmentTypeId: RequestBody,
-        placeId: RequestBody? = null
+        title: RequestBody, inventoryNumber: RequestBody,
+        equipmentTypeId: RequestBody, placeId: RequestBody? = null
     ): Int = api.createEquipment(title, inventoryNumber, equipmentTypeId, placeId)
 
     suspend fun deleteEquipment(id: Int) = api.deleteEquipment(id)
@@ -167,11 +153,8 @@ class RemoteDataSource @Inject constructor(
         api.getUsers(size, page)
 
     suspend fun createUser(
-        firstName: RequestBody,
-        lastName: RequestBody,
-        email: RequestBody,
-        password: RequestBody,
-        patronymic: RequestBody? = null
+        firstName: RequestBody, lastName: RequestBody, email: RequestBody,
+        password: RequestBody, patronymic: RequestBody? = null
     ): String = api.createUser(firstName, lastName, email, password, patronymic)
 
     suspend fun deleteUser(id: String) = api.deleteUser(id)

@@ -1,6 +1,9 @@
 package com.events.app.ui.views.locations
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import android.net.Uri
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.events.app.data.RemoteDataSource
 import com.events.app.data.remote.dto.EquipmentDto
@@ -21,11 +24,14 @@ import javax.inject.Inject
 @HiltViewModel
 class LocationsViewModel @Inject constructor(
     private val remoteDataSource: RemoteDataSource,
-    private val authRepository: AuthRepository
-) : ViewModel() {
+    private val authRepository: AuthRepository,
+    application: Application
+) : AndroidViewModel(application) {
 
-    // ── Роль ─────────────────────────────────────────────────────
-    val isAdmin get() = authRepository.currentUser.value?.role == UserRole.ADMIN
+    // ── Роль ──────────────────────────────────────────────────────
+    private val _isAdmin = MutableStateFlow(false)
+    val isAdminFlow = _isAdmin.asStateFlow()
+    val isAdmin: Boolean get() = _isAdmin.value
 
     // ── Локации ───────────────────────────────────────────────────
     private val _locations = MutableStateFlow<List<LocationDto>>(emptyList())
@@ -34,7 +40,7 @@ class LocationsViewModel @Inject constructor(
     private val _locationsLoading = MutableStateFlow(false)
     val locationsLoading = _locationsLoading.asStateFlow()
 
-    // ── Помещения для открытой локации ────────────────────────────
+    // ── Помещения ─────────────────────────────────────────────────
     private val _places = MutableStateFlow<List<PlaceDto>>(emptyList())
     val places = _places.asStateFlow()
 
@@ -44,7 +50,7 @@ class LocationsViewModel @Inject constructor(
     private val _expandedLocationId = MutableStateFlow<Int?>(null)
     val expandedLocationId = _expandedLocationId.asStateFlow()
 
-    // ── Детали выбранного помещения ───────────────────────────────
+    // ── Выбранное помещение (bottomsheet) ─────────────────────────
     private val _selectedPlace = MutableStateFlow<PlaceDto?>(null)
     val selectedPlace = _selectedPlace.asStateFlow()
 
@@ -55,18 +61,17 @@ class LocationsViewModel @Inject constructor(
     private val _placeTypes = MutableStateFlow<List<PlaceTypeDto>>(emptyList())
     val placeTypes = _placeTypes.asStateFlow()
 
-    // ── Оборудование выбранного помещения ─────────────────────────
+    // ── Оборудование ──────────────────────────────────────────────
     private val _equipment = MutableStateFlow<List<EquipmentDto>>(emptyList())
     val equipment = _equipment.asStateFlow()
 
     private val _equipmentLoading = MutableStateFlow(false)
     val equipmentLoading = _equipmentLoading.asStateFlow()
 
-    // ── Типы оборудования (для создания) ─────────────────────────
     private val _equipmentTypes = MutableStateFlow<List<EquipmentTypeDto>>(emptyList())
     val equipmentTypes = _equipmentTypes.asStateFlow()
 
-    // ── Ошибки и успех ────────────────────────────────────────────
+    // ── Состояния ─────────────────────────────────────────────────
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
 
@@ -76,13 +81,23 @@ class LocationsViewModel @Inject constructor(
     private val _isActionLoading = MutableStateFlow(false)
     val isActionLoading = _isActionLoading.asStateFlow()
 
-    fun clearMessages() { _error.value = null; _successMessage.value = null }
+    fun clearMessages() {
+        _error.value = null
+        _successMessage.value = null
+    }
 
     init {
+        viewModelScope.launch {
+            authRepository.currentUser.collect { user ->
+                _isAdmin.value = user?.role == UserRole.ADMIN
+            }
+        }
         loadLocations()
         loadPlaceTypes()
         loadEquipmentTypes()
     }
+
+    // ── Загрузка ──────────────────────────────────────────────────
 
     fun loadLocations() {
         viewModelScope.launch {
@@ -112,8 +127,6 @@ class LocationsViewModel @Inject constructor(
         }
     }
 
-    // ── Раскрыть / свернуть локацию ──────────────────────────────
-
     fun toggleLocation(locationId: Int) {
         if (_expandedLocationId.value == locationId) {
             _expandedLocationId.value = null
@@ -127,6 +140,7 @@ class LocationsViewModel @Inject constructor(
     fun loadPlaces(locationId: Int) {
         viewModelScope.launch {
             _placesLoading.value = true
+            _places.value = emptyList()
             try {
                 _places.value = remoteDataSource.getPlacesByLocation(locationId)
             } catch (e: retrofit2.HttpException) {
@@ -139,8 +153,6 @@ class LocationsViewModel @Inject constructor(
             }
         }
     }
-
-    // ── Открыть карточку помещения + загрузить оборудование ───────
 
     fun openPlace(locationId: Int, place: PlaceDto) {
         _selectedPlace.value = place
@@ -171,62 +183,61 @@ class LocationsViewModel @Inject constructor(
         }
     }
 
-    // ── CRUD Admin: Оборудование ──────────────────────────────────
-
-    fun createEquipment(
-        title: String,
-        inventoryNumber: String,
-        equipmentTypeId: Int,
-        placeId: Int,
-        onDone: () -> Unit = {}
-    ) {
-        viewModelScope.launch {
-            _isActionLoading.value = true
-            try {
-                fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
-                remoteDataSource.createEquipment(
-                    title           = title.trim().toBody(),
-                    inventoryNumber = inventoryNumber.trim().toBody(),
-                    equipmentTypeId = equipmentTypeId.toString().toBody(),
-                    placeId         = placeId.toString().toBody()
-                )
-                // Перезагружаем оборудование помещения
-                _equipment.value = remoteDataSource.getEquipment(placeId = placeId)
-                _successMessage.value = "Оборудование «${title.trim()}» добавлено"
-                onDone()
-            } catch (e: Exception) {
-                _error.value = "Ошибка создания: ${e.message}"
-            } finally { _isActionLoading.value = false }
-        }
-    }
-
-    fun deleteEquipment(equipmentId: Int, placeId: Int, onDone: () -> Unit = {}) {
-        viewModelScope.launch {
-            _isActionLoading.value = true
-            try {
-                remoteDataSource.deleteEquipment(equipmentId)
-                _equipment.value = _equipment.value.filter { it.id != equipmentId }
-                _successMessage.value = "Оборудование удалено"
-                onDone()
-            } catch (e: Exception) {
-                _error.value = "Ошибка удаления: ${e.message}"
-            } finally { _isActionLoading.value = false }
-        }
-    }
-
-    // ── CRUD Admin: Локации ───────────────────────────────────────
+    // ── CRUD: Локации ─────────────────────────────────────────────
 
     fun createLocation(title: String, address: String, onDone: () -> Unit = {}) {
         viewModelScope.launch {
             _isActionLoading.value = true
             try {
                 fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
-                val newId = remoteDataSource.createLocation(title.trim().toBody(), address.trim().toBody())
-                _locations.value = _locations.value + LocationDto(id = newId, title = title.trim(), address = address.trim())
-                _successMessage.value = "Локация «${title.trim()}» создана"
+                val newId = remoteDataSource.createLocation(
+                    title.trim().toBody(), address.trim().toBody()
+                )
+                _locations.value = _locations.value + LocationDto(
+                    id = newId, title = title.trim(), address = address.trim()
+                )
+                _successMessage.value = "Локация создана"
                 onDone()
             } catch (e: Exception) {
                 _error.value = "Ошибка создания: ${e.message}"
+            } finally { _isActionLoading.value = false }
+        }
+    }
+
+    fun editLocation(
+        location: LocationDto,
+        newTitle: String,
+        newAddress: String,
+        onDone: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _isActionLoading.value = true
+            try {
+                fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
+                val titleBody   = newTitle.trim().toBody()
+                val addressBody = newAddress.trim().toBody()
+                remoteDataSource.updateLocation(location.id, titleBody, addressBody)
+
+                _locations.value = _locations.value.map { loc ->
+                    if (loc.id == location.id)
+                        loc.copy(title = newTitle.trim(), address = newAddress.trim())
+                    else loc
+                }
+                if (_selectedLocationForPlace.value?.id == location.id) {
+                    _selectedLocationForPlace.value = _selectedLocationForPlace.value?.copy(
+                        title = newTitle.trim(), address = newAddress.trim()
+                    )
+                }
+                _successMessage.value = "Локация обновлена"
+                onDone()
+            } catch (e: retrofit2.HttpException) {
+                _error.value = when (e.code()) {
+                    400  -> "Неверные данные"
+                    404  -> "Локация не найдена"
+                    else -> "Ошибка сервера: ${e.code()}"
+                }
+            } catch (_: Exception) {
+                _error.value = "Нет соединения с сервером"
             } finally { _isActionLoading.value = false }
         }
     }
@@ -249,24 +260,95 @@ class LocationsViewModel @Inject constructor(
         }
     }
 
-    // ── CRUD Admin: Помещения ─────────────────────────────────────
+    // ── CRUD: Помещения ───────────────────────────────────────────
 
     fun createPlace(
-        locationId: Int, number: String, capacity: Int,
-        typeId: Int, title: String?, onDone: () -> Unit = {}
+        locationId: Int,
+        number: String,
+        capacity: Int,
+        typeId: Int,
+        title: String?,
+        photoUris: List<Uri> = emptyList(),
+        onDone: () -> Unit = {}
+    ) {
+        if (_isActionLoading.value) return
+        viewModelScope.launch {
+            _isActionLoading.value = true
+            try {
+                fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
+                val context: Context = getApplication()
+                val photoBytes = photoUris.mapNotNull { uri ->
+                    try { context.contentResolver.openInputStream(uri)?.readBytes() }
+                    catch (_: Exception) { null }
+                }
+                remoteDataSource.createPlace(
+                    locationId = locationId,
+                    number     = number.trim().toBody(),
+                    capacity   = capacity.toString().toBody(),
+                    type       = typeId.toString().toBody(),
+                    title      = title?.trim()?.takeIf { it.isNotBlank() }?.toBody(),
+                    photos     = photoBytes
+                )
+                onDone()
+                _expandedLocationId.value = locationId
+                _successMessage.value = "Помещение создано"
+                _placesLoading.value = true
+                try {
+                    _places.value = remoteDataSource.getPlacesByLocation(locationId)
+                } catch (_: Exception) {
+                } finally { _placesLoading.value = false }
+
+            } catch (e: retrofit2.HttpException) {
+                val serverMessage = try {
+                    e.response()?.errorBody()?.string()?.let { parseServerError(it) }
+                } catch (_: Exception) { null }
+                _error.value = when {
+                    serverMessage != null -> serverMessage
+                    e.code() == 400      -> "Помещение с таким номером уже существует"
+                    e.code() == 404      -> "Локация или тип помещения не найдены"
+                    else                 -> "Ошибка сервера: ${e.code()}"
+                }
+            } catch (_: Exception) {
+                _error.value = "Нет соединения с сервером"
+            } finally { _isActionLoading.value = false }
+        }
+    }
+
+    fun editPlace(
+        locationId: Int,
+        place: PlaceDto,
+        newTitle: String?,
+        newCapacity: Int,
+        newTypeId: Int,
+        onDone: () -> Unit = {}
     ) {
         viewModelScope.launch {
             _isActionLoading.value = true
             try {
                 fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
-                val titleBody = title?.trim()?.takeIf { it.isNotBlank() }?.toBody()
-                remoteDataSource.createPlace(locationId, number.trim().toBody(),
-                    capacity.toString().toBody(), typeId.toString().toBody(), titleBody)
-                _places.value = remoteDataSource.getPlacesByLocation(locationId)
-                _successMessage.value = "Помещение создано"
+                val updatedPlace = remoteDataSource.updatePlace(
+                    locationId = locationId,
+                    placeId    = place.id,
+                    title      = newTitle?.trim()?.takeIf { it.isNotBlank() }?.toBody(),
+                    type       = newTypeId.toString().toBody(),
+                    capacity   = newCapacity.toString().toBody()
+                )
+                _places.value = _places.value.map { p ->
+                    if (p.id == place.id) updatedPlace else p
+                }
+                if (_selectedPlace.value?.id == place.id) {
+                    _selectedPlace.value = updatedPlace
+                }
+                _successMessage.value = "Помещение обновлено"
                 onDone()
-            } catch (e: Exception) {
-                _error.value = "Ошибка создания: ${e.message}"
+            } catch (e: retrofit2.HttpException) {
+                _error.value = when (e.code()) {
+                    400  -> "Неверные данные"
+                    404  -> "Помещение или тип не найдены"
+                    else -> "Ошибка сервера: ${e.code()}"
+                }
+            } catch (_: Exception) {
+                _error.value = "Нет соединения с сервером"
             } finally { _isActionLoading.value = false }
         }
     }
@@ -285,4 +367,52 @@ class LocationsViewModel @Inject constructor(
             } finally { _isActionLoading.value = false }
         }
     }
+
+    // ── CRUD: Оборудование ────────────────────────────────────────
+
+    fun createEquipment(
+        title: String,
+        inventoryNumber: String,
+        equipmentTypeId: Int,
+        placeId: Int,
+        onDone: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _isActionLoading.value = true
+            try {
+                fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
+                remoteDataSource.createEquipment(
+                    title           = title.trim().toBody(),
+                    inventoryNumber = inventoryNumber.trim().toBody(),
+                    equipmentTypeId = equipmentTypeId.toString().toBody(),
+                    placeId         = placeId.toString().toBody()
+                )
+                _equipment.value = remoteDataSource.getEquipment(placeId = placeId)
+                _successMessage.value = "Оборудование «${title.trim()}» добавлено"
+                onDone()
+            } catch (e: Exception) {
+                _error.value = "Ошибка создания: ${e.message}"
+            } finally { _isActionLoading.value = false }
+        }
+    }
+
+    fun deleteEquipment(equipmentId: Int, placeId: Int, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            _isActionLoading.value = true
+            try {
+                remoteDataSource.deleteEquipment(equipmentId)
+                _equipment.value = _equipment.value.filter { it.id != equipmentId }
+                _successMessage.value = "Оборудование удалено"
+                onDone()
+            } catch (e: Exception) {
+                _error.value = "Ошибка удаления: ${e.message}"
+            } finally { _isActionLoading.value = false }
+        }
+    }
+}
+
+private fun parseServerError(json: String): String? {
+    return try {
+        Regex(""""message"\s*:\s*"([^"]+)"""").find(json)?.groupValues?.get(1)
+    } catch (_: Exception) { null }
 }

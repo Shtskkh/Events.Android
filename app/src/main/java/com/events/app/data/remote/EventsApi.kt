@@ -147,6 +147,11 @@ interface EventsApi {
         @Path("placeId")    placeId: Int
     ): PlaceDto
 
+    /**
+     * Создать помещение.
+     * Photos — список фото в виде MultipartBody.Part с именем "Photos".
+     * Если фото не нужны — передавать emptyList().
+     */
     @Multipart
     @POST("api/v/1/locations/{locationId}/places")
     suspend fun createPlace(
@@ -154,7 +159,8 @@ interface EventsApi {
         @Part("Number")     number: RequestBody,
         @Part("Capacity")   capacity: RequestBody,
         @Part("Type")       type: RequestBody,
-        @Part("Title")      title: RequestBody? = null
+        @Part("Title")      title: RequestBody? = null,
+        @Part               photos: List<MultipartBody.Part> = emptyList()
     ): Int
 
     @Multipart
