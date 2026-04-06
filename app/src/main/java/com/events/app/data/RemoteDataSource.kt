@@ -13,6 +13,7 @@ import com.events.app.data.remote.dto.PlaceAvailabilityDto
 import com.events.app.data.remote.dto.PlaceDto
 import com.events.app.data.remote.dto.PlaceTypeDto
 import com.events.app.data.remote.dto.ShortEventDto
+import com.events.app.data.remote.dto.UserDetailDto
 import com.events.app.data.remote.dto.UserDto
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -101,18 +102,9 @@ class RemoteDataSource @Inject constructor(
     suspend fun getPlaceById(locationId: Int, placeId: Int): PlaceDto =
         api.getPlaceById(locationId, placeId)
 
-    /**
-     * Создать помещение с опциональными фото.
-     * [photos] — список байт-массивов изображений (JPEG/PNG).
-     * Каждое фото упаковывается как multipart с именем "Photos".
-     */
     suspend fun createPlace(
-        locationId: Int,
-        number: RequestBody,
-        capacity: RequestBody,
-        type: RequestBody,
-        title: RequestBody? = null,
-        photos: List<ByteArray> = emptyList()
+        locationId: Int, number: RequestBody, capacity: RequestBody,
+        type: RequestBody, title: RequestBody? = null, photos: List<ByteArray> = emptyList()
     ): Int {
         val photoParts = photos.mapIndexed { idx, bytes ->
             val body = bytes.toRequestBody("image/*".toMediaTypeOrNull())
@@ -151,6 +143,8 @@ class RemoteDataSource @Inject constructor(
 
     suspend fun getUsers(size: Int = 20, page: Int = 1): List<UserDto> =
         api.getUsers(size, page)
+
+    suspend fun getUserById(id: String): UserDetailDto = api.getUserById(id)
 
     suspend fun createUser(
         firstName: RequestBody, lastName: RequestBody, email: RequestBody,

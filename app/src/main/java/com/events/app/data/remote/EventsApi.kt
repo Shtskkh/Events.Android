@@ -12,6 +12,7 @@ import com.events.app.data.remote.dto.PlaceAvailabilityDto
 import com.events.app.data.remote.dto.PlaceDto
 import com.events.app.data.remote.dto.PlaceTypeDto
 import com.events.app.data.remote.dto.ShortEventDto
+import com.events.app.data.remote.dto.UserDetailDto
 import com.events.app.data.remote.dto.UserDto
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -147,11 +148,6 @@ interface EventsApi {
         @Path("placeId")    placeId: Int
     ): PlaceDto
 
-    /**
-     * Создать помещение.
-     * Photos — список фото в виде MultipartBody.Part с именем "Photos".
-     * Если фото не нужны — передавать emptyList().
-     */
     @Multipart
     @POST("api/v/1/locations/{locationId}/places")
     suspend fun createPlace(
@@ -215,6 +211,14 @@ interface EventsApi {
         @Query("Size") size: Int = 20,
         @Query("Page") page: Int = 1
     ): List<UserDto>
+
+    /**
+     * Получить пользователя по ID.
+     * GET /api/v/1/users/{id}
+     * Возвращает: id, lastName, firstName, patronymic, email, avatarInfo
+     */
+    @GET("api/v/1/users/{id}")
+    suspend fun getUserById(@Path("id") id: String): UserDetailDto
 
     @Multipart
     @POST("api/v/1/users")

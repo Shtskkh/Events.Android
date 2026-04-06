@@ -7,6 +7,7 @@ import com.events.app.data.local.EventLocationCache
 import com.events.app.data.remote.dto.EquipmentDto
 import com.events.app.data.remote.dto.EventAnalyticDto
 import com.events.app.data.remote.dto.ParticipantDto
+import com.events.app.data.remote.dto.UserDetailDto
 import com.events.app.data.remote.dto.toDomain
 import com.events.app.domain.models.events.Event
 import com.events.app.domain.models.users.UserRole
@@ -36,6 +37,14 @@ class EventDetailsViewModel @Inject constructor(
 
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
+
+    // ── Автор мероприятия ─────────────────────────────────────────
+
+    private val _author = MutableStateFlow<UserDetailDto?>(null)
+    val author = _author.asStateFlow()
+
+    private val _authorLoading = MutableStateFlow(false)
+    val authorLoading = _authorLoading.asStateFlow()
 
     // ── Удаление ──────────────────────────────────────────────────
 
@@ -101,7 +110,7 @@ class EventDetailsViewModel @Inject constructor(
         }
     }
 
-    // ── Загрузка мероприятия с дозагрузкой локации и помещения ───
+    // ── Загрузка мероприятия ──────────────────────────────────────
 
     fun loadEvent(eventId: String) {
         if (eventId.isBlank()) return
@@ -111,21 +120,16 @@ class EventDetailsViewModel @Inject constructor(
             _error.value = null
             try {
                 val accessToken = authRepository.currentUser.value?.accessToken
-
-                // 1. Грузим базовые данные мероприятия
                 val base = remoteDataSource.getEventById(eventId, accessToken).toDomain()
 
-                // 2. Если у ивента есть placeId — ищем локацию и помещение
                 val enriched = if (base.placeId != null) {
                     try {
                         val allLocations = remoteDataSource.getLocations()
                         var result = base
-
                         outer@ for (loc in allLocations) {
                             val places = try {
                                 remoteDataSource.getPlacesByLocation(loc.id)
                             } catch (_: Exception) { emptyList() }
-
                             val matched = places.find { it.id == base.placeId }
                             if (matched != null) {
                                 result = base.copy(
@@ -140,20 +144,23 @@ class EventDetailsViewModel @Inject constructor(
                             }
                         }
                         result
-                    } catch (_: Exception) {
-                        base
-                    }
+                    } catch (_: Exception) { base }
                 } else {
-                    if (base.location.isBlank()) {
+                    if (base.location.isBlank())
                         base.copy(location = locationCache.get(eventId) ?: "")
-                    } else base
+                    else base
                 }
 
                 _event.value = enriched
 
-                // 3. Если есть placeId — параллельно загружаем оборудование
+                // Загружаем оборудование помещения
                 if (enriched.placeId != null) {
                     loadEquipmentForPlace(enriched.placeId)
+                }
+
+                // Загружаем автора мероприятия по userId
+                if (!enriched.userId.isNullOrBlank()) {
+                    loadAuthor(enriched.userId)
                 }
 
             } catch (e: Exception) {
@@ -163,9 +170,26 @@ class EventDetailsViewModel @Inject constructor(
             }
         }
 
-        // Параллельно грузим аналитику и участников
         loadAnalytics(eventId)
         loadParticipants(eventId)
+    }
+
+    // ── Загрузка автора ───────────────────────────────────────────
+
+    private fun loadAuthor(userId: String) {
+        viewModelScope.launch {
+            _authorLoading.value = true
+            try {
+                _author.value = remoteDataSource.getUserById(userId)
+            } catch (e: retrofit2.HttpException) {
+                // 404 — пользователь удалён или недоступен, не показываем ошибку
+                _author.value = null
+            } catch (_: Exception) {
+                _author.value = null
+            } finally {
+                _authorLoading.value = false
+            }
+        }
     }
 
     // ── Оборудование ──────────────────────────────────────────────
@@ -193,14 +217,11 @@ class EventDetailsViewModel @Inject constructor(
             try {
                 val analytic = remoteDataSource.getEventAnalytics(eventId)
                 _analytics.value = analytic
-
-                // Ждём пока основной запрос загрузит event
                 var attempts = 0
                 while (_event.value == null && attempts < 10) {
                     kotlinx.coroutines.delay(100)
                     attempts++
                 }
-
                 val current = _event.value ?: return@launch
                 _event.value = current.copy(
                     participantsCount = analytic.participantsCount,
@@ -243,7 +264,6 @@ class EventDetailsViewModel @Inject constructor(
     fun toggleRegistration() {
         val eventId = _event.value?.id ?: return
         val userId  = authRepository.currentUser.value?.id ?: return
-
         viewModelScope.launch {
             _registrationLoading.value = true
             _registrationError.value   = null
@@ -264,7 +284,7 @@ class EventDetailsViewModel @Inject constructor(
                     409  -> "Вы уже зарегистрированы"
                     else -> "Ошибка регистрации: ${e.code()}"
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _registrationError.value = "Нет соединения с сервером"
             } finally {
                 _registrationLoading.value = false
@@ -281,7 +301,7 @@ class EventDetailsViewModel @Inject constructor(
             try {
                 remoteDataSource.deleteEvent(id)
                 _deleteSuccess.value = true
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _error.value = "Не удалось удалить мероприятие"
             } finally {
                 _isDeleting.value = false
