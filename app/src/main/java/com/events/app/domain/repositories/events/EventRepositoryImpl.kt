@@ -11,30 +11,33 @@ class EventRepositoryImpl @Inject constructor(
 ) : EventRepository {
 
     override suspend fun getEvents(
-        size: Int,
-        page: Int,
-        text: String?,
-        startDateTime: String?,
-        endDateTime: String?,
-        typeId: Int?,
-        formatId: Int?,
-        placeId: Int?,
-        userId: String?   // ДОБАВЛЕНО
+        size: Int, page: Int, text: String?,
+        startDateTime: String?, endDateTime: String?,
+        typeId: Int?, formatId: Int?, placeId: Int?,
+        userId: String?,
+        createdAfter: String?, createdBefore: String?
     ): List<Event> {
         return remoteDataSource.getEvents(
-            size, page, text, startDateTime, endDateTime, typeId, formatId, placeId, userId
+            size          = size,
+            page          = page,
+            text          = text,
+            startDateTime = startDateTime,
+            endDateTime   = endDateTime,
+            typeId        = typeId,
+            formatId      = formatId,
+            placeId       = placeId,
+            userId        = userId,
+            createdAfter  = createdAfter,
+            createdBefore = createdBefore
         ).map { it.toDomain() }
     }
 
-    override suspend fun getEventById(id: String, accessToken: String?): Event {
-        return remoteDataSource.getEventById(id, accessToken).toDomain()
-    }
+    override suspend fun getEventById(id: String, accessToken: String?): Event =
+        remoteDataSource.getEventById(id, accessToken).toDomain()
 
-    override suspend fun getEventAnalytics(id: String): EventAnalyticDto {
-        return remoteDataSource.getEventAnalytics(id)
-    }
+    override suspend fun getEventAnalytics(id: String): EventAnalyticDto =
+        remoteDataSource.getEventAnalytics(id)
 
-    override suspend fun getRecentEvents(userId: String): List<Event> {
-        return remoteDataSource.getRecentEvents(userId).map { it.toDomain() }
-    }
+    override suspend fun getRecentEvents(userId: String): List<Event> =
+        remoteDataSource.getRecentEvents(userId).map { it.toDomain() }
 }

@@ -27,12 +27,30 @@ class RemoteDataSource @Inject constructor(
     // ── Events ────────────────────────────────────────────────────
 
     suspend fun getEvents(
-        size: Int = 20, page: Int = 1, text: String? = null,
-        startDateTime: String? = null, endDateTime: String? = null,
-        typeId: Int? = null, formatId: Int? = null, placeId: Int? = null,
-        userId: String? = null
-    ): List<ShortEventDto> =
-        api.getEvents(size, page, text, startDateTime, endDateTime, typeId, formatId, placeId, userId)
+        size: Int = 20,
+        page: Int = 1,
+        text: String? = null,
+        startDateTime: String? = null,
+        endDateTime: String? = null,
+        typeId: Int? = null,
+        formatId: Int? = null,
+        placeId: Int? = null,
+        userId: String? = null,
+        createdAfter: String? = null,
+        createdBefore: String? = null
+    ): List<ShortEventDto> = api.getEvents(
+        size          = size,
+        page          = page,
+        text          = text,
+        startDateTime = startDateTime,
+        endDateTime   = endDateTime,
+        typeId        = typeId,
+        formatId      = formatId,
+        placeId       = placeId,
+        userId        = userId,
+        createdAfter  = createdAfter,
+        createdBefore = createdBefore
+    )
 
     suspend fun getEventById(id: String, accessToken: String? = null): EventDetailDto {
         val authHeader = accessToken?.let { "Bearer $it" }
@@ -96,8 +114,7 @@ class RemoteDataSource @Inject constructor(
 
     suspend fun getPlacesAvailability(
         locationId: Int, start: String? = null, end: String? = null
-    ): List<PlaceAvailabilityDto> =
-        api.getPlacesAvailability(locationId, start, end)
+    ): List<PlaceAvailabilityDto> = api.getPlacesAvailability(locationId, start, end)
 
     suspend fun getPlaceById(locationId: Int, placeId: Int): PlaceDto =
         api.getPlaceById(locationId, placeId)

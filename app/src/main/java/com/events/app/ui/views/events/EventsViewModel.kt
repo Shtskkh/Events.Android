@@ -30,7 +30,7 @@ class EventsViewModel @Inject constructor(
     private val getEventsUseCase: GetEventsUseCase,
     private val remoteDataSource: RemoteDataSource,
     private val locationCache: EventLocationCache,
-    private val refreshBus: EventRefreshBus          // ← новый параметр
+    private val refreshBus: EventRefreshBus
 ) : ViewModel() {
 
     private val _allLoadedEvents = MutableStateFlow<List<Event>>(emptyList())
@@ -50,16 +50,26 @@ class EventsViewModel @Inject constructor(
     private var currentPage = 1
     private val pageSize    = 20
 
-    // ── Серверные фильтры ─────────────────────────────────────────
+    // ── Фильтры ───────────────────────────────────────────────────
 
     private val _searchText = MutableStateFlow<String?>(null)
     val searchText = _searchText.asStateFlow()
 
+    /** Фильтр по дате НАЧАЛА мероприятия (StartDateTime) */
     private val _filterStartDate = MutableStateFlow<String?>(null)
     val filterStartDate = _filterStartDate.asStateFlow()
 
+    /** Фильтр по дате КОНЦА мероприятия (EndDateTime) */
     private val _filterEndDate = MutableStateFlow<String?>(null)
     val filterEndDate = _filterEndDate.asStateFlow()
+
+    /** Фильтр по дате СОЗДАНИЯ: после (CreatedAfter) */
+    private val _filterCreatedAfter = MutableStateFlow<String?>(null)
+    val filterCreatedAfter = _filterCreatedAfter.asStateFlow()
+
+    /** Фильтр по дате СОЗДАНИЯ: до (CreatedBefore) */
+    private val _filterCreatedBefore = MutableStateFlow<String?>(null)
+    val filterCreatedBefore = _filterCreatedBefore.asStateFlow()
 
     private val _filterTypeId = MutableStateFlow<Int?>(null)
     val filterTypeId = _filterTypeId.asStateFlow()
@@ -78,12 +88,8 @@ class EventsViewModel @Inject constructor(
     init {
         loadEvents(reset = true)
         loadReferenceData()
-
-        // Слушаем шину: когда создаётся новое мероприятие — сбрасываем и перезагружаем
         viewModelScope.launch {
-            refreshBus.events.collect {
-                resetAllFilters()
-            }
+            refreshBus.events.collect { resetAllFilters() }
         }
     }
 
@@ -108,9 +114,17 @@ class EventsViewModel @Inject constructor(
         loadEvents(reset = true)
     }
 
+    /** Установить фильтр по дате начала/конца мероприятия (StartDateTime / EndDateTime) */
     fun setDateFilter(start: String?, end: String?) {
         _filterStartDate.value = start
         _filterEndDate.value   = end
+        loadEvents(reset = true)
+    }
+
+    /** Установить фильтр по дате создания (CreatedAfter / CreatedBefore) */
+    fun setCreatedDateFilter(after: String?, before: String?) {
+        _filterCreatedAfter.value  = after
+        _filterCreatedBefore.value = before
         loadEvents(reset = true)
     }
 
@@ -128,24 +142,30 @@ class EventsViewModel @Inject constructor(
         text: String?,
         startDate: String?,
         endDate: String?,
+        createdAfter: String?,
+        createdBefore: String?,
         typeId: Int?,
         formatId: Int?
     ) {
         val trimmed = text?.trim()
-        _searchText.value      = trimmed?.takeIf { it.length >= 2 }
-        _filterStartDate.value = startDate
-        _filterEndDate.value   = endDate
-        _filterTypeId.value    = typeId
-        _filterFormatId.value  = formatId
+        _searchText.value          = trimmed?.takeIf { it.length >= 2 }
+        _filterStartDate.value     = startDate
+        _filterEndDate.value       = endDate
+        _filterCreatedAfter.value  = createdAfter
+        _filterCreatedBefore.value = createdBefore
+        _filterTypeId.value        = typeId
+        _filterFormatId.value      = formatId
         loadEvents(reset = true)
     }
 
     fun resetAllFilters() {
-        _searchText.value      = null
-        _filterStartDate.value = null
-        _filterEndDate.value   = null
-        _filterTypeId.value    = null
-        _filterFormatId.value  = null
+        _searchText.value          = null
+        _filterStartDate.value     = null
+        _filterEndDate.value       = null
+        _filterCreatedAfter.value  = null
+        _filterCreatedBefore.value = null
+        _filterTypeId.value        = null
+        _filterFormatId.value      = null
         loadEvents(reset = true)
     }
 
@@ -172,7 +192,9 @@ class EventsViewModel @Inject constructor(
                     startDateTime = _filterStartDate.value,
                     endDateTime   = _filterEndDate.value,
                     typeId        = _filterTypeId.value,
-                    formatId      = _filterFormatId.value
+                    formatId      = _filterFormatId.value,
+                    createdAfter  = _filterCreatedAfter.value,
+                    createdBefore = _filterCreatedBefore.value
                 )
 
                 val enriched = events.map { event ->
@@ -195,7 +217,7 @@ class EventsViewModel @Inject constructor(
                 } else {
                     _error.value = "Ошибка сервера: ${e.code()}"
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _error.value = "Нет соединения с сервером"
             } finally {
                 _isLoading.value = false

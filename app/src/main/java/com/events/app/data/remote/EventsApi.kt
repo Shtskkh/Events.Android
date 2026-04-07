@@ -32,7 +32,9 @@ interface EventsApi {
         @Query("TypeId")        typeId: Int? = null,
         @Query("FormatId")      formatId: Int? = null,
         @Query("PlaceId")       placeId: Int? = null,
-        @Query("UserId")        userId: String? = null
+        @Query("UserId")        userId: String? = null,
+        @Query("CreatedAfter")  createdAfter: String? = null,
+        @Query("CreatedBefore") createdBefore: String? = null
     ): List<ShortEventDto>
 
     @GET("api/v/1/events/{id}")
@@ -212,11 +214,6 @@ interface EventsApi {
         @Query("Page") page: Int = 1
     ): List<UserDto>
 
-    /**
-     * Получить пользователя по ID.
-     * GET /api/v/1/users/{id}
-     * Возвращает: id, lastName, firstName, patronymic, email, avatarInfo
-     */
     @GET("api/v/1/users/{id}")
     suspend fun getUserById(@Path("id") id: String): UserDetailDto
 
