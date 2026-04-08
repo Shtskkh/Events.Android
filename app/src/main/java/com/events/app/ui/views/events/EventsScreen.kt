@@ -70,7 +70,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.ui.components.eventscards.UpcomingEventCard
@@ -191,8 +191,6 @@ fun EventsScreen(
             )
 
             // ── Быстрые фильтры ──────────────────────────────────
-            // ВОССТАНОВЛЕН оригинальный стиль: FilterChip с shape=RoundedCornerShape(12.dp)
-            // Чип "Создано" УДАЛЁН (CreatedAfter/CreatedBefore доступен через "Все фильтры")
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -299,7 +297,7 @@ fun EventsScreen(
                         LazyColumn(
                             state               = listState,
                             modifier            = Modifier.fillMaxSize(),
-                            contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            contentPadding      = PaddingValues(vertical = 8.dp), // убран horizontal padding — он уже внутри карточки
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(items = displayedEvents, key = { it.id }) { event ->
@@ -390,26 +388,24 @@ fun EventsScreen(
                 sheetState       = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ) {
                 AllFiltersSheetContent(
-                    eventTypes           = eventTypes,
-                    eventFormats         = eventFormats,
-                    currentStartIso      = vmStartIso,
-                    currentEndIso        = vmEndIso,
-                    currentCreatedAfter  = viewModel.filterCreatedAfter.collectAsState().value,
-                    currentCreatedBefore = viewModel.filterCreatedBefore.collectAsState().value,
-                    currentTypeId        = vmTypeId,
-                    currentFormatId      = vmFormatId,
+                    eventTypes      = eventTypes,
+                    eventFormats    = eventFormats,
+                    currentStartIso = vmStartIso,
+                    currentEndIso   = vmEndIso,
+                    currentTypeId   = vmTypeId,
+                    currentFormatId = vmFormatId,
                     onReset = {
                         viewModel.resetAllFilters()
                         searchQuery = ""
                         showAllFiltersSheet = false
                     },
-                    onApply = { startIso, endIso, createdAfter, createdBefore, typeId, formatId ->
+                    onApply = { startIso, endIso, typeId, formatId ->
                         viewModel.applyAllFilters(
                             text          = searchQuery.trim().ifBlank { null },
                             startDate     = startIso,
                             endDate       = endIso,
-                            createdAfter  = createdAfter,
-                            createdBefore = createdBefore,
+                            createdAfter  = null,
+                            createdBefore = null,
                             typeId        = typeId,
                             formatId      = formatId
                         )
@@ -423,11 +419,6 @@ fun EventsScreen(
 
 // ═══════════════════════════════════════════════════════════════════
 // Шторка выбора диапазона дат
-//
-// Два таба «Начало» / «Конец» — показывают активное поле.
-// Под ними поле ввода — заполняется ЛИБО по клику на календаре,
-// ЛИБО вручную в формате дд.мм.гггг.
-// Кнопка «Применить» активна если хотя бы одна дата задана.
 // ═══════════════════════════════════════════════════════════════════
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -439,7 +430,6 @@ private fun DateRangeSheetContent(
     onApply: (startIso: String?, endIso: String?) -> Unit,
     onReset: () -> Unit
 ) {
-    // Миллисекунды хранятся отдельно (синхронизируются с DatePicker)
     var startMillis by remember {
         mutableStateOf(currentStartIso?.let {
             try { LocalDate.parse(it.substringBefore("T"))
@@ -455,41 +445,26 @@ private fun DateRangeSheetContent(
         })
     }
 
-    // Текстовые поля (ручной ввод)
-    var startText by remember {
-        mutableStateOf(currentStartIso?.let { isoToDisplay(it) } ?: "")
-    }
-    var endText by remember {
-        mutableStateOf(currentEndIso?.let { isoToDisplay(it) } ?: "")
-    }
-
-    // Ошибки валидации ручного ввода
+    var startText  by remember { mutableStateOf(currentStartIso?.let { isoToDisplay(it) } ?: "") }
+    var endText    by remember { mutableStateOf(currentEndIso?.let { isoToDisplay(it) } ?: "") }
     var startError by remember { mutableStateOf(false) }
     var endError   by remember { mutableStateOf(false) }
-
-    // Какое поле сейчас активно (редактируется / показывается в календаре)
     var editingStart by remember { mutableStateOf(true) }
 
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = if (editingStart) startMillis else endMillis
     )
 
-    // Клик на календаре → обновить нужные миллисекунды и текстовое поле
     LaunchedEffect(datePickerState.selectedDateMillis) {
         val selected = datePickerState.selectedDateMillis ?: return@LaunchedEffect
         val date = millisToLocalDate(selected)
         if (editingStart) {
-            startMillis = selected
-            startText   = date.format(DISPLAY_FMT)
-            startError  = false
+            startMillis = selected; startText = date.format(DISPLAY_FMT); startError = false
         } else {
-            endMillis = selected
-            endText   = date.format(DISPLAY_FMT)
-            endError  = false
+            endMillis = selected; endText = date.format(DISPLAY_FMT); endError = false
         }
     }
 
-    // Переключение таба → DatePicker показывает соответствующую дату
     LaunchedEffect(editingStart) {
         datePickerState.selectedDateMillis = if (editingStart) startMillis else endMillis
     }
@@ -498,7 +473,6 @@ private fun DateRangeSheetContent(
 
     Column(modifier = Modifier.fillMaxWidth()) {
 
-        // Заголовок
         Row(
             modifier              = Modifier
                 .fillMaxWidth()
@@ -523,72 +497,50 @@ private fun DateRangeSheetContent(
             }) { Text(text = "Сбросить") }
         }
 
-        // ── Поля ввода с табами ────────────────────────────────
         Row(
             modifier              = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Поле «Начало»
             DateInputField(
-                label      = "Начало",
-                text       = startText,
-                isActive   = editingStart,
-                isError    = startError,
-                onFocus    = { editingStart = true },
+                label    = "Начало", text = startText, isActive = editingStart, isError = startError,
+                onFocus  = { editingStart = true },
                 onValueChange = { input ->
-                    // Автоформатирование ввода: добавляем точки после цифр
-                    startText = formatDateInput(input)
-                    startError = false
+                    startText = formatDateInput(input); startError = false
                     val date = parseDisplayDate(startText)
                     if (date != null) {
                         startMillis = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
                         datePickerState.selectedDateMillis = startMillis
-                    } else if (startText.length == 10) {
-                        startError = true
-                        startMillis = null
-                    } else {
-                        startMillis = null
-                    }
+                    } else if (startText.length == 10) { startError = true; startMillis = null }
+                    else startMillis = null
                 },
-                onClear    = {
+                onClear  = {
                     startText = ""; startMillis = null; startError = false
                     if (editingStart) datePickerState.selectedDateMillis = null
                 },
-                modifier   = Modifier.weight(1f)
+                modifier = Modifier.weight(1f)
             )
-
-            // Поле «Конец»
             DateInputField(
-                label      = "Конец",
-                text       = endText,
-                isActive   = !editingStart,
-                isError    = endError,
-                onFocus    = { editingStart = false },
+                label    = "Конец", text = endText, isActive = !editingStart, isError = endError,
+                onFocus  = { editingStart = false },
                 onValueChange = { input ->
-                    endText = formatDateInput(input)
-                    endError = false
+                    endText = formatDateInput(input); endError = false
                     val date = parseDisplayDate(endText)
                     if (date != null) {
                         endMillis = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
                         datePickerState.selectedDateMillis = endMillis
-                    } else if (endText.length == 10) {
-                        endError = true
-                        endMillis = null
-                    } else {
-                        endMillis = null
-                    }
+                    } else if (endText.length == 10) { endError = true; endMillis = null }
+                    else endMillis = null
                 },
-                onClear    = {
+                onClear  = {
                     endText = ""; endMillis = null; endError = false
                     if (!editingStart) datePickerState.selectedDateMillis = null
                 },
-                modifier   = Modifier.weight(1f)
+                modifier = Modifier.weight(1f)
             )
         }
-
-        // ── Календарь ─────────────────────────────────────────
+        Spacer(modifier = Modifier.height(8.dp))
         DatePicker(
             state          = datePickerState,
             modifier       = Modifier.fillMaxWidth(),
@@ -600,7 +552,6 @@ private fun DateRangeSheetContent(
             )
         )
 
-        // ── Кнопка применить ──────────────────────────────────
         Button(
             onClick = {
                 onApply(
@@ -664,12 +615,11 @@ private fun DateInputField(
         singleLine      = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier        = modifier.onFocusChanged { if (it.isFocused) onFocus() },
-        shape = RoundedCornerShape(12.dp)
+        shape           = RoundedCornerShape(12.dp)
     )
 }
 
 // Автоформатирование: вставляет точки по мере ввода цифр
-// 2 цифры → точка → 2 цифры → точка → 4 цифры
 private fun formatDateInput(raw: String): String {
     val digits = raw.filter { it.isDigit() }.take(8)
     return buildString {
@@ -681,7 +631,7 @@ private fun formatDateInput(raw: String): String {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Шторка «Все фильтры»
+// Шторка «Все фильтры» — без «Дата создания», с полноценным календарём
 // ═══════════════════════════════════════════════════════════════════
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -691,27 +641,52 @@ private fun AllFiltersSheetContent(
     eventFormats: List<EventFormatDto>,
     currentStartIso: String?,
     currentEndIso: String?,
-    currentCreatedAfter: String?,
-    currentCreatedBefore: String?,
     currentTypeId: Int?,
     currentFormatId: Int?,
     onReset: () -> Unit,
-    onApply: (startIso: String?, endIso: String?, createdAfter: String?, createdBefore: String?, typeId: Int?, formatId: Int?) -> Unit
+    onApply: (startIso: String?, endIso: String?, typeId: Int?, formatId: Int?) -> Unit
 ) {
     var typeSelected   by remember { mutableStateOf(currentTypeId) }
     var formatSelected by remember { mutableStateOf(currentFormatId) }
 
-    // Дата мероприятия (текстовые поля)
-    var evStartText by remember { mutableStateOf(isoToDisplay(currentStartIso) ?: "") }
-    var evEndText   by remember { mutableStateOf(isoToDisplay(currentEndIso) ?: "") }
-    var evStartMs   by remember { mutableStateOf(currentStartIso?.let { isoToMs(it) }) }
-    var evEndMs     by remember { mutableStateOf(currentEndIso?.let { isoToMs(it) }) }
+    // Дата мероприятия — с календарём
+    var startMillis by remember {
+        mutableStateOf(currentStartIso?.let {
+            try { LocalDate.parse(it.substringBefore("T"))
+                .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() }
+            catch (_: Exception) { null }
+        })
+    }
+    var endMillis by remember {
+        mutableStateOf(currentEndIso?.let {
+            try { LocalDate.parse(it.substringBefore("T"))
+                .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() }
+            catch (_: Exception) { null }
+        })
+    }
+    var startText  by remember { mutableStateOf(isoToDisplay(currentStartIso) ?: "") }
+    var endText    by remember { mutableStateOf(isoToDisplay(currentEndIso) ?: "") }
+    var startError by remember { mutableStateOf(false) }
+    var endError   by remember { mutableStateOf(false) }
+    var editingStart by remember { mutableStateOf(true) }
 
-    // Дата создания (текстовые поля)
-    var crAfterText  by remember { mutableStateOf(isoToDisplay(currentCreatedAfter) ?: "") }
-    var crBeforeText by remember { mutableStateOf(isoToDisplay(currentCreatedBefore) ?: "") }
-    var crAfterMs    by remember { mutableStateOf(currentCreatedAfter?.let { isoToMs(it) }) }
-    var crBeforeMs   by remember { mutableStateOf(currentCreatedBefore?.let { isoToMs(it) }) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = if (editingStart) startMillis else endMillis
+    )
+
+    LaunchedEffect(datePickerState.selectedDateMillis) {
+        val selected = datePickerState.selectedDateMillis ?: return@LaunchedEffect
+        val date = millisToLocalDate(selected)
+        if (editingStart) {
+            startMillis = selected; startText = date.format(DISPLAY_FMT); startError = false
+        } else {
+            endMillis = selected; endText = date.format(DISPLAY_FMT); endError = false
+        }
+    }
+
+    LaunchedEffect(editingStart) {
+        datePickerState.selectedDateMillis = if (editingStart) startMillis else endMillis
+    }
 
     Column(
         modifier = Modifier
@@ -719,74 +694,107 @@ private fun AllFiltersSheetContent(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
+        // Заголовок
         Row(
             modifier              = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment     = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Icon(Icons.Outlined.Tune, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                Text(text = "Все фильтры", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Все фильтры", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }
-            TextButton(onClick = onReset) { Text(text = "Сбросить все") }
+            TextButton(onClick = onReset) { Text("Сбросить все") }
         }
 
         // Дата мероприятия
         FilterSectionHeader(icon = Icons.Outlined.CalendarMonth, title = "Дата мероприятия")
         Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            CompactDateField("С", evStartText, Modifier.weight(1f)) { input ->
-                evStartText = formatDateInput(input)
-                evStartMs   = parseDisplayDate(evStartText)?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
-            }
-            CompactDateField("По", evEndText, Modifier.weight(1f)) { input ->
-                evEndText = formatDateInput(input)
-                evEndMs   = parseDisplayDate(evEndText)?.atTime(23,59,59)?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
-            }
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            DateInputField(
+                label    = "Начало", text = startText, isActive = editingStart, isError = startError,
+                onFocus  = { editingStart = true },
+                onValueChange = { input ->
+                    startText = formatDateInput(input); startError = false
+                    val date = parseDisplayDate(startText)
+                    if (date != null) {
+                        startMillis = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                        datePickerState.selectedDateMillis = startMillis
+                    } else if (startText.length == 10) { startError = true; startMillis = null }
+                    else startMillis = null
+                },
+                onClear  = {
+                    startText = ""; startMillis = null; startError = false
+                    if (editingStart) datePickerState.selectedDateMillis = null
+                },
+                modifier = Modifier.weight(1f)
+            )
+            DateInputField(
+                label    = "Конец", text = endText, isActive = !editingStart, isError = endError,
+                onFocus  = { editingStart = false },
+                onValueChange = { input ->
+                    endText = formatDateInput(input); endError = false
+                    val date = parseDisplayDate(endText)
+                    if (date != null) {
+                        endMillis = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                        datePickerState.selectedDateMillis = endMillis
+                    } else if (endText.length == 10) { endError = true; endMillis = null }
+                    else endMillis = null
+                },
+                onClear  = {
+                    endText = ""; endMillis = null; endError = false
+                    if (!editingStart) datePickerState.selectedDateMillis = null
+                },
+                modifier = Modifier.weight(1f)
+            )
         }
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-        // Дата создания
-        FilterSectionHeader(icon = Icons.Outlined.CalendarMonth, title = "Дата создания")
         Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            CompactDateField("С", crAfterText, Modifier.weight(1f)) { input ->
-                crAfterText = formatDateInput(input)
-                crAfterMs   = parseDisplayDate(crAfterText)?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
-            }
-            CompactDateField("По", crBeforeText, Modifier.weight(1f)) { input ->
-                crBeforeText = formatDateInput(input)
-                crBeforeMs   = parseDisplayDate(crBeforeText)?.atTime(23,59,59)?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
-            }
-        }
+        DatePicker(
+            state          = datePickerState,
+            modifier       = Modifier.fillMaxWidth(),
+            title          = null,
+            headline       = null,
+            showModeToggle = false,
+            colors         = DatePickerDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        )
 
-        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+        // Тип мероприятия
         FilterSectionHeader(icon = Icons.Outlined.Category, title = "Тип мероприятия")
         Spacer(modifier = Modifier.height(8.dp))
-        FilterGrid(items = eventTypes.map { Pair(it.id, it.title ?: "Тип ${it.id}") },
+        FilterGrid(
+            items      = eventTypes.map { Pair(it.id, it.title ?: "Тип ${it.id}") },
             selectedId = typeSelected,
-            onSelect   = { typeSelected = if (typeSelected == it) null else it })
+            onSelect   = { typeSelected = if (typeSelected == it) null else it }
+        )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+        // Формат
         FilterSectionHeader(icon = Icons.Outlined.Tv, title = "Формат")
         Spacer(modifier = Modifier.height(8.dp))
-        FilterGrid(items = eventFormats.map { Pair(it.id, it.title ?: "Формат ${it.id}") },
+        FilterGrid(
+            items      = eventFormats.map { Pair(it.id, it.title ?: "Формат ${it.id}") },
             selectedId = formatSelected,
-            onSelect   = { formatSelected = if (formatSelected == it) null else it })
+            onSelect   = { formatSelected = if (formatSelected == it) null else it }
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = {
                 onApply(
-                    evStartMs?.let  { millisToLocalDate(it).toStartIso() },
-                    evEndMs?.let    { millisToLocalDate(it).toEndIso() },
-                    crAfterMs?.let  { millisToLocalDate(it).toStartIso() },
-                    crBeforeMs?.let { millisToLocalDate(it).toEndIso() },
+                    startMillis?.let { millisToLocalDate(it).toStartIso() },
+                    endMillis?.let   { millisToLocalDate(it).toEndIso() },
                     typeSelected,
                     formatSelected
                 )
@@ -794,36 +802,10 @@ private fun AllFiltersSheetContent(
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape    = RoundedCornerShape(14.dp)
         ) {
-            Text(text = "Применить фильтры", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text("Применить фильтры", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         }
         Spacer(modifier = Modifier.height(24.dp))
     }
-}
-
-private fun isoToMs(iso: String): Long? = try {
-    LocalDate.parse(iso.substringBefore("T"))
-        .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-} catch (_: Exception) { null }
-
-@Composable
-private fun CompactDateField(
-    label: String,
-    text: String,
-    modifier: Modifier = Modifier,
-    onValueChange: (String) -> Unit
-) {
-    OutlinedTextField(
-        value           = text,
-        onValueChange   = onValueChange,
-        label           = { Text(text = label, fontSize = 12.sp) },
-        placeholder     = { Text(text = "дд.мм.гггг", fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
-        singleLine      = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier        = modifier,
-        shape           = RoundedCornerShape(12.dp),
-        isError         = text.length == 10 && parseDisplayDate(text) == null
-    )
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -842,8 +824,10 @@ private fun GridPickSheetContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment     = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Icon(imageVector = icon, contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -876,8 +860,12 @@ private fun FilterGrid(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             row.forEach { (id, label) ->
-                FilterGridItem(label = label, selected = selectedId == id,
-                    onClick = { onSelect(id) }, modifier = Modifier.weight(1f))
+                FilterGridItem(
+                    label    = label,
+                    selected = selectedId == id,
+                    onClick  = { onSelect(id) },
+                    modifier = Modifier.weight(1f)
+                )
             }
             if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
         }
@@ -886,8 +874,10 @@ private fun FilterGrid(
 
 @Composable
 private fun FilterSectionHeader(icon: ImageVector, title: String) {
-    Row(verticalAlignment     = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         Icon(imageVector = icon, contentDescription = null,
             tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
         Text(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -899,22 +889,36 @@ private fun FilterGridItem(
     label: String, selected: Boolean,
     onClick: () -> Unit, modifier: Modifier = Modifier
 ) {
-    Surface(onClick = onClick, shape = RoundedCornerShape(12.dp),
+    Surface(
+        onClick  = onClick,
+        shape    = RoundedCornerShape(12.dp),
         color    = if (selected) MaterialTheme.colorScheme.primaryContainer
         else MaterialTheme.colorScheme.surfaceVariant,
-        modifier = modifier.fillMaxWidth()) {
-        Box(contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 14.dp)) {
-            Row(verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center) {
-                Text(text = label, style = MaterialTheme.typography.bodyMedium,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier         = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 14.dp)
+        ) {
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text      = label,
+                    style     = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
-                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant)
+                    color     = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 if (selected) {
                     Spacer(modifier = Modifier.width(6.dp))
-                    Icon(imageVector = Icons.Outlined.CheckCircle, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Icon(
+                        imageVector        = Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint               = MaterialTheme.colorScheme.primary,
+                        modifier           = Modifier.size(16.dp)
+                    )
                 }
             }
         }

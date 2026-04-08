@@ -32,44 +32,42 @@ fun MainScreen(
     onEventClick: (String) -> Unit = {},
     onViewAllClick: () -> Unit = {}
 ) {
-    // ИСПРАВЛЕНО: теперь три отдельных StateFlow вместо дублирующей фильтрации
-    val upcomingEvents  = viewModel.events.collectAsState().value
-    val myEvents        = viewModel.myEvents.collectAsState().value
-    val myEventsLoading = viewModel.myEventsLoading.collectAsState().value
-    val isLoading       = viewModel.isLoading.collectAsState().value
-    val error           = viewModel.error.collectAsState().value
-    val recentEvents    = viewModel.recentEvents.collectAsState().value
-    val recentLoading   = viewModel.recentLoading.collectAsState().value
+    val upcomingEvents   = viewModel.events.collectAsState().value
+    val completedEvents  = viewModel.completedEvents.collectAsState().value
+    val completedLoading = viewModel.completedLoading.collectAsState().value
+    val myEvents         = viewModel.myEvents.collectAsState().value
+    val myEventsLoading  = viewModel.myEventsLoading.collectAsState().value
+    val isLoading        = viewModel.isLoading.collectAsState().value
+    val error            = viewModel.error.collectAsState().value
+    val recentEvents     = viewModel.recentEvents.collectAsState().value
+    val recentLoading    = viewModel.recentLoading.collectAsState().value
 
-    val upcomingFiltered = upcomingEvents.filter { !it.isFinished }.sortedBy { it.startDate }
-    val completedEvents  = upcomingEvents.filter { it.isFinished }.sortedByDescending { it.startDate }
-    val myUpcoming       = myEvents.filter { !it.isFinished }.sortedBy { it.startDate }
+    // Открыть карточку + записать просмотр локально
+    val openEvent: (String) -> Unit = { id ->
+        viewModel.onEventViewed(id)
+        onEventClick(id)
+    }
 
     when {
-        isLoading -> {
+        isLoading && upcomingEvents.isEmpty() && recentEvents.isEmpty() -> {
             Box(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                 contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
+            ) { CircularProgressIndicator() }
         }
         error != null && upcomingEvents.isEmpty() -> {
             Box(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                 contentAlignment = Alignment.Center
-            ) {
-                Text(error, color = MaterialTheme.colorScheme.error)
-            }
+            ) { Text(error, color = MaterialTheme.colorScheme.error) }
         }
         else -> {
             LazyColumn(
-                modifier = Modifier
+                modifier       = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
-
                 // ── Недавно просмотренные ──────────────────────────
                 if (recentEvents.isNotEmpty() || recentLoading) {
                     item {
@@ -83,14 +81,13 @@ fun MainScreen(
                     }
                     if (recentLoading) {
                         item {
-                            Box(
-                                Modifier.fillMaxWidth().padding(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) { CircularProgressIndicator(modifier = Modifier.size(24.dp)) }
+                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            }
                         }
                     } else {
                         items(recentEvents.take(3)) { event ->
-                            UpcomingEventCard(event = event, onClick = { onEventClick(event.id) })
+                            UpcomingEventCard(event = event, onClick = { openEvent(event.id) })
                             Spacer(Modifier.height(16.dp))
                         }
                     }
@@ -98,29 +95,24 @@ fun MainScreen(
                 }
 
                 // ── Созданные вами ─────────────────────────────────
-                // ИСПРАВЛЕНО: теперь показывает реальные мероприятия пользователя
-                // через серверный фильтр UserId, а не дублирует список "Ближайшие"
                 item {
                     SectionLabel(
                         title       = "Созданные вами",
                         icon        = Icons.Outlined.Edit,
                         accentColor = MaterialTheme.colorScheme.primary,
-                        showAll     = myUpcoming.size > 3,
+                        showAll     = myEvents.size > 3,
                         onViewAll   = onViewAllClick
                     )
                 }
                 when {
                     myEventsLoading -> item {
-                        Box(
-                            Modifier.fillMaxWidth().padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) { CircularProgressIndicator(modifier = Modifier.size(24.dp)) }
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        }
                     }
-                    myUpcoming.isEmpty() -> item {
-                        EmptySection("Вы ещё не создали ни одного мероприятия")
-                    }
-                    else -> items(myUpcoming.take(3)) { event ->
-                        UpcomingEventCard(event = event, onClick = { onEventClick(event.id) })
+                    myEvents.isEmpty() -> item { EmptySection("Вы ещё не создали ни одного мероприятия") }
+                    else -> items(myEvents.take(3)) { event ->
+                        UpcomingEventCard(event = event, onClick = { openEvent(event.id) })
                         Spacer(Modifier.height(16.dp))
                     }
                 }
@@ -132,21 +124,21 @@ fun MainScreen(
                         title       = "Ближайшие",
                         icon        = Icons.Outlined.Schedule,
                         accentColor = Color(0xFF3B82F6),
-                        showAll     = upcomingFiltered.size > 3,
+                        showAll     = upcomingEvents.size > 3,
                         onViewAll   = onViewAllClick
                     )
                 }
-                if (upcomingFiltered.isEmpty()) {
+                if (upcomingEvents.isEmpty() && !isLoading) {
                     item { EmptySection("Нет предстоящих мероприятий") }
                 } else {
-                    items(upcomingFiltered.take(3)) { event ->
-                        UpcomingEventCard(event = event, onClick = { onEventClick(event.id) })
+                    items(upcomingEvents.take(3)) { event ->
+                        UpcomingEventCard(event = event, onClick = { openEvent(event.id) })
                         Spacer(Modifier.height(16.dp))
                     }
                 }
 
                 // ── Завершённые ────────────────────────────────────
-                if (completedEvents.isNotEmpty()) {
+                if (completedEvents.isNotEmpty() || completedLoading) {
                     item { Spacer(Modifier.height(4.dp)) }
                     item {
                         SectionLabel(
@@ -157,9 +149,17 @@ fun MainScreen(
                             onViewAll   = onViewAllClick
                         )
                     }
-                    items(completedEvents.take(3)) { event ->
-                        UpcomingEventCard(event = event, onClick = { onEventClick(event.id) })
-                        Spacer(Modifier.height(16.dp))
+                    if (completedLoading) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            }
+                        }
+                    } else {
+                        items(completedEvents.take(3)) { event ->
+                            UpcomingEventCard(event = event, onClick = { openEvent(event.id) })
+                            Spacer(Modifier.height(16.dp))
+                        }
                     }
                 }
             }
@@ -169,11 +169,8 @@ fun MainScreen(
 
 @Composable
 private fun SectionLabel(
-    title: String,
-    icon: ImageVector,
-    accentColor: Color,
-    showAll: Boolean,
-    onViewAll: () -> Unit
+    title: String, icon: ImageVector, accentColor: Color,
+    showAll: Boolean, onViewAll: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -182,32 +179,17 @@ private fun SectionLabel(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment     = Alignment.CenterVertically
     ) {
-        Row(
-            verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Surface(
-                shape    = RoundedCornerShape(10.dp),
-                color    = accentColor.copy(alpha = 0.13f),
-                modifier = Modifier.size(36.dp)
-            ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Surface(shape = RoundedCornerShape(10.dp), color = accentColor.copy(alpha = 0.13f), modifier = Modifier.size(36.dp)) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(icon, null, tint = accentColor, modifier = Modifier.size(20.dp))
                 }
             }
-            Text(
-                text          = title,
-                fontWeight    = FontWeight.ExtraBold,
-                fontSize      = 20.sp,
-                letterSpacing = (-0.4).sp,
-                color         = MaterialTheme.colorScheme.onBackground
-            )
+            Text(text = title, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp,
+                letterSpacing = (-0.4).sp, color = MaterialTheme.colorScheme.onBackground)
         }
         if (showAll) {
-            Row(
-                modifier          = Modifier.clickable(onClick = onViewAll),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.clickable(onClick = onViewAll), verticalAlignment = Alignment.CenterVertically) {
                 Text("Все", fontSize = 14.sp, color = accentColor, fontWeight = FontWeight.SemiBold)
                 Icon(Icons.Outlined.ChevronRight, null, tint = accentColor, modifier = Modifier.size(18.dp))
             }
@@ -218,23 +200,15 @@ private fun SectionLabel(
 @Composable
 private fun EmptySection(text: String) {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Outlined.Event, null,
-                tint     = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.35f),
-                modifier = Modifier.size(32.dp)
-            )
+            Icon(Icons.Outlined.Event, null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.35f), modifier = Modifier.size(32.dp))
             Spacer(Modifier.height(8.dp))
-            Text(
-                text  = text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.55f)
-            )
+            Text(text = text, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.55f))
         }
     }
 }
