@@ -1,5 +1,6 @@
 package com.events.app.ui.views.createevent
 
+import com.events.app.BuildConfig
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -115,7 +116,7 @@ fun CreateEventScreen(
                 }
                 selectedPlaceholder != null -> {
                     SubcomposeAsyncImage(
-                        model = "http://10.0.2.2:8080/api/v/1/files/events-placeholders/$selectedPlaceholder",
+                        model = "${BuildConfig.BASE_URL.trimEnd('/')}/api/v/1/files/events-placeholders/$selectedPlaceholder",
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -214,7 +215,7 @@ fun CreateEventScreen(
                                     }
                             ) {
                                 SubcomposeAsyncImage(
-                                    model = "http://10.0.2.2:8080/api/v/1/files/events-placeholders/$key",
+                                    model = "${BuildConfig.BASE_URL.trimEnd('/')}/api/v/1/files/events-placeholders/$key",
                                     contentDescription = key,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize(),

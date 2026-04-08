@@ -64,7 +64,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -99,7 +98,6 @@ private fun isoToDisplay(iso: String?): String? {
     catch (_: Exception) { null }
 }
 
-/** Парсит дату введённую вручную в формате dd.MM.yyyy → LocalDate или null */
 private fun parseDisplayDate(input: String): LocalDate? {
     val cleaned = input.trim()
     return try { LocalDate.parse(cleaned, DISPLAY_FMT) }

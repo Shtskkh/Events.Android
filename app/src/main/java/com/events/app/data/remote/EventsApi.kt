@@ -118,7 +118,8 @@ interface EventsApi {
     @POST("api/v/1/locations")
     suspend fun createLocation(
         @Part("Title")   title: RequestBody,
-        @Part("Address") address: RequestBody
+        @Part("Address") address: RequestBody,
+        @Part           photos: List<MultipartBody.Part> = emptyList()
     ): Int
 
     @Multipart

@@ -99,11 +99,17 @@ class RemoteDataSource @Inject constructor(
     suspend fun getLocations(): List<LocationDto> = api.getLocations()
     suspend fun getLocationById(id: Int): LocationDto = api.getLocationById(id)
 
-    suspend fun createLocation(title: RequestBody, address: RequestBody): Int =
-        api.createLocation(title, address)
+    suspend fun createLocation(
+        title: RequestBody,
+        address: RequestBody,
+        photos: List<MultipartBody.Part> = emptyList()
+    ): Int = api.createLocation(title, address, photos)
 
-    suspend fun updateLocation(id: Int, title: RequestBody? = null, address: RequestBody? = null) =
-        api.updateLocation(id, title, address)
+    suspend fun updateLocation(
+        id: Int,
+        title: RequestBody? = null,
+        address: RequestBody? = null
+    ) = api.updateLocation(id, title, address)
 
     suspend fun deleteLocation(id: Int) = api.deleteLocation(id)
 

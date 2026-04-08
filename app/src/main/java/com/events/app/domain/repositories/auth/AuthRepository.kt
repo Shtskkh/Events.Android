@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.events.app.BuildConfig
 import com.events.app.domain.models.users.User
 import com.events.app.domain.models.users.UserRole
 import kotlinx.coroutines.CoroutineScope
@@ -35,7 +36,7 @@ class AuthRepository @Inject constructor(
 ) {
     private val USER_KEY = stringPreferencesKey("user_json")
     private val httpClient = OkHttpClient()
-    private val BASE_URL = "http://10.0.2.2:8080"
+    private val BASE_URL = BuildConfig.BASE_URL.trimEnd('/')
 
     private val _currentUserFlow = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUserFlow.asStateFlow()
@@ -94,7 +95,6 @@ class AuthRepository @Inject constructor(
                     return@withContext Result.failure(Exception("Токен не получен"))
                 }
 
-                // Декодируем JWT payload
                 val payload = decodeJwtPayload(accessToken)
                 val userId = payload?.optString("sub", "") ?: ""
                 val roleStr = payload?.optString("role", "") ?: ""
@@ -113,7 +113,6 @@ class AuthRepository @Inject constructor(
                     accessToken = accessToken
                 )
 
-                // Сохраняем в DataStore
                 context.dataStore.edit {
                     it[USER_KEY] = Json.encodeToString(User.serializer(), user)
                 }

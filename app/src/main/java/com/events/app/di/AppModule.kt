@@ -1,6 +1,7 @@
 package com.events.app.di
 
 import android.content.Context
+import com.events.app.BuildConfig
 import com.events.app.data.RemoteDataSource
 import com.events.app.data.remote.EventsApi
 import com.events.app.domain.repositories.auth.AuthRepository
@@ -19,13 +20,9 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import javax.inject.Singleton
 
-
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
-
-    // Для эмулятора Android — 10.0.2.2 это localhost
-    private const val BASE_URL = "http://10.0.2.2:8080/"
 
     @Provides
     @Singleton
@@ -50,7 +47,7 @@ object AppModule {
     @Singleton
     fun provideRetrofit(json: Json, client: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(BuildConfig.BASE_URL)
             .client(client)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()

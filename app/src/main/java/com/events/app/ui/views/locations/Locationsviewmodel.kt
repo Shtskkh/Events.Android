@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
@@ -185,16 +186,42 @@ class LocationsViewModel @Inject constructor(
 
     // ── CRUD: Локации ─────────────────────────────────────────────
 
-    fun createLocation(title: String, address: String, onDone: () -> Unit = {}) {
+    /**
+     * Создаёт локацию с опциональным фото.
+     * API POST /locations принимает Photos[] — массив файлов.
+     * Здесь передаём одно фото (сервер возвращает одно preview).
+     */
+    fun createLocation(
+        title: String,
+        address: String,
+        photoUri: Uri? = null,
+        onDone: () -> Unit = {}
+    ) {
         viewModelScope.launch {
             _isActionLoading.value = true
             try {
                 fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
+
+                val context: Context = getApplication()
+                val photoParts: List<MultipartBody.Part> = photoUri?.let { uri ->
+                    val bytes = try {
+                        context.contentResolver.openInputStream(uri)?.readBytes()
+                    } catch (_: Exception) { null }
+                    if (bytes != null) {
+                        val body = bytes.toRequestBody("image/*".toMediaTypeOrNull())
+                        listOf(MultipartBody.Part.createFormData("Photos", "location_preview.jpg", body))
+                    } else emptyList()
+                } ?: emptyList()
+
                 val newId = remoteDataSource.createLocation(
-                    title.trim().toBody(), address.trim().toBody()
+                    title   = title.trim().toBody(),
+                    address = address.trim().toBody(),
+                    photos  = photoParts
                 )
                 _locations.value = _locations.value + LocationDto(
-                    id = newId, title = title.trim(), address = address.trim()
+                    id      = newId,
+                    title   = title.trim(),
+                    address = address.trim()
                 )
                 _successMessage.value = "Локация создана"
                 onDone()
@@ -225,7 +252,8 @@ class LocationsViewModel @Inject constructor(
                 }
                 if (_selectedLocationForPlace.value?.id == location.id) {
                     _selectedLocationForPlace.value = _selectedLocationForPlace.value?.copy(
-                        title = newTitle.trim(), address = newAddress.trim()
+                        title   = newTitle.trim(),
+                        address = newAddress.trim()
                     )
                 }
                 _successMessage.value = "Локация обновлена"

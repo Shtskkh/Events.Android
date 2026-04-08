@@ -1,5 +1,6 @@
 package com.events.app.data.remote.dto
 
+import com.events.app.BuildConfig
 import com.events.app.domain.models.events.Event
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
@@ -26,7 +27,8 @@ private fun buildPreviewUrl(previewInfo: PreviewInfoDto?): String? {
     val bucket = previewInfo.bucket ?: return null
     val key    = previewInfo.key    ?: return null
     if (bucket.isBlank() || key.isBlank()) return null
-    return "http://10.0.2.2:8080/api/v/1/files/$bucket/$key"
+    val base = BuildConfig.BASE_URL.trimEnd('/')
+    return "$base/api/v/1/files/$bucket/$key"
 }
 
 fun ShortEventDto.toDomain(): Event {
