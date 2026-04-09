@@ -7,6 +7,8 @@ import com.events.app.data.local.EventLocationCache
 import com.events.app.data.local.EventRefreshBus
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
+import com.events.app.data.remote.dto.LocationDto
+import com.events.app.data.remote.dto.PlaceDto
 import com.events.app.domain.models.events.Event
 import com.events.app.domain.usecases.events.GetEventsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -55,19 +57,15 @@ class EventsViewModel @Inject constructor(
     private val _searchText = MutableStateFlow<String?>(null)
     val searchText = _searchText.asStateFlow()
 
-    /** Фильтр по дате НАЧАЛА мероприятия (StartDateTime) */
     private val _filterStartDate = MutableStateFlow<String?>(null)
     val filterStartDate = _filterStartDate.asStateFlow()
 
-    /** Фильтр по дате КОНЦА мероприятия (EndDateTime) */
     private val _filterEndDate = MutableStateFlow<String?>(null)
     val filterEndDate = _filterEndDate.asStateFlow()
 
-    /** Фильтр по дате СОЗДАНИЯ: после (CreatedAfter) */
     private val _filterCreatedAfter = MutableStateFlow<String?>(null)
     val filterCreatedAfter = _filterCreatedAfter.asStateFlow()
 
-    /** Фильтр по дате СОЗДАНИЯ: до (CreatedBefore) */
     private val _filterCreatedBefore = MutableStateFlow<String?>(null)
     val filterCreatedBefore = _filterCreatedBefore.asStateFlow()
 
@@ -77,6 +75,12 @@ class EventsViewModel @Inject constructor(
     private val _filterFormatId = MutableStateFlow<Int?>(null)
     val filterFormatId = _filterFormatId.asStateFlow()
 
+    private val _filterLocationId = MutableStateFlow<Int?>(null)
+    val filterLocationId = _filterLocationId.asStateFlow()
+
+    private val _filterPlaceId = MutableStateFlow<Int?>(null)
+    val filterPlaceId = _filterPlaceId.asStateFlow()
+
     // ── Справочники ───────────────────────────────────────────────
 
     private val _eventTypes = MutableStateFlow<List<EventTypeDto>>(emptyList())
@@ -84,6 +88,15 @@ class EventsViewModel @Inject constructor(
 
     private val _eventFormats = MutableStateFlow<List<EventFormatDto>>(emptyList())
     val eventFormats = _eventFormats.asStateFlow()
+
+    private val _locations = MutableStateFlow<List<LocationDto>>(emptyList())
+    val locations = _locations.asStateFlow()
+
+    private val _places = MutableStateFlow<List<PlaceDto>>(emptyList())
+    val places = _places.asStateFlow()
+
+    private val _placesLoading = MutableStateFlow(false)
+    val placesLoading = _placesLoading.asStateFlow()
 
     init {
         loadEvents(reset = true)
@@ -97,10 +110,29 @@ class EventsViewModel @Inject constructor(
         viewModelScope.launch {
             try { _eventTypes.value   = remoteDataSource.getEventTypes()   } catch (_: Exception) {}
             try { _eventFormats.value = remoteDataSource.getEventFormats() } catch (_: Exception) {}
+            try { _locations.value    = remoteDataSource.getLocations()    } catch (_: Exception) {}
         }
     }
 
-    // ── Публичные методы изменения фильтров ───────────────────────
+    fun setLocationFilter(locationId: Int?) {
+        _filterLocationId.value = locationId
+        _filterPlaceId.value    = null
+        _places.value           = emptyList()
+        if (locationId != null) {
+            viewModelScope.launch {
+                _placesLoading.value = true
+                try { _places.value = remoteDataSource.getPlacesByLocation(locationId) }
+                catch (_: Exception) { _places.value = emptyList() }
+                finally { _placesLoading.value = false }
+            }
+        }
+        loadEvents(reset = true)
+    }
+
+    fun setPlaceFilter(placeId: Int?) {
+        _filterPlaceId.value = placeId
+        loadEvents(reset = true)
+    }
 
     fun setSearchText(text: String?) {
         val trimmed = text?.trim()
@@ -114,14 +146,12 @@ class EventsViewModel @Inject constructor(
         loadEvents(reset = true)
     }
 
-    /** Установить фильтр по дате начала/конца мероприятия (StartDateTime / EndDateTime) */
     fun setDateFilter(start: String?, end: String?) {
         _filterStartDate.value = start
         _filterEndDate.value   = end
         loadEvents(reset = true)
     }
 
-    /** Установить фильтр по дате создания (CreatedAfter / CreatedBefore) */
     fun setCreatedDateFilter(after: String?, before: String?) {
         _filterCreatedAfter.value  = after
         _filterCreatedBefore.value = before
@@ -145,7 +175,9 @@ class EventsViewModel @Inject constructor(
         createdAfter: String?,
         createdBefore: String?,
         typeId: Int?,
-        formatId: Int?
+        formatId: Int?,
+        locationId: Int?,
+        placeId: Int?
     ) {
         val trimmed = text?.trim()
         _searchText.value          = trimmed?.takeIf { it.length >= 2 }
@@ -155,6 +187,8 @@ class EventsViewModel @Inject constructor(
         _filterCreatedBefore.value = createdBefore
         _filterTypeId.value        = typeId
         _filterFormatId.value      = formatId
+        _filterLocationId.value    = locationId
+        _filterPlaceId.value       = placeId
         loadEvents(reset = true)
     }
 
@@ -166,12 +200,14 @@ class EventsViewModel @Inject constructor(
         _filterCreatedBefore.value = null
         _filterTypeId.value        = null
         _filterFormatId.value      = null
+        _filterLocationId.value    = null
+        _filterPlaceId.value       = null
+        _places.value              = emptyList()
         loadEvents(reset = true)
     }
 
     fun loadMore() {
         if (_isLoading.value || !_hasMore.value) return
-        currentPage++
         loadEvents(reset = false)
     }
 
@@ -193,6 +229,7 @@ class EventsViewModel @Inject constructor(
                     endDateTime   = _filterEndDate.value,
                     typeId        = _filterTypeId.value,
                     formatId      = _filterFormatId.value,
+                    placeId       = _filterPlaceId.value,
                     createdAfter  = _filterCreatedAfter.value,
                     createdBefore = _filterCreatedBefore.value
                 )
