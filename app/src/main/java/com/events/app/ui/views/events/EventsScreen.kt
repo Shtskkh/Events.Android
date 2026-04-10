@@ -199,9 +199,8 @@ fun EventsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
                 FilterChip(
@@ -211,38 +210,38 @@ fun EventsScreen(
                         startDisplay != null -> "от $startDisplay"
                         endDisplay != null   -> "до $endDisplay"
                         else                 -> "Дата"
-                    }, maxLines = 1) },
-                    leadingIcon  = { Icon(Icons.Outlined.CalendarMonth, null, modifier = Modifier.size(16.dp)) },
+                    }, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                    leadingIcon  = { Icon(Icons.Outlined.CalendarMonth, null, modifier = Modifier.size(15.dp)) },
                     trailingIcon = if (dateActive) { {
-                        IconButton(modifier = Modifier.size(16.dp), onClick = { viewModel.setDateFilter(null, null) }) {
-                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(12.dp)) }
+                        IconButton(modifier = Modifier.size(15.dp), onClick = { viewModel.setDateFilter(null, null) }) {
+                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(11.dp)) }
                     } } else null,
                     shape = RoundedCornerShape(12.dp)
                 )
                 FilterChip(
                     selected = vmTypeId != null, onClick = { showTypeSheet = true },
-                    label = { Text(text = selectedTypeName ?: "Тип", maxLines = 1) },
-                    leadingIcon  = { Icon(Icons.Outlined.Category, null, modifier = Modifier.size(16.dp)) },
+                    label = { Text(text = selectedTypeName ?: "Тип", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                    leadingIcon  = { Icon(Icons.Outlined.Category, null, modifier = Modifier.size(15.dp)) },
                     trailingIcon = if (vmTypeId != null) { {
-                        IconButton(modifier = Modifier.size(16.dp), onClick = { viewModel.setTypeFilter(null) }) {
-                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(12.dp)) }
+                        IconButton(modifier = Modifier.size(15.dp), onClick = { viewModel.setTypeFilter(null) }) {
+                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(11.dp)) }
                     } } else null,
                     shape = RoundedCornerShape(12.dp)
                 )
                 FilterChip(
                     selected = vmFormatId != null, onClick = { showFormatSheet = true },
-                    label = { Text(text = selectedFormatName ?: "Формат", maxLines = 1) },
-                    leadingIcon  = { Icon(Icons.Outlined.Tv, null, modifier = Modifier.size(16.dp)) },
+                    label = { Text(text = selectedFormatName ?: "Формат", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                    leadingIcon  = { Icon(Icons.Outlined.Tv, null, modifier = Modifier.size(15.dp)) },
                     trailingIcon = if (vmFormatId != null) { {
-                        IconButton(modifier = Modifier.size(16.dp), onClick = { viewModel.setFormatFilter(null) }) {
-                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(12.dp)) }
+                        IconButton(modifier = Modifier.size(15.dp), onClick = { viewModel.setFormatFilter(null) }) {
+                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(11.dp)) }
                     } } else null,
                     shape = RoundedCornerShape(12.dp)
                 )
                 AssistChip(
                     onClick     = { showAllFiltersSheet = true },
-                    label       = { Text(text = "Все фильтры", maxLines = 1) },
-                    leadingIcon = { Icon(Icons.Outlined.Tune, null, modifier = Modifier.size(16.dp)) },
+                    label       = { Text(text = "Фильтры", maxLines = 1) },
+                    leadingIcon = { Icon(Icons.Outlined.Tune, null, modifier = Modifier.size(15.dp)) },
                     colors      = if (anyActive) AssistChipDefaults.assistChipColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         labelColor     = MaterialTheme.colorScheme.onPrimaryContainer

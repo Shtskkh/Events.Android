@@ -13,7 +13,7 @@ class EventRepositoryImpl @Inject constructor(
     override suspend fun getEvents(
         size: Int, page: Int, text: String?,
         startDateTime: String?, endDateTime: String?,
-        typeId: Int?, formatId: Int?, placeId: Int?,
+        typeId: Int?, formatId: Int?, locationId: Int?, placeId: Int?,
         userId: String?,
         createdAfter: String?, createdBefore: String?
     ): List<Event> {
@@ -25,6 +25,7 @@ class EventRepositoryImpl @Inject constructor(
             endDateTime   = endDateTime,
             typeId        = typeId,
             formatId      = formatId,
+            locationId    = locationId,
             placeId       = placeId,
             userId        = userId,
             createdAfter  = createdAfter,

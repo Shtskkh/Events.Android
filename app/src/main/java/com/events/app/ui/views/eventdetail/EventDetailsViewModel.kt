@@ -27,8 +27,6 @@ class EventDetailsViewModel @Inject constructor(
     private val remoteDataSource: RemoteDataSource
 ) : ViewModel() {
 
-    // ── Мероприятие ───────────────────────────────────────────────
-
     private val _event = MutableStateFlow<Event?>(null)
     val event = _event.asStateFlow()
 
@@ -38,23 +36,17 @@ class EventDetailsViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
 
-    // ── Автор мероприятия ─────────────────────────────────────────
-
     private val _author = MutableStateFlow<UserDetailDto?>(null)
     val author = _author.asStateFlow()
 
     private val _authorLoading = MutableStateFlow(false)
     val authorLoading = _authorLoading.asStateFlow()
 
-    // ── Удаление ──────────────────────────────────────────────────
-
     private val _isDeleting = MutableStateFlow(false)
     val isDeleting = _isDeleting.asStateFlow()
 
     private val _deleteSuccess = MutableStateFlow(false)
     val deleteSuccess = _deleteSuccess.asStateFlow()
-
-    // ── Роль пользователя ─────────────────────────────────────────
 
     private val _isAdmin = MutableStateFlow(false)
     val isAdmin = _isAdmin.asStateFlow()
@@ -64,15 +56,11 @@ class EventDetailsViewModel @Inject constructor(
 
     val currentUserId: String? get() = authRepository.currentUser.value?.id
 
-    // ── Аналитика ─────────────────────────────────────────────────
-
     private val _analytics = MutableStateFlow<EventAnalyticDto?>(null)
     val analytics = _analytics.asStateFlow()
 
     private val _analyticsLoading = MutableStateFlow(false)
     val analyticsLoading = _analyticsLoading.asStateFlow()
-
-    // ── Участники ─────────────────────────────────────────────────
 
     private val _participants = MutableStateFlow<List<ParticipantDto>>(emptyList())
     val participants = _participants.asStateFlow()
@@ -91,15 +79,11 @@ class EventDetailsViewModel @Inject constructor(
 
     fun clearRegistrationError() { _registrationError.value = null }
 
-    // ── Оборудование помещения ────────────────────────────────────
-
     private val _placeEquipment = MutableStateFlow<List<EquipmentDto>>(emptyList())
     val placeEquipment = _placeEquipment.asStateFlow()
 
     private val _equipmentLoading = MutableStateFlow(false)
     val equipmentLoading = _equipmentLoading.asStateFlow()
-
-    // ── Init ──────────────────────────────────────────────────────
 
     init {
         viewModelScope.launch {
@@ -110,8 +94,6 @@ class EventDetailsViewModel @Inject constructor(
         }
     }
 
-    // ── Загрузка мероприятия ──────────────────────────────────────
-
     fun loadEvent(eventId: String) {
         if (eventId.isBlank()) return
 
@@ -120,48 +102,30 @@ class EventDetailsViewModel @Inject constructor(
             _error.value = null
             try {
                 val accessToken = authRepository.currentUser.value?.accessToken
-                val base = remoteDataSource.getEventById(eventId, accessToken).toDomain()
+                val dto = remoteDataSource.getEventById(eventId, accessToken)
+                val base = dto.toDomain()
 
-                val enriched = if (base.placeId != null) {
-                    try {
-                        val allLocations = remoteDataSource.getLocations()
-                        var result = base
-                        outer@ for (loc in allLocations) {
-                            val places = try {
-                                remoteDataSource.getPlacesByLocation(loc.id)
-                            } catch (_: Exception) { emptyList() }
-                            val matched = places.find { it.id == base.placeId }
-                            if (matched != null) {
-                                result = base.copy(
-                                    location        = loc.title ?: base.location,
-                                    locationAddress = loc.address,
-                                    locationId      = loc.id,
-                                    placeTitle      = matched.title,
-                                    placeCapacity   = matched.capacity,
-                                    placeNumber     = matched.number ?: base.placeNumber
-                                )
-                                break@outer
-                            }
-                        }
-                        result
-                    } catch (_: Exception) { base }
-                } else {
-                    if (base.location.isBlank())
-                        base.copy(location = locationCache.get(eventId) ?: "")
-                    else base
+                // Определяем locationId: из DTO напрямую или ищем по placeId
+                val knownLocationId = dto.locationId
+
+                val enriched = when {
+                    // Случай 1: есть placeId — ищем локацию по нему
+                    base.placeId != null -> enrichByPlaceId(base, knownLocationId)
+
+                    // Случай 2: есть только locationId — загружаем локацию напрямую
+                    knownLocationId != null -> enrichByLocationId(base, knownLocationId)
+
+                    // Случай 3: ничего нет — берём из кэша
+                    else -> {
+                        val cached = locationCache.get(eventId)
+                        if (!cached.isNullOrBlank()) base.copy(location = cached) else base
+                    }
                 }
 
                 _event.value = enriched
 
-                // Загружаем оборудование помещения
-                if (enriched.placeId != null) {
-                    loadEquipmentForPlace(enriched.placeId)
-                }
-
-                // Загружаем автора мероприятия по userId
-                if (!enriched.userId.isNullOrBlank()) {
-                    loadAuthor(enriched.userId)
-                }
+                if (enriched.placeId != null) loadEquipmentForPlace(enriched.placeId)
+                if (!enriched.userId.isNullOrBlank()) loadAuthor(enriched.userId)
 
             } catch (e: Exception) {
                 _error.value = "Ошибка загрузки мероприятия"
@@ -174,16 +138,63 @@ class EventDetailsViewModel @Inject constructor(
         loadParticipants(eventId)
     }
 
-    // ── Загрузка автора ───────────────────────────────────────────
+    /** Случай когда есть placeId — ищем по локациям какая содержит это помещение */
+    private suspend fun enrichByPlaceId(base: Event, knownLocationId: Int?): Event {
+        return try {
+            // Если locationId уже известен — сразу грузим только эту локацию
+            if (knownLocationId != null) {
+                val loc    = remoteDataSource.getLocationById(knownLocationId)
+                val places = try { remoteDataSource.getPlacesByLocation(knownLocationId) } catch (_: Exception) { emptyList() }
+                val matched = places.find { it.id == base.placeId }
+                return base.copy(
+                    location        = loc.title ?: base.location,
+                    locationAddress = loc.address,
+                    locationId      = loc.id,
+                    placeTitle      = matched?.title,
+                    placeCapacity   = matched?.capacity,
+                    placeNumber     = matched?.number ?: base.placeNumber
+                )
+            }
+
+            // Иначе перебираем все локации
+            val allLocations = remoteDataSource.getLocations()
+            var result = base
+            outer@ for (loc in allLocations) {
+                val places = try { remoteDataSource.getPlacesByLocation(loc.id) } catch (_: Exception) { emptyList() }
+                val matched = places.find { it.id == base.placeId }
+                if (matched != null) {
+                    result = base.copy(
+                        location        = loc.title ?: base.location,
+                        locationAddress = loc.address,
+                        locationId      = loc.id,
+                        placeTitle      = matched.title,
+                        placeCapacity   = matched.capacity,
+                        placeNumber     = matched.number ?: base.placeNumber
+                    )
+                    break@outer
+                }
+            }
+            result
+        } catch (_: Exception) { base }
+    }
+
+    /** Случай когда есть только locationId без placeId */
+    private suspend fun enrichByLocationId(base: Event, locationId: Int): Event {
+        return try {
+            val loc = remoteDataSource.getLocationById(locationId)
+            base.copy(
+                location        = loc.title ?: base.location,
+                locationAddress = loc.address,
+                locationId      = loc.id
+            )
+        } catch (_: Exception) { base }
+    }
 
     private fun loadAuthor(userId: String) {
         viewModelScope.launch {
             _authorLoading.value = true
             try {
                 _author.value = remoteDataSource.getUserById(userId)
-            } catch (e: retrofit2.HttpException) {
-                // 404 — пользователь удалён или недоступен, не показываем ошибку
-                _author.value = null
             } catch (_: Exception) {
                 _author.value = null
             } finally {
@@ -191,8 +202,6 @@ class EventDetailsViewModel @Inject constructor(
             }
         }
     }
-
-    // ── Оборудование ──────────────────────────────────────────────
 
     private fun loadEquipmentForPlace(placeId: Int) {
         viewModelScope.launch {
@@ -208,8 +217,6 @@ class EventDetailsViewModel @Inject constructor(
             }
         }
     }
-
-    // ── Аналитика ─────────────────────────────────────────────────
 
     private fun loadAnalytics(eventId: String) {
         viewModelScope.launch {
@@ -236,8 +243,6 @@ class EventDetailsViewModel @Inject constructor(
         }
     }
 
-    // ── Участники ─────────────────────────────────────────────────
-
     fun loadParticipants(eventId: String) {
         viewModelScope.launch {
             _participantsLoading.value = true
@@ -258,8 +263,6 @@ class EventDetailsViewModel @Inject constructor(
             }
         }
     }
-
-    // ── Регистрация / отмена ──────────────────────────────────────
 
     fun toggleRegistration() {
         val eventId = _event.value?.id ?: return
@@ -291,8 +294,6 @@ class EventDetailsViewModel @Inject constructor(
             }
         }
     }
-
-    // ── Удаление ──────────────────────────────────────────────────
 
     fun deleteEvent(id: String) {
         viewModelScope.launch {

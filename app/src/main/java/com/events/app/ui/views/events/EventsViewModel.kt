@@ -229,6 +229,7 @@ class EventsViewModel @Inject constructor(
                     endDateTime   = _filterEndDate.value,
                     typeId        = _filterTypeId.value,
                     formatId      = _filterFormatId.value,
+                    locationId    = _filterLocationId.value,
                     placeId       = _filterPlaceId.value,
                     createdAfter  = _filterCreatedAfter.value,
                     createdBefore = _filterCreatedBefore.value

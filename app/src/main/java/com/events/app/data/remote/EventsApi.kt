@@ -31,6 +31,7 @@ interface EventsApi {
         @Query("EndDateTime")   endDateTime: String? = null,
         @Query("TypeId")        typeId: Int? = null,
         @Query("FormatId")      formatId: Int? = null,
+        @Query("LocationId")    locationId: Int? = null,
         @Query("PlaceId")       placeId: Int? = null,
         @Query("UserId")        userId: String? = null,
         @Query("CreatedAfter")  createdAfter: String? = null,
@@ -68,6 +69,7 @@ interface EventsApi {
         @Part("EventFormatId")     eventFormatId: RequestBody,
         @Part("NeedsRegistration") needsRegistration: RequestBody,
         @Part("MaxParticipants")   maxParticipants: RequestBody? = null,
+        @Part("LocationId")        locationId: RequestBody? = null,
         @Part("PlaceId")           placeId: RequestBody? = null,
         @Part("Placeholder")       placeholder: RequestBody? = null,
         @Part                      preview: MultipartBody.Part? = null

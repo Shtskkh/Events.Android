@@ -34,6 +34,7 @@ class RemoteDataSource @Inject constructor(
         endDateTime: String? = null,
         typeId: Int? = null,
         formatId: Int? = null,
+        locationId: Int? = null,
         placeId: Int? = null,
         userId: String? = null,
         createdAfter: String? = null,
@@ -46,6 +47,7 @@ class RemoteDataSource @Inject constructor(
         endDateTime   = endDateTime,
         typeId        = typeId,
         formatId      = formatId,
+        locationId    = locationId,
         placeId       = placeId,
         userId        = userId,
         createdAfter  = createdAfter,
@@ -66,11 +68,15 @@ class RemoteDataSource @Inject constructor(
         userId: RequestBody, title: RequestBody, announcement: RequestBody,
         description: RequestBody, startDateTime: RequestBody, endDateTime: RequestBody,
         eventTypeId: RequestBody, eventFormatId: RequestBody, needsRegistration: RequestBody,
-        maxParticipants: RequestBody? = null, placeId: RequestBody? = null,
-        placeholder: RequestBody? = null, preview: MultipartBody.Part? = null
+        maxParticipants: RequestBody? = null,
+        locationId: RequestBody? = null,
+        placeId: RequestBody? = null,
+        placeholder: RequestBody? = null,
+        preview: MultipartBody.Part? = null
     ): String = api.createEvent(
         userId, title, announcement, description, startDateTime, endDateTime,
-        eventTypeId, eventFormatId, needsRegistration, maxParticipants, placeId, placeholder, preview
+        eventTypeId, eventFormatId, needsRegistration, maxParticipants,
+        locationId, placeId, placeholder, preview
     )
 
     suspend fun updateEvent(

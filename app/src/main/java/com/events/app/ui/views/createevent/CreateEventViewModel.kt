@@ -108,7 +108,6 @@ class CreateEventViewModel @Inject constructor(
             try {
                 _places.value = remoteDataSource.getPlacesByLocation(locationId)
                 selectedPlaceId.value = null
-                // Сбрасываем оборудование при смене локации
                 _placeEquipment.value = emptyList()
             } catch (_: Exception) {
                 _places.value = emptyList()
@@ -117,10 +116,6 @@ class CreateEventViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Загружает оборудование выбранного помещения.
-     * Вызывается из UI когда пользователь выбирает помещение в дропдауне.
-     */
     fun loadEquipmentForPlace(placeId: Int) {
         viewModelScope.launch {
             _equipmentLoading.value = true
@@ -136,7 +131,6 @@ class CreateEventViewModel @Inject constructor(
         }
     }
 
-    /** Очищает оборудование (например при снятии выбора помещения). */
     fun clearPlaceEquipment() {
         _placeEquipment.value = emptyList()
     }
@@ -197,7 +191,9 @@ class CreateEventViewModel @Inject constructor(
                     value.toBody()
                 } else null
 
-                val placeIdBody = selectedPlaceId.value?.toString()?.toBody()
+                // Передаём locationId — новое поле в API
+                val locationIdBody = selectedLocationId.value?.toString()?.toBody()
+                val placeIdBody    = selectedPlaceId.value?.toString()?.toBody()
 
                 val newEventId = remoteDataSource.createEvent(
                     userId            = userId.toBody(),
@@ -210,6 +206,7 @@ class CreateEventViewModel @Inject constructor(
                     eventFormatId     = selectedFormatId.value.toString().toBody(),
                     needsRegistration = needsRegistration.value.toString().toBody(),
                     maxParticipants   = maxParticipantsBody,
+                    locationId        = locationIdBody,
                     placeId           = placeIdBody,
                     placeholder       = placeholderBody,
                     preview           = previewPart

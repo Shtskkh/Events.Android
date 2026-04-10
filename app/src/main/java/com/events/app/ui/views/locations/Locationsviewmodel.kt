@@ -51,7 +51,30 @@ class LocationsViewModel @Inject constructor(
     private val _expandedLocationId = MutableStateFlow<Int?>(null)
     val expandedLocationId = _expandedLocationId.asStateFlow()
 
-    // ── Выбранное помещение (bottomsheet) ─────────────────────────
+    // ── Помещения для фильтра-пикера (независимо от expandedLocationId) ──
+    private val _filterPlaces = MutableStateFlow<List<PlaceDto>>(emptyList())
+    val filterPlaces = _filterPlaces.asStateFlow()
+
+    private val _filterPlacesLoading = MutableStateFlow(false)
+    val filterPlacesLoading = _filterPlacesLoading.asStateFlow()
+
+    fun loadFilterPlaces(locationId: Int) {
+        viewModelScope.launch {
+            _filterPlacesLoading.value = true
+            _filterPlaces.value = emptyList()
+            try {
+                _filterPlaces.value = remoteDataSource.getPlacesByLocation(locationId)
+            } catch (_: Exception) {
+                _filterPlaces.value = emptyList()
+            } finally {
+                _filterPlacesLoading.value = false
+            }
+        }
+    }
+
+    fun clearFilterPlaces() {
+        _filterPlaces.value = emptyList()
+    }
     private val _selectedPlace = MutableStateFlow<PlaceDto?>(null)
     val selectedPlace = _selectedPlace.asStateFlow()
 

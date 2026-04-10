@@ -12,6 +12,7 @@ interface EventRepository {
         endDateTime: String? = null,
         typeId: Int? = null,
         formatId: Int? = null,
+        locationId: Int? = null,
         placeId: Int? = null,
         userId: String? = null,
         createdAfter: String? = null,

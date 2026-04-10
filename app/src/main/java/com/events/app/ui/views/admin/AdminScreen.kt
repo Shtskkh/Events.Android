@@ -289,7 +289,7 @@ private fun UsersTab(viewModel: AdminViewModel) {
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Поиск по имени или ID пользователя...") },
+            placeholder = { Text("Поиск по имени или ID...") },
             leadingIcon = { Icon(Icons.Outlined.Search, null) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {

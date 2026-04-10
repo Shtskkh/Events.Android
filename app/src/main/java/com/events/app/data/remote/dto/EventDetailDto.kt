@@ -14,6 +14,7 @@ data class EventDetailDto(
     val endDateTime: String,
     val previewInfo: PreviewInfoDto?,
     val placeInfo: PlaceInfoDto? = null,
+    val locationId: Int? = null,
     val announcement: String? = null,
     val locationTitle: String? = null,
     val locationAddress: String? = null,
