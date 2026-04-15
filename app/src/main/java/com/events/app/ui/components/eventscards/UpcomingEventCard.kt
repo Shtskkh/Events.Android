@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -77,8 +76,7 @@ fun UpcomingEventCard(
             ) {
                 Text(
                     text          = event.title,
-                    fontWeight    = FontWeight.ExtraBold,
-                    fontSize      = 18.sp,
+                    style         = MaterialTheme.typography.titleMedium,
                     letterSpacing = (-0.3).sp,
                     maxLines      = 1,
                     overflow      = TextOverflow.Ellipsis,
@@ -88,7 +86,7 @@ fun UpcomingEventCard(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text       = event.announcement,
-                        fontSize   = 13.sp,
+                        style      = MaterialTheme.typography.bodySmall,
                         lineHeight = 18.sp,
                         color      = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines   = 2,
@@ -155,8 +153,7 @@ private fun InfoChip(
             Spacer(Modifier.width(5.dp))
             Text(
                 text       = value,
-                fontSize   = 12.sp,
-                fontWeight = FontWeight.Bold,
+                style      = MaterialTheme.typography.labelMedium,
                 color      = MaterialTheme.colorScheme.primary,
                 maxLines   = 1,
                 overflow   = TextOverflow.Ellipsis

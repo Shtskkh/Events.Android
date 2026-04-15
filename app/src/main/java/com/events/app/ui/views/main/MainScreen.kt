@@ -20,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -185,12 +184,12 @@ private fun SectionLabel(
                     Icon(icon, null, tint = accentColor, modifier = Modifier.size(20.dp))
                 }
             }
-            Text(text = title, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp,
+            Text(text = title, style = MaterialTheme.typography.titleLarge,
                 letterSpacing = (-0.4).sp, color = MaterialTheme.colorScheme.onBackground)
         }
         if (showAll) {
             Row(modifier = Modifier.clickable(onClick = onViewAll), verticalAlignment = Alignment.CenterVertically) {
-                Text("Все", fontSize = 14.sp, color = accentColor, fontWeight = FontWeight.SemiBold)
+                Text("Все", style = MaterialTheme.typography.labelLarge, color = accentColor)
                 Icon(Icons.Outlined.ChevronRight, null, tint = accentColor, modifier = Modifier.size(18.dp))
             }
         }
