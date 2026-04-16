@@ -1,6 +1,8 @@
 package com.events.app.ui.components.eventscards
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,12 +38,15 @@ fun UpcomingEventCard(
     val formatIcon = if (isOnline || isHybrid) Icons.Outlined.Videocam
     else Icons.Outlined.LocationOn
 
+    val isDark = isSystemInDarkTheme()
+
     Card(
         onClick   = onClick,
         modifier  = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         shape     = RoundedCornerShape(20.dp),
         colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 4.dp else 2.dp),
+        border    = if (isDark) BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)) else null
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
 
