@@ -26,11 +26,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AddLocation
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
@@ -55,6 +58,7 @@ import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -64,6 +68,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -79,10 +84,13 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -249,6 +257,12 @@ fun LocationsScreen(viewModel: LocationsViewModel = hiltViewModel()) {
         Spacer(modifier = Modifier.height(4.dp))
 
         // ── Список ────────────────────────────────────────────────
+        val listState   = rememberLazyListState()
+        val scope       = rememberCoroutineScope()
+        val showScrollUp by remember { derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 200
+        } }
+
         Box(modifier = Modifier.weight(1f)) {
             when {
                 locationsLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -259,6 +273,7 @@ fun LocationsScreen(viewModel: LocationsViewModel = hiltViewModel()) {
                     Text(text = "Локации не найдены", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontSize = 15.sp)
                 }
                 else -> LazyColumn(
+                    state               = listState,
                     modifier            = Modifier.fillMaxSize(),
                     contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -280,7 +295,19 @@ fun LocationsScreen(viewModel: LocationsViewModel = hiltViewModel()) {
                             onAddPlace       = { showCreatePlaceDialog = location.id }
                         )
                     }
-                    item { Spacer(modifier = Modifier.height(24.dp)) }
+                    item { Spacer(modifier = Modifier.height(80.dp)) }
+                }
+            }
+
+            if (showScrollUp) {
+                SmallFloatingActionButton(
+                    onClick        = { scope.launch { listState.animateScrollToItem(0) } },
+                    modifier       = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp),
+                    shape          = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Icon(imageVector = Icons.Default.ArrowUpward, contentDescription = "Наверх",
+                        tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }

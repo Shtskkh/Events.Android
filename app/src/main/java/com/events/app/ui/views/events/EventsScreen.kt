@@ -134,8 +134,6 @@ fun EventsScreen(
     val vmLocationId by viewModel.filterLocationId.collectAsState()
     val vmPlaceId    by viewModel.filterPlaceId.collectAsState()
 
-    val startDisplay = isoToDisplay(vmStartIso)
-    val endDisplay   = isoToDisplay(vmEndIso)
     val dateActive   = vmStartIso != null || vmEndIso != null
     val anyActive    = dateActive || vmTypeId != null || vmFormatId != null ||
             vmLocationId != null || vmPlaceId != null
@@ -157,9 +155,6 @@ fun EventsScreen(
     var showTypeSheet       by remember { mutableStateOf(false) }
     var showFormatSheet     by remember { mutableStateOf(false) }
     var showAllFiltersSheet by remember { mutableStateOf(false) }
-
-    val selectedTypeName   = eventTypes.find { it.id == vmTypeId }?.title
-    val selectedFormatName = eventFormats.find { it.id == vmFormatId }?.title
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -204,39 +199,40 @@ fun EventsScreen(
                 verticalAlignment     = Alignment.CenterVertically
             ) {
                 FilterChip(
-                    selected = dateActive, onClick = { showDateSheet = true },
-                    label = { Text(text = when {
-                        startDisplay != null && endDisplay != null -> "$startDisplay – $endDisplay"
-                        startDisplay != null -> "от $startDisplay"
-                        endDisplay != null   -> "до $endDisplay"
-                        else                 -> "Дата"
-                    }, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                    selected     = dateActive,
+                    onClick      = { showDateSheet = true },
+                    label        = { Text("Дата") },
                     leadingIcon  = { Icon(Icons.Outlined.CalendarMonth, null, modifier = Modifier.size(15.dp)) },
                     trailingIcon = if (dateActive) { {
                         IconButton(modifier = Modifier.size(15.dp), onClick = { viewModel.setDateFilter(null, null) }) {
-                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(11.dp)) }
+                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(11.dp))
+                        }
                     } } else null,
-                    shape = RoundedCornerShape(12.dp)
+                    shape        = RoundedCornerShape(12.dp)
                 )
                 FilterChip(
-                    selected = vmTypeId != null, onClick = { showTypeSheet = true },
-                    label = { Text(text = selectedTypeName ?: "Тип", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                    selected     = vmTypeId != null,
+                    onClick      = { showTypeSheet = true },
+                    label        = { Text("Тип") },
                     leadingIcon  = { Icon(Icons.Outlined.Category, null, modifier = Modifier.size(15.dp)) },
                     trailingIcon = if (vmTypeId != null) { {
                         IconButton(modifier = Modifier.size(15.dp), onClick = { viewModel.setTypeFilter(null) }) {
-                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(11.dp)) }
+                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(11.dp))
+                        }
                     } } else null,
-                    shape = RoundedCornerShape(12.dp)
+                    shape        = RoundedCornerShape(12.dp)
                 )
                 FilterChip(
-                    selected = vmFormatId != null, onClick = { showFormatSheet = true },
-                    label = { Text(text = selectedFormatName ?: "Формат", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                    selected     = vmFormatId != null,
+                    onClick      = { showFormatSheet = true },
+                    label        = { Text("Формат") },
                     leadingIcon  = { Icon(Icons.Outlined.Tv, null, modifier = Modifier.size(15.dp)) },
                     trailingIcon = if (vmFormatId != null) { {
                         IconButton(modifier = Modifier.size(15.dp), onClick = { viewModel.setFormatFilter(null) }) {
-                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(11.dp)) }
+                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(11.dp))
+                        }
                     } } else null,
-                    shape = RoundedCornerShape(12.dp)
+                    shape        = RoundedCornerShape(12.dp)
                 )
                 AssistChip(
                     onClick     = { showAllFiltersSheet = true },

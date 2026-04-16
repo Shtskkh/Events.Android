@@ -424,7 +424,7 @@ private fun EventContent(
                 val namePart = when {
                     titlePart != null && numberPart != null -> "$titlePart №$numberPart"
                     titlePart != null                       -> titlePart
-                    numberPart != null                      -> "Помещение №$numberPart"
+                    numberPart != null                      -> "№$numberPart"
                     else                                    -> null
                 }
                 when {

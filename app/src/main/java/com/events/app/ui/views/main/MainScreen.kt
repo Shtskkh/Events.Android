@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.History
@@ -186,12 +185,6 @@ private fun SectionLabel(
             }
             Text(text = title, style = MaterialTheme.typography.titleLarge,
                 letterSpacing = (-0.4).sp, color = MaterialTheme.colorScheme.onBackground)
-        }
-        if (showAll) {
-            Row(modifier = Modifier.clickable(onClick = onViewAll), verticalAlignment = Alignment.CenterVertically) {
-                Text("Все", style = MaterialTheme.typography.labelLarge, color = accentColor)
-                Icon(Icons.Outlined.ChevronRight, null, tint = accentColor, modifier = Modifier.size(18.dp))
-            }
         }
     }
 }
