@@ -91,11 +91,11 @@ class RemoteDataSource @Inject constructor(
 
     // ── Participants ──────────────────────────────────────────────
 
-    suspend fun registerForEvent(eventId: String, participantId: String) =
-        api.registerForEvent(eventId, participantId)
+    suspend fun registerForEvent(eventId: String, participantId: String, accessToken: String? = null) =
+        api.registerForEvent(eventId, participantId, accessToken?.let { "Bearer $it" })
 
-    suspend fun leaveEvent(eventId: String, participantId: String) =
-        api.leaveEvent(eventId, participantId)
+    suspend fun leaveEvent(eventId: String, participantId: String, accessToken: String? = null) =
+        api.leaveEvent(eventId, accessToken?.let { "Bearer $it" })
 
     suspend fun getParticipants(eventId: String): List<ParticipantDto> =
         api.getParticipants(eventId)
@@ -114,8 +114,17 @@ class RemoteDataSource @Inject constructor(
     suspend fun updateLocation(
         id: Int,
         title: RequestBody? = null,
-        address: RequestBody? = null
-    ) = api.updateLocation(id, title, address)
+        address: RequestBody? = null,
+        newPhotoBytes: List<ByteArray> = emptyList()
+    ) {
+        val photoParts = mutableListOf<MultipartBody.Part>()
+        newPhotoBytes.forEachIndexed { i, bytes ->
+            photoParts.add(MultipartBody.Part.createFormData("Photos[$i].existingFilename", ""))
+            val body = bytes.toRequestBody("image/*".toMediaTypeOrNull())
+            photoParts.add(MultipartBody.Part.createFormData("Photos[$i].newFile", "photo_${i + 1}.jpg", body))
+        }
+        api.updateLocation(id, title, address, photoParts)
+    }
 
     suspend fun deleteLocation(id: Int) = api.deleteLocation(id)
 
@@ -144,8 +153,17 @@ class RemoteDataSource @Inject constructor(
 
     suspend fun updatePlace(
         locationId: Int, placeId: Int,
-        title: RequestBody? = null, type: RequestBody? = null, capacity: RequestBody? = null
-    ): PlaceDto = api.updatePlace(locationId, placeId, title, type, capacity)
+        title: RequestBody? = null, type: RequestBody? = null, capacity: RequestBody? = null,
+        newPhotoBytes: List<ByteArray> = emptyList()
+    ): PlaceDto {
+        val photoParts = mutableListOf<MultipartBody.Part>()
+        newPhotoBytes.forEachIndexed { i, bytes ->
+            photoParts.add(MultipartBody.Part.createFormData("Photos[$i].existingFilename", ""))
+            val body = bytes.toRequestBody("image/*".toMediaTypeOrNull())
+            photoParts.add(MultipartBody.Part.createFormData("Photos[$i].newFile", "photo_${i + 1}.jpg", body))
+        }
+        return api.updatePlace(locationId, placeId, title, type, capacity, photoParts)
+    }
 
     suspend fun deletePlace(locationId: Int, placeId: Int) =
         api.deletePlace(locationId, placeId)

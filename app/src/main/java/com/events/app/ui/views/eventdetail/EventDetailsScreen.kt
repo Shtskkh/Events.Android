@@ -554,9 +554,10 @@ private fun EventContent(
                         DetailDivider()
                     } else if (author != null || !event.userId.isNullOrBlank()) {
                         AuthorDetailRow(
-                            author  = author,
-                            userId  = event.userId,
-                            onCopy  = { copyText(event.userId ?: "", "ID создателя") }
+                            author   = author,
+                            userId   = event.userId,
+                            showId   = isAdmin,
+                            onCopy   = { copyText(event.userId ?: "", "ID создателя") }
                         )
                         DetailDivider()
                     }
@@ -822,6 +823,7 @@ private fun EventContent(
 private fun AuthorDetailRow(
     author: UserDetailDto?,
     userId: String?,
+    showId: Boolean,
     onCopy: () -> Unit
 ) {
     var copied by remember { mutableStateOf(false) }
@@ -832,7 +834,6 @@ private fun AuthorDetailRow(
         label       = "authorCopyBg"
     )
 
-    // Строим ФИО: Фамилия Имя Отчество
     val fullName = author?.let { u ->
         listOfNotNull(
             u.lastName?.trim(),
@@ -850,7 +851,7 @@ private fun AuthorDetailRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable {
-                    if (!userId.isNullOrBlank()) {
+                    if (showId && !userId.isNullOrBlank()) {
                         onCopy()
                         scope.launch { copied = true; delay(300); copied = false }
                     }
@@ -871,7 +872,6 @@ private fun AuthorDetailRow(
                     fontSize = 11.sp,
                     color    = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                // Строка 1: ФИО
                 Text(
                     text       = fullName,
                     fontSize   = 14.sp,
@@ -880,8 +880,7 @@ private fun AuthorDetailRow(
                     maxLines   = 1,
                     overflow   = TextOverflow.Ellipsis
                 )
-                // Строка 2: ID
-                if (!userId.isNullOrBlank()) {
+                if (showId && !userId.isNullOrBlank()) {
                     Text(
                         text     = userId,
                         fontSize = 11.sp,
@@ -891,7 +890,7 @@ private fun AuthorDetailRow(
                     )
                 }
             }
-            if (!userId.isNullOrBlank()) {
+            if (showId && !userId.isNullOrBlank()) {
                 Icon(
                     imageVector        = if (copied) Icons.Outlined.CheckCircle else Icons.Outlined.ContentCopy,
                     contentDescription = null,

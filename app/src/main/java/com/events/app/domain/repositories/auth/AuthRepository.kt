@@ -1,6 +1,7 @@
 package com.events.app.domain.repositories.auth
 
 import android.content.Context
+import android.net.Uri
 import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -25,6 +26,7 @@ import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -34,12 +36,16 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class AuthRepository @Inject constructor(
     private val context: Context
 ) {
-    private val USER_KEY = stringPreferencesKey("user_json")
+    private val USER_KEY        = stringPreferencesKey("user_json")
+    private val AVATAR_PATH_KEY = stringPreferencesKey("avatar_path")
     private val httpClient = OkHttpClient()
     private val BASE_URL = BuildConfig.BASE_URL.trimEnd('/')
 
     private val _currentUserFlow = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUserFlow.asStateFlow()
+
+    private val _localAvatarPath = MutableStateFlow<String?>(null)
+    val localAvatarPath: StateFlow<String?> = _localAvatarPath.asStateFlow()
 
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -48,14 +54,16 @@ class AuthRepository @Inject constructor(
     }
 
     private fun loadUserFromDataStore() {
-        val cachedUser = runBlocking {
+        val (cachedUser, cachedAvatarPath) = runBlocking {
             val prefs = context.dataStore.data.first()
             val userJson = prefs[USER_KEY]
-            if (userJson != null) {
+            val user = if (userJson != null) {
                 try { Json.decodeFromString<User>(userJson) } catch (e: Exception) { null }
             } else null
+            user to prefs[AVATAR_PATH_KEY]
         }
-        _currentUserFlow.value = cachedUser
+        _currentUserFlow.value  = cachedUser
+        _localAvatarPath.value  = cachedAvatarPath
 
         repositoryScope.launch {
             context.dataStore.data.collect { preferences ->
@@ -63,8 +71,19 @@ class AuthRepository @Inject constructor(
                 _currentUserFlow.value = if (json != null) {
                     try { Json.decodeFromString<User>(json) } catch (e: Exception) { null }
                 } else null
+                _localAvatarPath.value = preferences[AVATAR_PATH_KEY]
             }
         }
+    }
+
+    suspend fun saveLocalAvatar(uri: Uri): String = withContext(Dispatchers.IO) {
+        val userId = _currentUserFlow.value?.id ?: "default"
+        val file = File(context.filesDir, "avatar_$userId.jpg")
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            file.outputStream().use { output -> input.copyTo(output) }
+        }
+        context.dataStore.edit { it[AVATAR_PATH_KEY] = file.absolutePath }
+        file.absolutePath
     }
 
     suspend fun loginWithCredentials(email: String, password: String): Result<User> {
@@ -105,12 +124,34 @@ class AuthRepository @Inject constructor(
                     else            -> UserRole.GUEST
                 }
 
+                // Загружаем ФИО пользователя
+                var firstName: String? = null
+                var lastName: String? = null
+                var patronymic: String? = null
+                try {
+                    val userRequest = Request.Builder()
+                        .url("$BASE_URL/api/v/1/users/$userId")
+                        .addHeader("Authorization", "Bearer $accessToken")
+                        .get()
+                        .build()
+                    val userResponse = httpClient.newCall(userRequest).execute()
+                    if (userResponse.isSuccessful) {
+                        val userJson = JSONObject(userResponse.body?.string() ?: "{}")
+                        firstName  = userJson.optString("firstName",  "").ifBlank { null }
+                        lastName   = userJson.optString("lastName",   "").ifBlank { null }
+                        patronymic = userJson.optString("patronymic", "").ifBlank { null }
+                    }
+                } catch (_: Exception) {}
+
                 val user = User(
                     id = userId,
                     name = email,
                     email = email,
                     role = role,
-                    accessToken = accessToken
+                    accessToken = accessToken,
+                    firstName = firstName,
+                    lastName = lastName,
+                    patronymic = patronymic
                 )
 
                 context.dataStore.edit {
@@ -146,6 +187,9 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun logout() {
+        // Удаляем локальный файл аватара при выходе
+        val path = _localAvatarPath.value
+        if (path != null) runCatching { File(path).delete() }
         context.dataStore.edit { it.clear() }
     }
 }

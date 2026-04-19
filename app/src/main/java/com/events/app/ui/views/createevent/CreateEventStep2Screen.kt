@@ -22,6 +22,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.ArrowDropUp
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -58,6 +68,10 @@ fun CreateEventStep2Screen(
     var formatExpanded   by remember { mutableStateOf(false) }
     var locationExpanded by remember { mutableStateOf(false) }
     var placeExpanded    by remember { mutableStateOf(false) }
+    var placeSearchQuery by remember { mutableStateOf("") }
+
+    // Сбрасываем поиск при смене локации
+    LaunchedEffect(selectedLocation) { placeSearchQuery = "" }
 
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showStartTimePicker by remember { mutableStateOf(false) }
@@ -283,56 +297,120 @@ fun CreateEventStep2Screen(
                         color     = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
-                ExposedDropdownMenuBox(expanded = placeExpanded, onExpandedChange = { placeExpanded = it }) {
-                    val selectedPlaceObj    = places.find { it.id == selectedPlace }
-                    val placeDisplayValue   = selectedPlaceObj?.let { place ->
-                        val titlePart  = place.title?.takeIf { it.isNotBlank() } ?: "Помещение"
-                        val numberPart = place.number?.takeIf { it.isNotBlank() }?.let { " №$it" } ?: ""
-                        "$titlePart$numberPart (вместимость: ${place.capacity})"
-                    } ?: ""
+                val selectedPlaceObj  = places.find { it.id == selectedPlace }
+                val placeDisplayValue = selectedPlaceObj?.let { place ->
+                    val titlePart  = place.title?.takeIf { it.isNotBlank() } ?: "Помещение"
+                    val numberPart = place.number?.takeIf { it.isNotBlank() }?.let { " №$it" } ?: ""
+                    "$titlePart$numberPart (вместимость: ${place.capacity})"
+                } ?: ""
 
+                val filteredPlaces = if (placeSearchQuery.isBlank()) places else places.filter { place ->
+                    val titlePart  = place.title ?: ""
+                    val numberPart = place.number ?: ""
+                    val typePart   = place.type ?: ""
+                    titlePart.contains(placeSearchQuery, ignoreCase = true) ||
+                    numberPart.contains(placeSearchQuery, ignoreCase = true) ||
+                    typePart.contains(placeSearchQuery, ignoreCase = true)
+                }
+
+                val density = LocalDensity.current
+                var tfWidthPx by remember { mutableIntStateOf(0) }
+
+                Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
-                        value         = placeDisplayValue,
-                        onValueChange = {},
-                        readOnly      = true,
+                        value         = if (selectedPlace != null && placeSearchQuery.isEmpty()) placeDisplayValue else placeSearchQuery,
+                        onValueChange = { newVal ->
+                            placeSearchQuery = newVal
+                            if (selectedPlace != null) {
+                                viewModel.selectedPlaceId.value = null
+                                viewModel.clearPlaceEquipment()
+                            }
+                            placeExpanded = true
+                        },
                         label         = { Text(if (placeRequired) "Помещение *" else "Помещение") },
-                        trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = placeExpanded) },
-                        modifier      = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                        shape         = RoundedCornerShape(12.dp),
-                        isError       = placeRequired && selectedPlace == null
+                        placeholder   = { Text("Начните вводить название...") },
+                        trailingIcon  = {
+                            IconButton(onClick = { placeExpanded = !placeExpanded }) {
+                                Icon(
+                                    imageVector = if (placeExpanded) Icons.Outlined.ArrowDropUp else Icons.Outlined.ArrowDropDown,
+                                    contentDescription = null
+                                )
+                            }
+                        },
+                        modifier  = Modifier
+                            .fillMaxWidth()
+                            .onSizeChanged { tfWidthPx = it.width },
+                        shape     = RoundedCornerShape(12.dp),
+                        isError   = placeRequired && selectedPlace == null,
+                        singleLine = true
                     )
-                    ExposedDropdownMenu(expanded = placeExpanded, onDismissRequest = { placeExpanded = false }) {
-                        if (selectedPlace != null && !placeRequired) {
-                            DropdownMenuItem(
-                                text    = { Text("Не указывать", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                                onClick = {
-                                    viewModel.selectedPlaceId.value = null
-                                    viewModel.clearPlaceEquipment()
-                                    placeExpanded = false
-                                }
-                            )
-                            HorizontalDivider()
-                        }
-                        places.forEach { place ->
-                            val titlePart  = place.title?.takeIf { it.isNotBlank() } ?: "Помещение"
-                            val numberPart = place.number?.takeIf { it.isNotBlank() }?.let { " №$it" } ?: ""
-                            DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text("$titlePart$numberPart",
-                                            fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                        Text("Вместимость: ${place.capacity}  •  Тип: ${place.type ?: "—"}",
-                                            fontSize = 12.sp,
-                                            color    = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    if (placeExpanded) {
+                        Popup(
+                            onDismissRequest = { placeExpanded = false },
+                            popupPositionProvider = object : PopupPositionProvider {
+                                override fun calculatePosition(
+                                    anchorBounds: IntRect,
+                                    windowSize: IntSize,
+                                    layoutDirection: LayoutDirection,
+                                    popupContentSize: IntSize
+                                ): IntOffset = IntOffset(
+                                    x = anchorBounds.left,
+                                    y = (anchorBounds.top - popupContentSize.height).coerceAtLeast(0)
+                                )
+                            }
+                        ) {
+                            Surface(
+                                modifier      = Modifier
+                                    .width(with(density) { tfWidthPx.toDp() })
+                                    .heightIn(max = 300.dp),
+                                shape         = RoundedCornerShape(12.dp),
+                                tonalElevation   = 8.dp,
+                                shadowElevation  = 8.dp
+                            ) {
+                                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                    if (selectedPlace != null && !placeRequired) {
+                                        DropdownMenuItem(
+                                            text    = { Text("Не указывать", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                            onClick = {
+                                                viewModel.selectedPlaceId.value = null
+                                                viewModel.clearPlaceEquipment()
+                                                placeSearchQuery = ""
+                                                placeExpanded = false
+                                            }
+                                        )
+                                        HorizontalDivider()
                                     }
-                                },
-                                onClick = {
-                                    viewModel.selectedPlaceId.value = place.id
-                                    // Загружаем оборудование выбранного помещения
-                                    viewModel.loadEquipmentForPlace(place.id)
-                                    placeExpanded = false
+                                    if (filteredPlaces.isEmpty()) {
+                                        DropdownMenuItem(
+                                            text    = { Text("Ничего не найдено", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                            onClick = { placeExpanded = false }
+                                        )
+                                    } else {
+                                        filteredPlaces.forEach { place ->
+                                            val titlePart  = place.title?.takeIf { it.isNotBlank() } ?: "Помещение"
+                                            val numberPart = place.number?.takeIf { it.isNotBlank() }?.let { " №$it" } ?: ""
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Column {
+                                                        Text("$titlePart$numberPart",
+                                                            fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                                        Text("Вместимость: ${place.capacity}  •  Тип: ${place.type ?: "—"}",
+                                                            fontSize = 12.sp,
+                                                            color    = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    }
+                                                },
+                                                onClick = {
+                                                    viewModel.selectedPlaceId.value = place.id
+                                                    placeSearchQuery = ""
+                                                    viewModel.loadEquipmentForPlace(place.id)
+                                                    placeExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
-                            )
+                            }
                         }
                     }
                 }

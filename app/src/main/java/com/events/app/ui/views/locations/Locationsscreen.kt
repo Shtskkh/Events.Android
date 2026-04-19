@@ -104,7 +104,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.events.app.data.remote.dto.EquipmentDto
 import com.events.app.data.remote.dto.EquipmentTypeDto
@@ -360,7 +360,7 @@ fun LocationsScreen(viewModel: LocationsViewModel = hiltViewModel()) {
     }
     locationToEdit?.let { loc ->
         EditLocationDialog(location = loc, isLoading = isActionLoading, onDismiss = { locationToEdit = null },
-            onConfirm = { t, a -> viewModel.editLocation(loc, t, a) { locationToEdit = null } })
+            onConfirm = { t, a, uris -> viewModel.editLocation(loc, t, a, uris) { locationToEdit = null } })
     }
     locationToDelete?.let { loc ->
         ConfirmDeleteDialog(title = "Удалить локацию?",
@@ -378,8 +378,8 @@ fun LocationsScreen(viewModel: LocationsViewModel = hiltViewModel()) {
     placeToEdit?.let { (locationId, place) ->
         PlaceEditDialog(place = place, placeTypes = placeTypes, isLoading = isActionLoading,
             onDismiss = { placeToEdit = null },
-            onConfirm = { newTitle, newCapacity, newTypeId ->
-                viewModel.editPlace(locationId, place, newTitle, newCapacity, newTypeId) { placeToEdit = null }
+            onConfirm = { newTitle, newCapacity, newTypeId, newPhotoUris ->
+                viewModel.editPlace(locationId, place, newTitle, newCapacity, newTypeId, newPhotoUris) { placeToEdit = null }
             })
     }
     placeToDelete?.let { (locationId, place) ->
@@ -562,7 +562,7 @@ private fun PlaceDetailSheet(
             val photoUrl = place.buildPreviewUrl()
             if (photoUrl != null) {
                 AsyncImage(model = photoUrl, contentDescription = "Фото помещения", contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 400.dp).wrapContentHeight())
+                    modifier = Modifier.fillMaxWidth().height(228.dp))
                 Spacer(modifier = Modifier.height(16.dp))
             }
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -878,13 +878,17 @@ private fun CreateLocationDialog(isLoading: Boolean, onDismiss: () -> Unit,
 
 @Composable
 private fun EditLocationDialog(location: LocationDto, isLoading: Boolean, onDismiss: () -> Unit,
-                               onConfirm: (title: String, address: String) -> Unit) {
-    var title   by remember { mutableStateOf(location.title ?: "") }
-    var address by remember { mutableStateOf(location.address ?: "") }
-    val isValid = title.trim().isNotBlank() && address.trim().isNotBlank()
+                               onConfirm: (title: String, address: String, newPhotoUris: List<Uri>) -> Unit) {
+    var title        by remember { mutableStateOf(location.title ?: "") }
+    var address      by remember { mutableStateOf(location.address ?: "") }
+    var newPhotoUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    val isValid      = title.trim().isNotBlank() && address.trim().isNotBlank()
+    val photoPicker  = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris: List<Uri> -> newPhotoUris = uris }
+    val currentPreviewUrl = location.buildPreviewUrl()
+
     Dialog(onDismissRequest = { if (!isLoading) onDismiss() }) {
         Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp) {
-            Column(modifier = Modifier.fillMaxWidth().padding(all = 24.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(all = 24.dp)) {
                 Row(modifier = Modifier.padding(bottom = 20.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(imageVector = Icons.Outlined.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
@@ -897,10 +901,63 @@ private fun EditLocationDialog(location: LocationDto, isLoading: Boolean, onDism
                 OutlinedTextField(value = address, onValueChange = { address = it }, modifier = Modifier.fillMaxWidth(),
                     label = { Text(text = "Адрес *") }, leadingIcon = { Icon(Icons.Outlined.Place, null) },
                     singleLine = true, shape = RoundedCornerShape(12.dp), enabled = !isLoading)
+                Spacer(modifier = Modifier.height(16.dp))
+                // ── Фото ───────────────────────────────────────────
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(imageVector = Icons.Outlined.PhotoLibrary, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                        Text(text = "Фото", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        if (newPhotoUris.isNotEmpty()) {
+                            Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                                Text("${newPhotoUris.size}", modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
+                        }
+                    }
+                    OutlinedButton(onClick = { photoPicker.launch("image/*") }, enabled = !isLoading,
+                        shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
+                        Icon(imageVector = Icons.Outlined.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = if (newPhotoUris.isEmpty()) "Заменить" else "Изменить", fontSize = 12.sp)
+                    }
+                }
+                if (newPhotoUris.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        newPhotoUris.take(4).forEachIndexed { idx, uri ->
+                            Box(modifier = Modifier.size(64.dp)) {
+                                AsyncImage(model = uri, contentDescription = "Фото ${idx + 1}", contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)))
+                                if (idx == 3 && newPhotoUris.size > 4) {
+                                    Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp))
+                                        .background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                                        Text("+${newPhotoUris.size - 4}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TextButton(onClick = { newPhotoUris = emptyList() }, enabled = !isLoading) {
+                        Text(text = "Отменить замену фото", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                    }
+                } else if (currentPreviewUrl != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(modifier = Modifier.fillMaxWidth().height(120.dp)) {
+                        AsyncImage(model = currentPreviewUrl, contentDescription = "Текущее фото", contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)))
+                        Surface(modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
+                            shape = RoundedCornerShape(6.dp), color = Color.Black.copy(alpha = 0.5f)) {
+                            Text(text = "Текущее фото", color = Color.White, fontSize = 10.sp,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(24.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), enabled = !isLoading) { Text(text = "Отмена") }
-                    Button(onClick = { if (isValid) onConfirm(title.trim(), address.trim()) },
+                    Button(onClick = { if (isValid) onConfirm(title.trim(), address.trim(), newPhotoUris) },
                         modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), enabled = isValid && !isLoading) {
                         if (isLoading) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                         else Text(text = "Сохранить", fontWeight = FontWeight.SemiBold)
@@ -914,13 +971,17 @@ private fun EditLocationDialog(location: LocationDto, isLoading: Boolean, onDism
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlaceEditDialog(place: PlaceDto, placeTypes: List<PlaceTypeDto>, isLoading: Boolean,
-                            onDismiss: () -> Unit, onConfirm: (newTitle: String?, newCapacity: Int, newTypeId: Int) -> Unit) {
-    var editTitle    by remember { mutableStateOf(place.title ?: "") }
-    var editCapacity by remember { mutableStateOf(place.capacity.toString()) }
+                            onDismiss: () -> Unit, onConfirm: (newTitle: String?, newCapacity: Int, newTypeId: Int, newPhotoUris: List<Uri>) -> Unit) {
+    var editTitle      by remember { mutableStateOf(place.title ?: "") }
+    var editCapacity   by remember { mutableStateOf(place.capacity.toString()) }
     var selectedTypeId by remember { mutableStateOf(placeTypes.find { it.title == place.type }?.id ?: placeTypes.firstOrNull()?.id) }
-    var typeExpanded by remember { mutableStateOf(false) }
-    val capacityInt  = editCapacity.trim().toIntOrNull()
-    val isValid      = capacityInt != null && capacityInt > 0 && selectedTypeId != null
+    var typeExpanded   by remember { mutableStateOf(false) }
+    var newPhotoUris   by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    val capacityInt    = editCapacity.trim().toIntOrNull()
+    val isValid        = capacityInt != null && capacityInt > 0 && selectedTypeId != null
+    val photoPicker    = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris: List<Uri> -> newPhotoUris = uris }
+    val currentPreviewUrl = place.buildPreviewUrl()
+
     Dialog(onDismissRequest = { if (!isLoading) onDismiss() }) {
         Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp) {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(all = 24.dp)) {
@@ -965,10 +1026,63 @@ private fun PlaceEditDialog(place: PlaceDto, placeTypes: List<PlaceTypeDto>, isL
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+                // ── Фото ───────────────────────────────────────────
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(imageVector = Icons.Outlined.PhotoLibrary, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                        Text(text = "Фото", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        if (newPhotoUris.isNotEmpty()) {
+                            Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                                Text("${newPhotoUris.size}", modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
+                        }
+                    }
+                    OutlinedButton(onClick = { photoPicker.launch("image/*") }, enabled = !isLoading,
+                        shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
+                        Icon(imageVector = Icons.Outlined.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = if (newPhotoUris.isEmpty()) "Заменить" else "Изменить", fontSize = 12.sp)
+                    }
+                }
+                if (newPhotoUris.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        newPhotoUris.take(4).forEachIndexed { idx, uri ->
+                            Box(modifier = Modifier.size(64.dp)) {
+                                AsyncImage(model = uri, contentDescription = "Фото ${idx + 1}", contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)))
+                                if (idx == 3 && newPhotoUris.size > 4) {
+                                    Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp))
+                                        .background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                                        Text("+${newPhotoUris.size - 4}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TextButton(onClick = { newPhotoUris = emptyList() }, enabled = !isLoading) {
+                        Text(text = "Отменить замену фото", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                    }
+                } else if (currentPreviewUrl != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(modifier = Modifier.fillMaxWidth().height(120.dp)) {
+                        AsyncImage(model = currentPreviewUrl, contentDescription = "Текущее фото", contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)))
+                        Surface(modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
+                            shape = RoundedCornerShape(6.dp), color = Color.Black.copy(alpha = 0.5f)) {
+                            Text(text = "Текущее фото", color = Color.White, fontSize = 10.sp,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(24.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), enabled = !isLoading) { Text(text = "Отмена") }
-                    Button(onClick = { if (isValid) onConfirm(editTitle.trim().takeIf { it.isNotBlank() }, capacityInt!!, selectedTypeId!!) },
+                    Button(onClick = { if (isValid) onConfirm(editTitle.trim().takeIf { it.isNotBlank() }, capacityInt!!, selectedTypeId!!, newPhotoUris) },
                         modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), enabled = isValid && !isLoading) {
                         if (isLoading) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                         else Text(text = "Сохранить", fontWeight = FontWeight.SemiBold)

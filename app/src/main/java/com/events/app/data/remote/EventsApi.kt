@@ -95,14 +95,15 @@ interface EventsApi {
 
     @POST("api/v/1/events/{eventId}/participants")
     suspend fun registerForEvent(
-        @Path("eventId")        eventId: String,
-        @Query("participantId") participantId: String
+        @Path("eventId")         eventId: String,
+        @Query("participantId")  participantId: String,
+        @Header("Authorization") authorization: String? = null
     )
 
     @DELETE("api/v/1/events/{eventId}/participants")
     suspend fun leaveEvent(
-        @Path("eventId")        eventId: String,
-        @Query("participantId") participantId: String
+        @Path("eventId")         eventId: String,
+        @Header("Authorization") authorization: String? = null
     )
 
     @GET("api/v/1/events/{id}/participants")
@@ -129,7 +130,8 @@ interface EventsApi {
     suspend fun updateLocation(
         @Path("id")      id: Int,
         @Part("Title")   title: RequestBody? = null,
-        @Part("Address") address: RequestBody? = null
+        @Part("Address") address: RequestBody? = null,
+        @Part           photos: List<MultipartBody.Part> = emptyList()
     )
 
     @DELETE("api/v/1/locations/{id}")
@@ -171,7 +173,8 @@ interface EventsApi {
         @Path("placeId")    placeId: Int,
         @Part("Title")      title: RequestBody? = null,
         @Part("Type")       type: RequestBody? = null,
-        @Part("Capacity")   capacity: RequestBody? = null
+        @Part("Capacity")   capacity: RequestBody? = null,
+        @Part              photos: List<MultipartBody.Part> = emptyList()
     ): PlaceDto
 
     @DELETE("api/v/1/locations/{locationId}/places/{placeId}")

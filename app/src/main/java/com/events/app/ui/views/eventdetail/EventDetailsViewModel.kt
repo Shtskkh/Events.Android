@@ -266,24 +266,29 @@ class EventDetailsViewModel @Inject constructor(
 
     fun toggleRegistration() {
         val eventId = _event.value?.id ?: return
-        val userId  = authRepository.currentUser.value?.id ?: return
+        val user    = authRepository.currentUser.value ?: return
+        val userId  = user.id
+        val token   = user.accessToken.ifBlank { null }
+        android.util.Log.d("Registration", "toggleRegistration: eventId=$eventId userId=$userId tokenPresent=${token != null} isRegistered=${_isRegistered.value}")
         viewModelScope.launch {
             _registrationLoading.value = true
             _registrationError.value   = null
             try {
                 if (_isRegistered.value) {
-                    remoteDataSource.leaveEvent(eventId, userId)
+                    remoteDataSource.leaveEvent(eventId, userId, token)
                     _isRegistered.value = false
                     _participants.value = _participants.value.filter { it.id != userId }
+                    updateParticipantsCount(-1)
                 } else {
-                    remoteDataSource.registerForEvent(eventId, userId)
+                    remoteDataSource.registerForEvent(eventId, userId, token)
                     _isRegistered.value = true
-                    loadParticipants(eventId)
+                    updateParticipantsCount(+1)
+                    refreshParticipantsSilently(eventId)
                 }
             } catch (e: retrofit2.HttpException) {
                 _registrationError.value = when (e.code()) {
                     400  -> "Мероприятие уже заполнено"
-                    404  -> "Мероприятие не найдено"
+                    404  -> "Мероприятие или пользователь не найдены"
                     409  -> "Вы уже зарегистрированы"
                     else -> "Ошибка регистрации: ${e.code()}"
                 }
@@ -292,6 +297,36 @@ class EventDetailsViewModel @Inject constructor(
             } finally {
                 _registrationLoading.value = false
             }
+        }
+    }
+
+    /** Обновляет participantsCount в event на delta (+1 / -1). */
+    private fun updateParticipantsCount(delta: Int) {
+        val current = _event.value ?: return
+        val newCount = when {
+            current.participantsCount != null ->
+                (current.participantsCount + delta).coerceAtLeast(0)
+            delta > 0 -> _participants.value.size + 1
+            else      -> (_participants.value.size - 1).coerceAtLeast(0)
+        }
+        _event.value = current.copy(participantsCount = newCount)
+    }
+
+    /**
+     * Перезагружает список участников в фоне после регистрации.
+     * НЕ сбрасывает _isRegistered при 404 (пустой список), т.к.
+     * сервер может вернуть 404 пока не завершится транзакция.
+     */
+    private fun refreshParticipantsSilently(eventId: String) {
+        viewModelScope.launch {
+            try {
+                val list = remoteDataSource.getParticipants(eventId)
+                _participants.value = list
+                val userId = authRepository.currentUser.value?.id
+                if (userId != null) _isRegistered.value = list.any { it.id == userId }
+                val current = _event.value
+                if (current != null) _event.value = current.copy(participantsCount = list.size)
+            } catch (_: Exception) { /* не меняем состояние при ошибке фонового обновления */ }
         }
     }
 

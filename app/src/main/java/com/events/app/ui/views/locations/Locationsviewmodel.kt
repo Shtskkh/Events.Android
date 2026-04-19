@@ -14,6 +14,8 @@ import com.events.app.data.remote.dto.PlaceTypeDto
 import com.events.app.domain.models.users.UserRole
 import com.events.app.domain.repositories.auth.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -127,7 +129,14 @@ class LocationsViewModel @Inject constructor(
         viewModelScope.launch {
             _locationsLoading.value = true
             try {
-                _locations.value = remoteDataSource.getLocations()
+                val list = remoteDataSource.getLocations()
+                // Список не содержит фото — параллельно подгружаем детали каждой локации
+                _locations.value = list.map { loc ->
+                    async {
+                        try { remoteDataSource.getLocationById(loc.id) }
+                        catch (_: Exception) { loc }
+                    }
+                }.awaitAll()
             } catch (e: retrofit2.HttpException) {
                 if (e.code() != 404) _error.value = "Ошибка загрузки локаций"
                 _locations.value = emptyList()
@@ -241,11 +250,12 @@ class LocationsViewModel @Inject constructor(
                     address = address.trim().toBody(),
                     photos  = photoParts
                 )
-                _locations.value = _locations.value + LocationDto(
-                    id      = newId,
-                    title   = title.trim(),
-                    address = address.trim()
-                )
+                val fresh = try {
+                    remoteDataSource.getLocationById(newId)
+                } catch (_: Exception) {
+                    LocationDto(id = newId, title = title.trim(), address = address.trim())
+                }
+                _locations.value = _locations.value + fresh
                 _successMessage.value = "Локация создана"
                 onDone()
             } catch (e: Exception) {
@@ -258,6 +268,7 @@ class LocationsViewModel @Inject constructor(
         location: LocationDto,
         newTitle: String,
         newAddress: String,
+        newPhotoUris: List<Uri> = emptyList(),
         onDone: () -> Unit = {}
     ) {
         viewModelScope.launch {
@@ -266,18 +277,23 @@ class LocationsViewModel @Inject constructor(
                 fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
                 val titleBody   = newTitle.trim().toBody()
                 val addressBody = newAddress.trim().toBody()
-                remoteDataSource.updateLocation(location.id, titleBody, addressBody)
+                val context: Context = getApplication()
+                val photoBytes = newPhotoUris.mapNotNull { uri ->
+                    try { context.contentResolver.openInputStream(uri)?.readBytes() }
+                    catch (_: Exception) { null }
+                }
+                remoteDataSource.updateLocation(location.id, titleBody, addressBody, photoBytes)
 
+                val fresh = try {
+                    remoteDataSource.getLocationById(location.id)
+                } catch (_: Exception) {
+                    location.copy(title = newTitle.trim(), address = newAddress.trim())
+                }
                 _locations.value = _locations.value.map { loc ->
-                    if (loc.id == location.id)
-                        loc.copy(title = newTitle.trim(), address = newAddress.trim())
-                    else loc
+                    if (loc.id == location.id) fresh else loc
                 }
                 if (_selectedLocationForPlace.value?.id == location.id) {
-                    _selectedLocationForPlace.value = _selectedLocationForPlace.value?.copy(
-                        title   = newTitle.trim(),
-                        address = newAddress.trim()
-                    )
+                    _selectedLocationForPlace.value = fresh
                 }
                 _successMessage.value = "Локация обновлена"
                 onDone()
@@ -371,18 +387,25 @@ class LocationsViewModel @Inject constructor(
         newTitle: String?,
         newCapacity: Int,
         newTypeId: Int,
+        newPhotoUris: List<Uri> = emptyList(),
         onDone: () -> Unit = {}
     ) {
         viewModelScope.launch {
             _isActionLoading.value = true
             try {
                 fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())
+                val context: Context = getApplication()
+                val photoBytes = newPhotoUris.mapNotNull { uri ->
+                    try { context.contentResolver.openInputStream(uri)?.readBytes() }
+                    catch (_: Exception) { null }
+                }
                 val updatedPlace = remoteDataSource.updatePlace(
-                    locationId = locationId,
-                    placeId    = place.id,
-                    title      = newTitle?.trim()?.takeIf { it.isNotBlank() }?.toBody(),
-                    type       = newTypeId.toString().toBody(),
-                    capacity   = newCapacity.toString().toBody()
+                    locationId    = locationId,
+                    placeId       = place.id,
+                    title         = newTitle?.trim()?.takeIf { it.isNotBlank() }?.toBody(),
+                    type          = newTypeId.toString().toBody(),
+                    capacity      = newCapacity.toString().toBody(),
+                    newPhotoBytes = photoBytes
                 )
                 _places.value = _places.value.map { p ->
                     if (p.id == place.id) updatedPlace else p

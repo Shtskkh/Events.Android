@@ -43,16 +43,17 @@ import kotlinx.coroutines.launch
 fun AccountScreen() {
     val viewModel: AppViewModel = hiltViewModel()
     val user             by viewModel.authRepository.currentUser.collectAsState()
+    val userDetail       by viewModel.userDetail.collectAsState()
+    val avatarUri        by viewModel.avatarUri.collectAsState()
     val scope            = rememberCoroutineScope()
     val scrollState      = rememberScrollState()
     val clipboardManager = LocalClipboardManager.current
     val context          = LocalContext.current
 
-    var selectedPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
-            uri: Uri? -> if (uri != null) selectedPhotoUri = uri
+            uri: Uri? -> if (uri != null) viewModel.saveAvatar(uri)
     }
 
     // Наблюдаем за результатом смены пароля
@@ -83,19 +84,19 @@ fun AccountScreen() {
             .verticalScroll(scrollState)
             .padding(horizontal = 16.dp)
     ) {
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(12.dp))
 
         // ── Аватар и имя ──────────────────────────────────────────
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(110.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
                 Box(
-                    Modifier.size(100.dp).clip(CircleShape)
+                    Modifier.size(140.dp).clip(CircleShape)
                         .clickable { photoPickerLauncher.launch("image/*") },
                     contentAlignment = Alignment.Center
                 ) {
-                    if (selectedPhotoUri != null) {
+                    if (avatarUri != null) {
                         AsyncImage(
-                            model              = selectedPhotoUri,
+                            model              = avatarUri,
                             contentDescription = null,
                             contentScale       = ContentScale.Crop,
                             modifier           = Modifier.fillMaxSize()
@@ -123,16 +124,9 @@ fun AccountScreen() {
                     }
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                user?.name ?: "—",
-                fontSize   = 20.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color      = MaterialTheme.colorScheme.onBackground
-            )
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(12.dp))
 
         // ── Информация о пользователе ─────────────────────────────
         Surface(
@@ -142,8 +136,12 @@ fun AccountScreen() {
             tonalElevation = 2.dp
         ) {
             Column(Modifier.padding(4.dp)) {
-                CopyableInfoRow(Icons.Outlined.Person, "Имя", user?.name ?: "—",
-                    onCopy = { copyToClipboard("Имя", user?.name ?: "") })
+                val fullName = userDetail?.let { u ->
+                    listOfNotNull(u.lastName?.trim(), u.firstName?.trim(), u.patronymic?.trim())
+                        .filter { it.isNotEmpty() }.joinToString(" ").ifEmpty { null }
+                } ?: "—"
+                CopyableInfoRow(Icons.Outlined.Person, "ФИО", fullName,
+                    onCopy = { copyToClipboard("ФИО", fullName) })
                 RowDivider()
                 CopyableInfoRow(Icons.Outlined.Email, "Email", user?.email ?: "—",
                     onCopy = { copyToClipboard("Email", user?.email ?: "") })

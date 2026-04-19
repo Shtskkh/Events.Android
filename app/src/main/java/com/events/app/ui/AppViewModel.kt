@@ -1,13 +1,20 @@
 package com.events.app.ui
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.events.app.BuildConfig
 import com.events.app.data.RemoteDataSource
+import com.events.app.data.remote.dto.UserDetailDto
 import com.events.app.domain.repositories.auth.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -15,6 +22,56 @@ class AppViewModel @Inject constructor(
     val authRepository: AuthRepository,
     private val remoteDataSource: RemoteDataSource
 ) : ViewModel() {
+
+    // ── Детали текущего пользователя (ФИО + аватар) ─────────────
+    private val _userDetail = MutableStateFlow<UserDetailDto?>(null)
+    val userDetail = _userDetail.asStateFlow()
+
+    /**
+     * Итоговый URI/URL аватара: сначала локальный файл (если есть и существует),
+     * иначе серверный URL из avatarInfo bucket/key.
+     */
+    val avatarUri = combine(
+        authRepository.localAvatarPath,
+        _userDetail
+    ) { localPath, detail ->
+        // Локальный файл — приоритет
+        if (!localPath.isNullOrBlank()) {
+            val f = File(localPath)
+            if (f.exists()) return@combine Uri.fromFile(f)
+        }
+        // Серверный аватар из avatarInfo
+        val ai = detail?.avatarInfo
+        if (ai?.bucket != null && ai.key != null &&
+            ai.bucket.isNotBlank() && ai.key.isNotBlank()) {
+            val base = BuildConfig.BASE_URL.trimEnd('/')
+            return@combine Uri.parse("$base/api/v/1/files/${ai.bucket}/${ai.key}")
+        }
+        null
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    init {
+        viewModelScope.launch {
+            authRepository.currentUser.collect { user ->
+                val id = user?.id
+                if (!id.isNullOrBlank()) {
+                    try {
+                        _userDetail.value = remoteDataSource.getUserById(id)
+                    } catch (_: Exception) {
+                        _userDetail.value = null
+                    }
+                } else {
+                    _userDetail.value = null
+                }
+            }
+        }
+    }
+
+    fun saveAvatar(uri: Uri) {
+        viewModelScope.launch {
+            authRepository.saveLocalAvatar(uri)
+        }
+    }
 
     // ── Смена пароля ──────────────────────────────────────────────
 
