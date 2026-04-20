@@ -3,6 +3,7 @@ package com.events.app.ui.views.statistics
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.events.app.data.RemoteDataSource
+import com.events.app.data.local.EventRefreshBus
 import com.events.app.data.remote.dto.ViewsDto
 import com.events.app.domain.models.events.Event
 import com.events.app.domain.usecases.events.GetEventsUseCase
@@ -27,6 +28,7 @@ data class ViewPoint(val date: String, val views: Int)
 /** Сколько мероприятий было в конкретном помещении */
 data class PlaceStat(
     val placeId: Int,
+    val locationId: Int = 0,
     val placeName: String,
     val locationName: String,
     val eventCount: Int,
@@ -50,6 +52,8 @@ data class TypeFillData(val type: String, val count: Int, val avgFill: Float, va
 data class HeatCell(val day: Int, val hour: Int, val count: Int)
 
 // ── Итоговый дата-класс ───────────────────────────────────────────
+
+data class TagStat(val tag: String, val count: Int)
 
 data class StatisticsData(
     // Обзор
@@ -95,8 +99,14 @@ data class StatisticsData(
     // Участие (Раздел 5)
     val typeFillPie: List<PieSlice>,       // заполненность по типам
 
+    // Тэги (Раздел 6)
+    val tagStats: List<TagStat>,
+
     // eventId -> locationName: надёжный маппинг для UI-фильтрации в TimeTab/LocationsTab
-    val eventLocationMap: Map<String, String>
+    val eventLocationMap: Map<String, String>,
+
+    // Аудитории, у которых 0 мероприятий за всё время
+    val emptyPlaces: List<IdlePlace>
 )
 
 
@@ -122,6 +132,7 @@ data class PlaceKpd(
 /** Простаивающее помещение — нет мероприятий за 60 дней */
 data class IdlePlace(
     val placeId: Int,
+    val locationId: Int = 0,
     val placeName: String,
     val locationName: String,
     val capacity: Int,
@@ -162,12 +173,23 @@ data class EventConversion(
     val timeSeries: List<ViewPoint>   // просмотры по дням для этого события
 )
 
+// ── Период фильтрации ─────────────────────────────────────────────
+
+enum class StatPeriod(val label: String) {
+    MONTH_1("1 мес."),
+    MONTHS_3("3 мес."),
+    MONTHS_6("6 мес."),
+    YEAR("1 год"),
+    ALL("Всё время")
+}
+
 // ── ViewModel ─────────────────────────────────────────────────────
 
 @HiltViewModel
 class StatisticsViewModel @Inject constructor(
     private val getEventsUseCase: GetEventsUseCase,
-    private val remoteDataSource: RemoteDataSource
+    private val remoteDataSource: RemoteDataSource,
+    private val refreshBus: EventRefreshBus
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(false)
@@ -193,6 +215,49 @@ class StatisticsViewModel @Inject constructor(
     // Все локации из API (включая те, к которым нет привязанных событий)
     private val _allLocationNames = MutableStateFlow<List<Pair<Int, String>>>(emptyList())
     val allLocationNames = _allLocationNames.asStateFlow()
+
+    // Оборудование выбранного помещения
+    private val _placeEquipment = MutableStateFlow<List<com.events.app.data.remote.dto.EquipmentDto>>(emptyList())
+    val placeEquipment = _placeEquipment.asStateFlow()
+
+    private val _equipmentLoading = MutableStateFlow(false)
+    val equipmentLoading = _equipmentLoading.asStateFlow()
+
+    fun loadEquipmentForPlace(placeId: Int) {
+        viewModelScope.launch {
+            _equipmentLoading.value = true
+            _placeEquipment.value = emptyList()
+            try {
+                var page = 1
+                val result = mutableListOf<com.events.app.data.remote.dto.EquipmentDto>()
+                while (true) {
+                    val chunk = remoteDataSource.getEquipment(placeId = placeId, size = 30, page = page)
+                    result.addAll(chunk)
+                    if (chunk.size < 30) break
+                    page++
+                }
+                _placeEquipment.value = result
+            } catch (_: Exception) {
+                _placeEquipment.value = emptyList()
+            } finally {
+                _equipmentLoading.value = false
+            }
+        }
+    }
+
+    fun clearPlaceEquipment() {
+        _placeEquipment.value = emptyList()
+    }
+
+    // ── Период ────────────────────────────────────────────────────
+    private val _selectedPeriod = MutableStateFlow(StatPeriod.ALL)
+    val selectedPeriod = _selectedPeriod.asStateFlow()
+
+    fun selectPeriod(period: StatPeriod) {
+        if (_selectedPeriod.value == period) return
+        _selectedPeriod.value = period
+        loadStats()
+    }
 
     fun loadEventConversion(eventId: String) {
         viewModelScope.launch {
@@ -237,58 +302,85 @@ class StatisticsViewModel @Inject constructor(
         0xFFFF6B35, 0xFF6366F1
     )
 
-    init { loadStats() }
+    init {
+        loadStats()
+        viewModelScope.launch { refreshBus.events.collect { loadStats() } }
+    }
 
     fun loadStats() {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             try {
-                val events = loadAllEvents()
+                // ── Диапазон дат по выбранному периоду ───────────────────────────
+                val fromDate: String? = when (_selectedPeriod.value) {
+                    StatPeriod.MONTH_1  -> java.time.LocalDateTime.now().minusMonths(1).toString()
+                    StatPeriod.MONTHS_3 -> java.time.LocalDateTime.now().minusMonths(3).toString()
+                    StatPeriod.MONTHS_6 -> java.time.LocalDateTime.now().minusMonths(6).toString()
+                    StatPeriod.YEAR     -> java.time.LocalDateTime.now().minusYears(1).toString()
+                    StatPeriod.ALL      -> null
+                }
 
-                val analyticsResults = events.map { event ->
+                // ── Параллельно запрашиваем серверную аналитику и события ─────────
+                val eventsCountDeferred  = async { try { remoteDataSource.getEventsAnalytics()     } catch (_: Exception) { null } }
+                val typesAnalyticsDeferred   = async { try { remoteDataSource.getTypesAnalytics(start = fromDate)  } catch (_: Exception) { emptyList() } }
+                val formatsAnalyticsDeferred = async { try { remoteDataSource.getFormatsAnalytics(start = fromDate) } catch (_: Exception) { emptyList() } }
+                val locationsAnalyticsDeferred = async { try { remoteDataSource.getLocationsAnalytics(from = fromDate) } catch (_: Exception) { emptyList() } }
+                val placesAnalyticsDeferred  = async { try { remoteDataSource.getPlacesAnalytics(from = fromDate)  } catch (_: Exception) { emptyList() } }
+                val tagsAnalyticsDeferred    = async { try { remoteDataSource.getTagsAnalytics(from = fromDate, top = 50) } catch (_: Exception) { emptyList() } }
+                // Загружаем ВСЕ события без фильтра по дате — «эта неделя» и клиентские
+                // группировки должны видеть полную картину. Аналитика фильтруется сервером.
+                val eventsDeferred = async { try { loadAllEvents() } catch (_: Exception) { emptyList() } }
+
+                val events           = eventsDeferred.await()
+                val eventsCountDto   = eventsCountDeferred.await()
+                val typesAnalytics   = typesAnalyticsDeferred.await()
+                val formatsAnalytics = formatsAnalyticsDeferred.await()
+                val locationsAnalytics = locationsAnalyticsDeferred.await()
+                val placesAnalytics  = placesAnalyticsDeferred.await()
+                val tagsAnalytics    = tagsAnalyticsDeferred.await()
+
+                // Параллельно обогащаем каждое событие полем needsRegistration из детального DTO
+                // (ShortEventDto не содержит это поле) и загружаем аналитику за один проход.
+                val enrichedAndAnalytics = events.map { event ->
                     async {
-                        try {
-                            val a = remoteDataSource.getEventAnalytics(event.id)
-                            Triple(event.id, event.title, a)
-                        } catch (_: Exception) {
-                            Triple(event.id, event.title, null)
-                        }
+                        val detail    = try { remoteDataSource.getEventById(event.id) } catch (_: Exception) { null }
+                        val analytics = try { remoteDataSource.getEventAnalytics(event.id) } catch (_: Exception) { null }
+                        val enriched  = if (detail != null)
+                            event.copy(needsRegistration = detail.needsRegistration ?: event.needsRegistration)
+                        else event
+                        Pair(enriched, Triple(event.id, event.title, analytics))
                     }
                 }.awaitAll()
 
-                _allEvents.value = events
+                val enrichedEvents   = enrichedAndAnalytics.map { it.first }
+                val analyticsResults = enrichedAndAnalytics.map { it.second }
+
+                _allEvents.value = enrichedEvents
 
                 // ── Строим карты локаций ──────────────────────────────────────────────
-                // ShortEventDto НЕ возвращает locationId/placeId (OpenAPI spec).
-                // Единственный надёжный способ — запросить события по каждой локации.
-                //
-                //   placeToLocation  : placeId  -> (locationId, locationName)
-                //   locationIdToName : locationId -> locationName
-                //   eventIdToLocation: eventId  -> locationName  ← главный источник для UI
                 val placeToLocation   = mutableMapOf<Int, Pair<Int, String>>()
                 val locationIdToName  = mutableMapOf<Int, String>()
                 val eventIdToLocation = mutableMapOf<String, String>()
+                // placeId → PlaceDto: для пустых аудиторий (у которых нет ни одного мероприятия)
+                val placeInfoMap = mutableMapOf<Int, com.events.app.data.remote.dto.PlaceDto>()
                 try {
                     val locations = remoteDataSource.getLocations()
                     locations.forEach { loc ->
                         val locName = loc.title?.takeIf { it.isNotBlank() } ?: return@forEach
                         locationIdToName[loc.id] = locName
-
-                        // placeId → локация (для placeStats, если placeId доступен)
                         try {
                             remoteDataSource.getPlacesByLocation(loc.id).forEach { place ->
                                 placeToLocation[place.id] = Pair(loc.id, locName)
+                                placeInfoMap[place.id] = place
                             }
                         } catch (_: Exception) {}
-
-                        // eventId → локация через фильтр API по locationId
-                        // (ShortEventDto не содержит locationId/placeId напрямую)
                         try {
                             var page = 1
                             while (true) {
                                 val chunk = remoteDataSource.getEvents(
-                                    locationId = loc.id, size = 30, page = page
+                                    locationId = loc.id, size = 30, page = page,
+                                    startDateTime = fromDate
                                 )
                                 chunk.forEach { ev -> eventIdToLocation[ev.id] = locName }
                                 if (chunk.size < 30) break
@@ -298,7 +390,16 @@ class StatisticsViewModel @Inject constructor(
                     }
                 } catch (_: Exception) {}
 
-                _stats.value = aggregate(events, analyticsResults, placeToLocation, locationIdToName, eventIdToLocation)
+                // eventsCountDto — сервер не поддерживает фильтр по дате, используем только для ALL
+                val eventsCountForAggregate = if (_selectedPeriod.value == StatPeriod.ALL) eventsCountDto else null
+
+                _stats.value = aggregate(
+                    enrichedEvents, analyticsResults,
+                    placeToLocation, locationIdToName, eventIdToLocation,
+                    eventsCountForAggregate, typesAnalytics, formatsAnalytics,
+                    locationsAnalytics, placesAnalytics, tagsAnalytics,
+                    placeInfoMap
+                )
 
             } catch (e: retrofit2.HttpException) {
                 if (e.code() == 404) _stats.value = emptyStats()
@@ -332,12 +433,20 @@ class StatisticsViewModel @Inject constructor(
         analyticsResults: List<Triple<String, String, com.events.app.data.remote.dto.EventAnalyticDto?>>,
         placeToLocation: Map<Int, Pair<Int, String>> = emptyMap(),
         locationIdToName: Map<Int, String> = emptyMap(),
-        eventIdToLocation: Map<String, String> = emptyMap()
+        eventIdToLocation: Map<String, String> = emptyMap(),
+        eventsCountDto: com.events.app.data.remote.dto.EventsCountAnalyticsDto? = null,
+        typesFromServer: List<com.events.app.data.remote.dto.TypeAnalyticsItemDto> = emptyList(),
+        formatsFromServer: List<com.events.app.data.remote.dto.FormatAnalyticsItemDto> = emptyList(),
+        locationsFromServer: List<com.events.app.data.remote.dto.LocationAnalyticsItemDto> = emptyList(),
+        placesFromServer: List<com.events.app.data.remote.dto.PlaceAnalyticsItemDto> = emptyList(),
+        tagsFromServer: List<com.events.app.data.remote.dto.TagAnalyticsItemDto> = emptyList(),
+        placeInfoMap: Map<Int, com.events.app.data.remote.dto.PlaceDto> = emptyMap()
     ): StatisticsData {
 
-        val total      = events.size
-        val upcoming   = events.count { !it.isFinished }
-        val finished   = events.count { it.isFinished }
+        // Используем серверные счётчики если доступны, иначе считаем локально
+        val total    = eventsCountDto?.totalCount    ?: events.size
+        val upcoming = eventsCountDto?.upcomingCount ?: events.count { !it.isFinished }
+        val finished = eventsCountDto?.finishedCount ?: events.count { it.isFinished }
         val withReg    = events.count { it.needsRegistration }
         val withoutReg = events.count { !it.needsRegistration }
 
@@ -383,15 +492,28 @@ class StatisticsViewModel @Inject constructor(
                 e.timeSeries.sortedBy { it.date }.map { ViewPoint(it.date, it.views) }) }
 
         // ── Диаграммы (Раздел 1 / Обзор) ─────────────────────────
-        val byType = events.groupBy { it.type.ifBlank { "Не указан" } }
-            .entries.mapIndexed { i, (l, list) ->
-                PieSlice(l, list.size, palette[i % palette.size]) }
-            .sortedByDescending { it.count }
+        // Используем серверную аналитику если доступна
+        val byType = if (typesFromServer.isNotEmpty()) {
+            typesFromServer.sortedByDescending { it.count }.mapIndexed { i, dto ->
+                PieSlice(dto.type?.ifBlank { "Не указан" } ?: "Не указан", dto.count, palette[i % palette.size])
+            }
+        } else {
+            events.groupBy { it.type.ifBlank { "Не указан" } }
+                .entries.mapIndexed { i, (l, list) ->
+                    PieSlice(l, list.size, palette[i % palette.size]) }
+                .sortedByDescending { it.count }
+        }
 
-        val byFormat = events.groupBy { it.format.ifBlank { "Не указан" } }
-            .entries.mapIndexed { i, (l, list) ->
-                PieSlice(l, list.size, palette[(i + 3) % palette.size]) }
-            .sortedByDescending { it.count }
+        val byFormat = if (formatsFromServer.isNotEmpty()) {
+            formatsFromServer.sortedByDescending { it.count }.mapIndexed { i, dto ->
+                PieSlice(dto.format?.ifBlank { "Не указан" } ?: "Не указан", dto.count, palette[(i + 3) % palette.size])
+            }
+        } else {
+            events.groupBy { it.format.ifBlank { "Не указан" } }
+                .entries.mapIndexed { i, (l, list) ->
+                    PieSlice(l, list.size, palette[(i + 3) % palette.size]) }
+                .sortedByDescending { it.count }
+        }
 
         val regPie = listOf(
             PieSlice("С регистрацией",  withReg,    0xFF3B5BDB),
@@ -440,25 +562,56 @@ class StatisticsViewModel @Inject constructor(
         // ── Локации (Раздел 3) ────────────────────────────────────
         // Группируем по placeId
         val byPlace = enriched.filter { it.placeId != null }.groupBy { it.placeId!! }
-        val placeStats = byPlace.entries.map { (placeId, items) ->
-            val event = events.find { it.placeId == placeId }
-            val avgFill = items.mapNotNull { it.fillPct?.toFloat() }.let {
-                if (it.isEmpty()) 0f else it.average().toFloat()
+
+        // Статистика по помещениям — используем серверную аналитику если доступна
+        val placeStats = if (placesFromServer.isNotEmpty()) {
+            placesFromServer.sortedByDescending { it.count }.mapIndexed { i, dto ->
+                PlaceStat(
+                    placeId       = i,
+                    locationId    = 0,
+                    placeName     = dto.place?.ifBlank { "Помещение" } ?: "Помещение",
+                    locationName  = dto.location?.ifBlank { "—" } ?: "—",
+                    eventCount    = dto.count,
+                    totalCapacity = 0,
+                    avgFillRate   = 0f,
+                    events        = emptyList()
+                )
             }
-            val locPair = placeToLocation[placeId]
-            PlaceStat(
-                placeId      = placeId,
-                placeName    = event?.placeTitle?.takeIf { it.isNotBlank() }
-                    ?: event?.placeNumber?.let { "№$it" } ?: "Помещение $placeId",
-                locationName = locPair?.second
-                    ?: items.firstOrNull()?.id?.let { eventIdToLocation[it] }
-                    ?: event?.location?.takeIf { it.isNotBlank() } ?: "—",
-                eventCount   = items.size,
-                totalCapacity = event?.placeCapacity ?: 0,
-                avgFillRate  = avgFill,
-                events       = items.map { it.id }
-            )
-        }.sortedByDescending { it.eventCount }
+        } else {
+            byPlace.entries.map { (placeId, items) ->
+                val event = events.find { it.placeId == placeId }
+                val avgFill = items.mapNotNull { it.fillPct?.toFloat() }.let {
+                    if (it.isEmpty()) 0f else it.average().toFloat()
+                }
+                val locPair = placeToLocation[placeId]
+                PlaceStat(
+                    placeId       = placeId,
+                    locationId    = locPair?.first ?: 0,
+                    placeName     = placeInfoMap[placeId]?.let { dto ->
+                        dto.title?.takeIf { it.isNotBlank() } ?: dto.number?.let { "№$it" }
+                    } ?: event?.placeTitle?.takeIf { it.isNotBlank() }
+                        ?: event?.placeNumber?.let { "№$it" } ?: "Помещение $placeId",
+                    locationName  = locPair?.second
+                        ?: items.firstOrNull()?.id?.let { eventIdToLocation[it] }
+                        ?: event?.location?.takeIf { it.isNotBlank() } ?: "—",
+                    eventCount    = items.size,
+                    totalCapacity = placeInfoMap[placeId]?.capacity ?: event?.placeCapacity ?: 0,
+                    avgFillRate   = avgFill,
+                    events        = items.map { it.id }
+                )
+            }.sortedByDescending { it.eventCount }
+        }
+
+        // Аудитории без единого мероприятия за всё время
+        val emptyPlaces = placeInfoMap.entries
+            .filter { (placeId, _) -> !byPlace.containsKey(placeId) }
+            .mapNotNull { (placeId, dto) ->
+                val locPair = placeToLocation[placeId] ?: return@mapNotNull null
+                val name = dto.title?.takeIf { it.isNotBlank() }
+                    ?: dto.number?.let { "№$it" }
+                    ?: "Помещение $placeId"
+                IdlePlace(placeId, locPair.first, name, locPair.second, dto.capacity, null)
+            }
 
         // Конфликты расписания: события в одном помещении, пересекающиеся по времени
         val overlaps = mutableListOf<OverlapPair>()
@@ -483,26 +636,29 @@ class StatisticsViewModel @Inject constructor(
             }
         }
 
-        // ── Пространство: locationStats из placeToLocation карты ─
-        // Группируем мероприятия по локации через placeToLocation (надёжно)
-        // Имя локации для каждого события.
-        // Приоритет: eventIdToLocation (API-фильтр по locationId) > placeToLocation > ev.location
-        val eventsWithLocation = events.map { ev ->
-            val locName = eventIdToLocation[ev.id]
-                ?: ev.placeId?.let { placeToLocation[it]?.second }
-                ?: ev.location.takeIf { it.isNotBlank() }
-                ?: "—"
-            val locId = eventIdToLocation[ev.id]?.let { name ->
-                locationIdToName.entries.firstOrNull { it.value == name }?.key
-            } ?: ev.placeId?.let { placeToLocation[it]?.first } ?: 0
-            Triple(ev, locName, locId)
+        // ── Пространство: locationStats — используем серверную аналитику ─
+        val locationStats = if (locationsFromServer.isNotEmpty()) {
+            locationsFromServer.sortedByDescending { it.count }.mapIndexed { i, dto ->
+                LocationStat(i, dto.title?.ifBlank { "—" } ?: "—", 0, dto.count, palette[i % palette.size])
+            }.filter { it.locationName != "—" }
+        } else {
+            val eventsWithLocation = events.map { ev ->
+                val locName = eventIdToLocation[ev.id]
+                    ?: ev.placeId?.let { placeToLocation[it]?.second }
+                    ?: ev.location.takeIf { it.isNotBlank() }
+                    ?: "—"
+                val locId = eventIdToLocation[ev.id]?.let { name ->
+                    locationIdToName.entries.firstOrNull { it.value == name }?.key
+                } ?: ev.placeId?.let { placeToLocation[it]?.first } ?: 0
+                Triple(ev, locName, locId)
+            }
+            eventsWithLocation.groupBy { (_, locName, _) -> locName }
+                .entries.mapIndexed { i, (loc, evTriples) ->
+                    val locId = evTriples.firstOrNull()?.third ?: i
+                    LocationStat(locId, loc, evTriples.mapNotNull { it.first.placeId }.distinct().size,
+                        evTriples.size, palette[i % palette.size])
+                }.filter { it.locationName != "—" }.sortedByDescending { it.eventCount }
         }
-        val locationMap2 = eventsWithLocation.groupBy { (_, locName, _) -> locName }
-        val locationStats = locationMap2.entries.mapIndexed { i, (loc, evTriples) ->
-            val locId = evTriples.firstOrNull()?.third ?: i
-            LocationStat(locId, loc, evTriples.mapNotNull { it.first.placeId }.distinct().size,
-                evTriples.size, palette[i % palette.size])
-        }.filter { it.locationName != "—" }.sortedByDescending { it.eventCount }
 
         // КПД помещений
         val placeKpd = byPlace.entries.mapNotNull { (placeId, items) ->
@@ -526,11 +682,14 @@ class StatisticsViewModel @Inject constructor(
             val daysSince = lastEventDate?.let {
                 java.time.temporal.ChronoUnit.DAYS.between(it, java.time.LocalDateTime.now()).toInt()
             }
-            val name    = ev.placeTitle?.takeIf { it.isNotBlank() } ?: ev.placeNumber?.let { "№$it" } ?: "Помещение $placeId"
-            val locName = placeToLocation[placeId]?.second
+            val locPair = placeToLocation[placeId]
+            val name    = placeInfoMap[placeId]?.let { dto ->
+                dto.title?.takeIf { it.isNotBlank() } ?: dto.number?.let { "№$it" }
+            } ?: ev.placeTitle?.takeIf { it.isNotBlank() } ?: ev.placeNumber?.let { "№$it" } ?: "Помещение $placeId"
+            val locName = locPair?.second
                 ?: items.firstOrNull()?.id?.let { eventIdToLocation[it] }
                 ?: ev.location.ifBlank { "—" }
-            IdlePlace(placeId, name, locName, ev.placeCapacity ?: 0, daysSince)
+            IdlePlace(placeId, locPair?.first ?: 0, name, locName, placeInfoMap[placeId]?.capacity ?: ev.placeCapacity ?: 0, daysSince)
         }.sortedByDescending { it.daysSinceLastEvent ?: Int.MAX_VALUE }
 
         // ── Нагрузка: параллельные пары ───────────────────────────
@@ -612,6 +771,12 @@ class StatisticsViewModel @Inject constructor(
             PieSlice(tf.type, tf.avgFill.roundToInt(), tf.color)
         }
 
+        // ── Тэги (Раздел 6) ──────────────────────────────────────
+        val tagStats = tagsFromServer
+            .filter { !it.tag.isNullOrBlank() && it.count > 0 }
+            .sortedByDescending { it.count }
+            .map { TagStat(it.tag!!, it.count) }
+
         // ── EventId -> locationName маппинг (для UI-фильтрации) ─────────
         val eventLocationMap: Map<String, String> = events.associate { ev ->
             val locName = eventIdToLocation[ev.id]
@@ -640,7 +805,9 @@ class StatisticsViewModel @Inject constructor(
             redundancyGroups = redundancySorted,
             heatmap = heatmap, byDayOfWeek = byDayOfWeek, byHour = byHour,
             typeFillPie = typeFillPie,
-            eventLocationMap = eventLocationMap
+            tagStats = tagStats,
+            eventLocationMap = eventLocationMap,
+            emptyPlaces = emptyPlaces
         )
     }
 
@@ -663,6 +830,8 @@ class StatisticsViewModel @Inject constructor(
         redundancyGroups = emptyList(),
         heatmap = emptyList(), byDayOfWeek = emptyList(), byHour = emptyList(),
         typeFillPie = emptyList(),
-        eventLocationMap = emptyMap()
+        tagStats = emptyList(),
+        eventLocationMap = emptyMap(),
+        emptyPlaces = emptyList()
     )
 }

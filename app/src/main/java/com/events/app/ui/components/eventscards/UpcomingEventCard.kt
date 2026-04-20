@@ -104,7 +104,7 @@ fun UpcomingEventCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 14.dp),
+                    .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment     = Alignment.CenterVertically
             ) {
@@ -128,6 +128,8 @@ fun UpcomingEventCard(
                     Spacer(Modifier.weight(1f))
                 }
             }
+
+            Spacer(Modifier.height(10.dp))
         }
     }
 }

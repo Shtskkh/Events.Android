@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.events.app.data.remote.dto.ShortEventDto
+import com.events.app.data.remote.dto.TagDto
 import com.events.app.data.remote.dto.UserDto
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -106,6 +108,7 @@ fun AdminScreen(
         when (selectedTab) {
             AdminViewModel.AdminTab.EVENTS -> EventsTab(viewModel, onEventClick)
             AdminViewModel.AdminTab.USERS  -> UsersTab(viewModel)
+            AdminViewModel.AdminTab.TAGS   -> TagsTab(viewModel)
         }
     }
 }
@@ -114,10 +117,12 @@ fun AdminScreen(
 val AdminViewModel.AdminTab.label: String get() = when (this) {
     AdminViewModel.AdminTab.EVENTS -> "Мероприятия"
     AdminViewModel.AdminTab.USERS  -> "Пользователи"
+    AdminViewModel.AdminTab.TAGS   -> "Тэги"
 }
 val AdminViewModel.AdminTab.icon: ImageVector get() = when (this) {
     AdminViewModel.AdminTab.EVENTS -> Icons.Outlined.Event
     AdminViewModel.AdminTab.USERS  -> Icons.Outlined.People
+    AdminViewModel.AdminTab.TAGS   -> Icons.Outlined.Tag
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -134,9 +139,12 @@ private fun EventsTab(
     val listState = rememberLazyListState()
     val scope     = rememberCoroutineScope()
 
+    val tags          by viewModel.tags.collectAsState()
     var searchQuery   by remember { mutableStateOf("") }
     var searchJob     by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var eventToDelete by remember { mutableStateOf<ShortEventDto?>(null) }
+    var tagEventId    by remember { mutableStateOf<String?>(null) }
+    val tagEvent = remember(events, tagEventId) { tagEventId?.let { id -> events.find { it.id == id } } }
 
     val isCloseToEnd by remember {
         derivedStateOf {
@@ -184,9 +192,10 @@ private fun EventsTab(
                 ) {
                     items(events, key = { it.id }) { event ->
                         AdminEventCard(
-                            event    = event,
-                            onClick  = { onEventClick(event.id) },
-                            onDelete = { eventToDelete = event }
+                            event        = event,
+                            onClick      = { onEventClick(event.id) },
+                            onDelete     = { eventToDelete = event },
+                            onManageTags = { tagEventId = event.id }
                         )
                     }
                     if (isLoading) {
@@ -210,13 +219,25 @@ private fun EventsTab(
             onDismiss   = { eventToDelete = null }
         )
     }
+
+    tagEvent?.let { event ->
+        ManageEventTagsDialog(
+            event     = event,
+            allTags   = tags,
+            isLoading = viewModel.isLoading.collectAsState().value,
+            onAddTag  = { tagId -> viewModel.addTagToEvent(event.id, tagId) },
+            onRemoveTag = { tagId -> viewModel.removeTagFromEvent(event.id, tagId) },
+            onDismiss = { tagEventId = null }
+        )
+    }
 }
 
 @Composable
 private fun AdminEventCard(
     event: ShortEventDto,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onManageTags: () -> Unit = {}
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
@@ -253,6 +274,14 @@ private fun AdminEventCard(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
                 modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(4.dp))
+            IconButton(onClick = onManageTags, modifier = Modifier.size(36.dp)) {
+                BadgedBox(badge = {
+                    if (event.tags.isNotEmpty()) Badge { Text("${event.tags.size}") }
+                }) {
+                    Icon(Icons.Outlined.Tag, "Тэги",
+                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                }
+            }
             IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Outlined.DeleteOutline, "Удалить",
                     tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
@@ -393,6 +422,353 @@ private fun AdminUserCard(user: UserDto, onDelete: () -> Unit) {
             IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Outlined.DeleteOutline, "Удалить",
                     tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+            }
+        }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════
+// ТЭГИ
+// ═════════════════════════════════════════════════════════════════
+
+@Composable
+private fun TagsTab(viewModel: AdminViewModel) {
+    val tags       by viewModel.tags.collectAsState()
+    val isLoading  by viewModel.tagsLoading.collectAsState()
+    var searchQuery    by remember { mutableStateOf("") }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var tagToDelete    by remember { mutableStateOf<TagDto?>(null) }
+    val scope = rememberCoroutineScope()
+
+    val filteredTags = remember(tags, searchQuery) {
+        val q = searchQuery.trim()
+        if (q.isBlank()) tags
+        else tags.filter { it.value?.contains(q, ignoreCase = true) == true }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder   = { Text("Поиск тэга...") },
+            leadingIcon   = { Icon(Icons.Outlined.Search, null) },
+            trailingIcon  = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Outlined.Close, null)
+                    }
+                }
+            },
+            singleLine = true,
+            shape    = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            Text(
+                if (searchQuery.isBlank()) "Всего: ${tags.size}"
+                else "Найдено: ${filteredTags.size} из ${tags.size}",
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(
+                onClick = { showCreateDialog = true },
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Создать", fontSize = 14.sp)
+            }
+        }
+
+        Box(modifier = Modifier.weight(1f)) {
+            when {
+                isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                filteredTags.isEmpty() -> EmptyState(
+                    icon = if (searchQuery.isBlank()) Icons.Outlined.Tag else Icons.Outlined.SearchOff,
+                    text = if (searchQuery.isBlank()) "Тэги не найдены" else "Ничего не найдено по запросу «$searchQuery»"
+                )
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filteredTags, key = { it.id }) { tag ->
+                        AdminTagCard(tag, onDelete = { tagToDelete = tag })
+                    }
+                    item { Spacer(Modifier.height(16.dp)) }
+                }
+            }
+        }
+    }
+
+    if (showCreateDialog) {
+        CreateTagDialog(
+            isLoading = viewModel.isLoading.collectAsState().value,
+            onDismiss = { showCreateDialog = false },
+            onConfirm = { name ->
+                viewModel.createTag(name) { showCreateDialog = false }
+            }
+        )
+    }
+
+    tagToDelete?.let { tag ->
+        ConfirmDeleteDialog(
+            title       = "Удалить тэг?",
+            description = "Тэг «${tag.value ?: "#${tag.id}"}» будет удалён. Он исчезнет из всех мероприятий.",
+            onConfirm   = { viewModel.deleteTag(tag.id); tagToDelete = null },
+            onDismiss   = { tagToDelete = null }
+        )
+    }
+}
+
+@Composable
+private fun AdminTagCard(tag: TagDto, onDelete: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.Tag, null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(20.dp))
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "#${tag.value ?: tag.id}",
+                    fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text("ID: ${tag.id}", fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Outlined.DeleteOutline, "Удалить",
+                    tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun CreateTagDialog(
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    val isValid = name.trim().isNotBlank()
+
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        icon  = { Icon(Icons.Outlined.Tag, null, tint = MaterialTheme.colorScheme.primary) },
+        title = { Text("Новый тэг", fontWeight = FontWeight.Bold) },
+        text  = {
+            OutlinedTextField(
+                value         = name,
+                onValueChange = { name = it },
+                label         = { Text("Название тэга") },
+                singleLine    = true,
+                modifier      = Modifier.fillMaxWidth(),
+                shape         = RoundedCornerShape(12.dp),
+                enabled       = !isLoading
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick  = { if (isValid) onConfirm(name.trim()) },
+                enabled  = isValid && !isLoading,
+                shape    = RoundedCornerShape(10.dp)
+            ) {
+                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Создать", fontWeight = FontWeight.SemiBold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, shape = RoundedCornerShape(10.dp),
+                enabled = !isLoading) { Text("Отмена") }
+        }
+    )
+}
+
+// ═════════════════════════════════════════════════════════════════
+// ДИАЛОГ УПРАВЛЕНИЯ ТЭГАМИ МЕРОПРИЯТИЯ
+// ═════════════════════════════════════════════════════════════════
+
+@Composable
+private fun ManageEventTagsDialog(
+    event: ShortEventDto,
+    allTags: List<TagDto>,
+    isLoading: Boolean,
+    onAddTag: (tagId: Int) -> Unit,
+    onRemoveTag: (tagId: Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var tagSearch by remember { mutableStateOf("") }
+
+    val availableTags = remember(allTags, event.tags, tagSearch) {
+        val currentIds = event.tags.map { it.id }.toSet()
+        allTags.filter { tag ->
+            tag.id !in currentIds &&
+                    (tagSearch.isBlank() || tag.value?.contains(tagSearch, ignoreCase = true) == true)
+        }
+    }
+
+    Dialog(onDismissRequest = { if (!isLoading) onDismiss() }) {
+        Surface(
+            shape          = RoundedCornerShape(20.dp),
+            color          = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp)
+            ) {
+                // Заголовок
+                Row(
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(Icons.Outlined.Tag, null,
+                        tint     = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Тэги мероприятия", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                        Text(
+                            event.title ?: event.id,
+                            fontSize = 12.sp,
+                            color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Текущие тэги
+                Text("Текущие тэги", fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp))
+
+                if (event.tags.isEmpty()) {
+                    Text("Нет тэгов", fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
+                        modifier = Modifier.padding(bottom = 8.dp))
+                } else {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    ) {
+                        items(event.tags, key = { it.id }) { tag ->
+                            InputChip(
+                                selected  = false,
+                                onClick   = {},
+                                label     = { Text("#${tag.value ?: tag.id}", fontSize = 13.sp) },
+                                trailingIcon = {
+                                    IconButton(
+                                        onClick  = { onRemoveTag(tag.id) },
+                                        modifier = Modifier.size(18.dp),
+                                        enabled  = !isLoading
+                                    ) {
+                                        Icon(Icons.Outlined.Close, "Убрать",
+                                            modifier = Modifier.size(14.dp))
+                                    }
+                                },
+                                enabled  = !isLoading
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                // Добавить тэг
+                Text("Добавить тэг", fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp))
+
+                OutlinedTextField(
+                    value         = tagSearch,
+                    onValueChange = { tagSearch = it },
+                    placeholder   = { Text("Поиск тэга...") },
+                    leadingIcon   = { Icon(Icons.Outlined.Search, null) },
+                    trailingIcon  = {
+                        if (tagSearch.isNotEmpty()) {
+                            IconButton(onClick = { tagSearch = "" }) {
+                                Icon(Icons.Outlined.Close, null)
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape      = RoundedCornerShape(12.dp),
+                    modifier   = Modifier.fillMaxWidth(),
+                    enabled    = !isLoading
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                if (availableTags.isEmpty()) {
+                    Text(
+                        if (tagSearch.isBlank()) "Все тэги уже добавлены"
+                        else "Ничего не найдено по «$tagSearch»",
+                        fontSize = 13.sp,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                } else {
+                    availableTags.take(8).forEach { tag ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                                .clickable(enabled = !isLoading) { onAddTag(tag.id) },
+                            shape          = RoundedCornerShape(10.dp),
+                            color          = MaterialTheme.colorScheme.surfaceVariant.copy(0.5f)
+                        ) {
+                            Row(
+                                modifier  = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(Icons.Outlined.Tag, null,
+                                    tint     = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp))
+                                Text("#${tag.value ?: tag.id}", fontSize = 14.sp,
+                                    modifier = Modifier.weight(1f))
+                                Icon(Icons.Outlined.Add, null,
+                                    tint     = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                OutlinedButton(
+                    onClick   = onDismiss,
+                    modifier  = Modifier.fillMaxWidth(),
+                    shape     = RoundedCornerShape(12.dp),
+                    enabled   = !isLoading
+                ) { Text("Закрыть") }
             }
         }
     }

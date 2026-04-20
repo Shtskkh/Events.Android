@@ -7,12 +7,19 @@ import com.events.app.data.remote.dto.EventAnalyticDto
 import com.events.app.data.remote.dto.EventDetailDto
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
+import com.events.app.data.remote.dto.EventsCountAnalyticsDto
+import com.events.app.data.remote.dto.FormatAnalyticsItemDto
+import com.events.app.data.remote.dto.LocationAnalyticsItemDto
 import com.events.app.data.remote.dto.LocationDto
 import com.events.app.data.remote.dto.ParticipantDto
+import com.events.app.data.remote.dto.PlaceAnalyticsItemDto
 import com.events.app.data.remote.dto.PlaceAvailabilityDto
 import com.events.app.data.remote.dto.PlaceDto
 import com.events.app.data.remote.dto.PlaceTypeDto
 import com.events.app.data.remote.dto.ShortEventDto
+import com.events.app.data.remote.dto.TagAnalyticsItemDto
+import com.events.app.data.remote.dto.TagDto
+import com.events.app.data.remote.dto.TypeAnalyticsItemDto
 import com.events.app.data.remote.dto.UserDetailDto
 import com.events.app.data.remote.dto.UserDto
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -72,12 +79,18 @@ class RemoteDataSource @Inject constructor(
         locationId: RequestBody? = null,
         placeId: RequestBody? = null,
         placeholder: RequestBody? = null,
-        preview: MultipartBody.Part? = null
-    ): String = api.createEvent(
-        userId, title, announcement, description, startDateTime, endDateTime,
-        eventTypeId, eventFormatId, needsRegistration, maxParticipants,
-        locationId, placeId, placeholder, preview
-    )
+        preview: MultipartBody.Part? = null,
+        tagIds: List<Int> = emptyList()
+    ): String {
+        val tagParts = tagIds.map { id ->
+            MultipartBody.Part.createFormData("TagsIds", id.toString())
+        }
+        return api.createEvent(
+            userId, title, announcement, description, startDateTime, endDateTime,
+            eventTypeId, eventFormatId, needsRegistration, maxParticipants,
+            locationId, placeId, placeholder, preview, tagParts
+        )
+    }
 
     suspend fun updateEvent(
         id: String, title: RequestBody? = null, announcement: RequestBody? = null,
@@ -87,7 +100,34 @@ class RemoteDataSource @Inject constructor(
 
     // ── Analytics ─────────────────────────────────────────────────
 
+    suspend fun getEventsAnalytics(): EventsCountAnalyticsDto = api.getEventsAnalytics()
     suspend fun getEventAnalytics(id: String): EventAnalyticDto = api.getEventAnalytics(id)
+    suspend fun getTagsAnalytics(from: String? = null, to: String? = null, top: Int? = null): List<TagAnalyticsItemDto> =
+        api.getTagsAnalytics(from, to, top)
+    suspend fun getTypesAnalytics(start: String? = null, end: String? = null): List<TypeAnalyticsItemDto> =
+        api.getTypesAnalytics(start, end)
+    suspend fun getFormatsAnalytics(start: String? = null, end: String? = null): List<FormatAnalyticsItemDto> =
+        api.getFormatsAnalytics(start, end)
+    suspend fun getLocationsAnalytics(from: String? = null, to: String? = null): List<LocationAnalyticsItemDto> =
+        api.getLocationsAnalytics(from, to)
+    suspend fun getPlacesAnalytics(from: String? = null, to: String? = null, top: Int? = null): List<PlaceAnalyticsItemDto> =
+        api.getPlacesAnalytics(from, to, top)
+
+    // ── Tags ──────────────────────────────────────────────────────
+
+    suspend fun getTags(titleLike: String? = null, size: Int = 50, page: Int = 1): List<TagDto> =
+        api.getTags(titleLike, size, page)
+
+    suspend fun createTag(name: String): Int {
+        val body = "\"$name\"".toRequestBody("application/json".toMediaTypeOrNull())
+        return api.createTag(body)
+    }
+
+    suspend fun deleteTag(id: Int) = api.deleteTag(id)
+
+    suspend fun addTagToEvent(eventId: String, tagId: Int) = api.addTagToEvent(eventId, tagId)
+
+    suspend fun removeTagFromEvent(eventId: String, tagId: Int) = api.removeTagFromEvent(eventId, tagId)
 
     // ── Participants ──────────────────────────────────────────────
 
@@ -199,6 +239,21 @@ class RemoteDataSource @Inject constructor(
     ): String = api.createUser(firstName, lastName, email, password, patronymic)
 
     suspend fun deleteUser(id: String) = api.deleteUser(id)
+
+    suspend fun updateUser(
+        id: String,
+        firstName: RequestBody? = null,
+        lastName: RequestBody? = null,
+        patronymic: RequestBody? = null,
+        roleId: RequestBody? = null,
+        avatarBytes: ByteArray? = null
+    ) {
+        val avatarPart = avatarBytes?.let {
+            val body = it.toRequestBody("image/*".toMediaTypeOrNull())
+            MultipartBody.Part.createFormData("Avatar", "avatar.jpg", body)
+        }
+        api.updateUser(id, firstName, lastName, patronymic, roleId, avatarPart)
+    }
 
     suspend fun changePassword(userId: String, oldPassword: String, newPassword: String) {
         fun String.toBody() = toRequestBody("text/plain".toMediaTypeOrNull())

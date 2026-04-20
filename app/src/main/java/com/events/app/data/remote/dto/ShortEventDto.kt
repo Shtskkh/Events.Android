@@ -12,5 +12,6 @@ data class ShortEventDto(
     val startDateTime: String,
     val endDateTime: String,
     val previewInfo: PreviewInfoDto?,
-    val userId: String? = null
+    val userId: String? = null,
+    val tags: List<TagDto> = emptyList()
 )

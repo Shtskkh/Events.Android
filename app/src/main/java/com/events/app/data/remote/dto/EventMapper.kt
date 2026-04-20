@@ -2,6 +2,7 @@ package com.events.app.data.remote.dto
 
 import com.events.app.BuildConfig
 import com.events.app.domain.models.events.Event
+import com.events.app.domain.models.events.Tag
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -62,6 +63,7 @@ fun ShortEventDto.toDomain(): Event {
         userId            = userId,
         participantsCount = null,
         viewsCount        = null,
+        tags              = tags.map { Tag(it.id, it.value ?: "") }
     )
 }
 
@@ -88,11 +90,13 @@ fun EventDetailDto.toDomain(): Event {
         isPublic          = isPublic ?: true,
         isFinished        = LocalDateTime.now().isAfter(parsedEnd),
         previewUrl        = buildPreviewUrl(previewInfo),
-        needsRegistration = needsRegistration ?: false,
-        maxParticipants   = maxParticipants,
-        organizerName     = organizerName,
-        userId            = userId,
-        participantsCount = null,
-        viewsCount        = null,
+        needsRegistration        = needsRegistration ?: false,
+        maxParticipants          = maxParticipants,
+        organizerName            = organizerName,
+        userId                   = userId,
+        participantsCount        = null,
+        viewsCount               = null,
+        finalParticipantsCount   = finalParticipantsCount,
+        tags                     = tags.map { Tag(it.id, it.value ?: "") }
     )
 }

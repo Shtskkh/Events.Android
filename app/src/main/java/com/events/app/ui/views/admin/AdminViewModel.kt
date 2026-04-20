@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.events.app.data.RemoteDataSource
 import com.events.app.data.remote.dto.ShortEventDto
+import com.events.app.data.remote.dto.TagDto
 import com.events.app.data.remote.dto.UserDto
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +29,7 @@ class AdminViewModel @Inject constructor(
     private val remoteDataSource: RemoteDataSource
 ) : ViewModel() {
 
-    enum class AdminTab { EVENTS, USERS }
+    enum class AdminTab { EVENTS, USERS, TAGS }
 
     private val _selectedTab = MutableStateFlow(AdminTab.EVENTS)
     val selectedTab = _selectedTab.asStateFlow()
@@ -192,8 +193,108 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // ── ТЭГИ ──────────────────────────────────────────────────────
+
+    private val _tags = MutableStateFlow<List<TagDto>>(emptyList())
+    val tags = _tags.asStateFlow()
+
+    private val _tagsLoading = MutableStateFlow(false)
+    val tagsLoading = _tagsLoading.asStateFlow()
+
+    fun loadTags(query: String? = null) {
+        viewModelScope.launch {
+            _tagsLoading.value = true
+            try {
+                _tags.value = remoteDataSource.getTags(
+                    titleLike = query?.takeIf { it.isNotBlank() },
+                    size = 100
+                )
+            } catch (e: retrofit2.HttpException) {
+                if (e.code() != 404) _error.value = "Ошибка загрузки тэгов: HTTP ${e.code()}"
+                _tags.value = emptyList()
+            } catch (e: Exception) {
+                _tags.value = emptyList()
+            } finally { _tagsLoading.value = false }
+        }
+    }
+
+    fun createTag(name: String, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val newId = remoteDataSource.createTag(name.trim())
+                _tags.value = _tags.value + TagDto(id = newId, value = name.trim())
+                _successMessage.value = "Тэг «${name.trim()}» создан"
+                onDone()
+            } catch (e: retrofit2.HttpException) {
+                _error.value = when (e.code()) {
+                    409  -> "Тэг с таким названием уже существует."
+                    else -> "Ошибка создания: HTTP ${e.code()}"
+                }
+            } catch (e: Exception) {
+                _error.value = "Ошибка: ${e.message}"
+            } finally { _isLoading.value = false }
+        }
+    }
+
+    fun deleteTag(id: Int, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                remoteDataSource.deleteTag(id)
+                _tags.value = _tags.value.filter { it.id != id }
+                _successMessage.value = "Тэг удалён"
+                onDone()
+            } catch (e: Exception) {
+                _error.value = "Ошибка при удалении: ${e.message}"
+            } finally { _isLoading.value = false }
+        }
+    }
+
+    // ── ТЭГИ МЕРОПРИЯТИЙ (добавить / убрать) ─────────────────────
+
+    fun addTagToEvent(eventId: String, tagId: Int) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                remoteDataSource.addTagToEvent(eventId, tagId)
+                val newTag = _tags.value.find { it.id == tagId } ?: return@launch
+                fun patchList(list: List<ShortEventDto>) = list.map { evt ->
+                    if (evt.id == eventId && evt.tags.none { it.id == tagId })
+                        evt.copy(tags = evt.tags + newTag)
+                    else evt
+                }
+                _allEvents.value = patchList(_allEvents.value)
+                _events.value    = patchList(_events.value)
+                _successMessage.value = "Тэг добавлен"
+            } catch (e: Exception) {
+                _error.value = "Ошибка при добавлении тэга"
+            } finally { _isLoading.value = false }
+        }
+    }
+
+    fun removeTagFromEvent(eventId: String, tagId: Int) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                remoteDataSource.removeTagFromEvent(eventId, tagId)
+                fun patchList(list: List<ShortEventDto>) = list.map { evt ->
+                    if (evt.id == eventId) evt.copy(tags = evt.tags.filter { it.id != tagId })
+                    else evt
+                }
+                _allEvents.value = patchList(_allEvents.value)
+                _events.value    = patchList(_events.value)
+                _successMessage.value = "Тэг удалён из мероприятия"
+            } catch (e: Exception) {
+                _error.value = "Ошибка при удалении тэга"
+            } finally { _isLoading.value = false }
+        }
+    }
+
     init {
         loadEvents()
         loadUsers()
+        loadTags()
     }
 }

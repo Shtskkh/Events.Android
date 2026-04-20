@@ -13,6 +13,7 @@ data class EventAnalyticDto(
     val id: String,
     val maxParticipantsCount: Int? = null,
     val participantsCount: Int? = null,
+    val finalParticipantsCount: Int? = null,
     val views: List<ViewsDto> = emptyList(),
     val viewsCount: Int = 0
 )

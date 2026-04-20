@@ -22,4 +22,6 @@ data class EventDetailDto(
     val isPublic: Boolean? = null,
     val organizerName: String? = null,
     val userId: String? = null,
+    val tags: List<TagDto> = emptyList(),
+    val finalParticipantsCount: Int? = null
 )

@@ -69,7 +69,15 @@ class AppViewModel @Inject constructor(
 
     fun saveAvatar(uri: Uri) {
         viewModelScope.launch {
-            authRepository.saveLocalAvatar(uri)
+            val filePath = authRepository.saveLocalAvatar(uri)
+            val userId = authRepository.currentUser.value?.id ?: return@launch
+            try {
+                val bytes = java.io.File(filePath).readBytes()
+                remoteDataSource.updateUser(id = userId, avatarBytes = bytes)
+                _userDetail.value = remoteDataSource.getUserById(userId)
+            } catch (_: Exception) {
+                // Local avatar already saved; server upload failed silently
+            }
         }
     }
 

@@ -12,6 +12,7 @@ import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
 import com.events.app.data.remote.dto.LocationDto
 import com.events.app.data.remote.dto.PlaceDto
+import com.events.app.data.remote.dto.TagDto
 import com.events.app.domain.repositories.auth.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +48,15 @@ class CreateEventViewModel @Inject constructor(
     val selectedFormatId   = MutableStateFlow<Int?>(null)
     val selectedLocationId = MutableStateFlow<Int?>(null)
     val selectedPlaceId    = MutableStateFlow<Int?>(null)
+
+    // ── Тэги ──────────────────────────────────────────────────────
+    private val _availableTags = MutableStateFlow<List<TagDto>>(emptyList())
+    val availableTags = _availableTags.asStateFlow()
+
+    val selectedTagIds = MutableStateFlow<Set<Int>>(emptySet())
+
+    private val _tagSearchQuery = MutableStateFlow("")
+    val tagSearchQuery = _tagSearchQuery.asStateFlow()
 
     // ── Справочники ───────────────────────────────────────────────
     private val _placeholders = MutableStateFlow<List<String>>(emptyList())
@@ -96,10 +106,34 @@ class CreateEventViewModel @Inject constructor(
 
     private fun loadReferenceData() {
         viewModelScope.launch {
-            try { _placeholders.value = remoteDataSource.getPlaceholders() } catch (_: Exception) {}
-            try { _eventTypes.value   = remoteDataSource.getEventTypes()   } catch (_: Exception) {}
-            try { _eventFormats.value = remoteDataSource.getEventFormats() } catch (_: Exception) {}
-            try { _locations.value    = remoteDataSource.getLocations()    } catch (_: Exception) {}
+            try { _placeholders.value   = remoteDataSource.getPlaceholders() } catch (_: Exception) {}
+            try { _eventTypes.value     = remoteDataSource.getEventTypes()   } catch (_: Exception) {}
+            try { _eventFormats.value   = remoteDataSource.getEventFormats() } catch (_: Exception) {}
+            try { _locations.value      = remoteDataSource.getLocations()    } catch (_: Exception) {}
+            try { _availableTags.value  = remoteDataSource.getTags(size = 100) } catch (_: Exception) {}
+        }
+    }
+
+    fun searchTags(query: String) {
+        _tagSearchQuery.value = query
+        viewModelScope.launch {
+            try {
+                _availableTags.value = remoteDataSource.getTags(
+                    titleLike = query.takeIf { it.isNotBlank() },
+                    size = 100
+                )
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun toggleTag(tagId: Int) {
+        val current = selectedTagIds.value
+        selectedTagIds.value = if (tagId in current) {
+            current - tagId
+        } else if (current.size < 5) {
+            current + tagId
+        } else {
+            current // лимит 5 тэгов
         }
     }
 
@@ -209,7 +243,8 @@ class CreateEventViewModel @Inject constructor(
                     locationId        = locationIdBody,
                     placeId           = placeIdBody,
                     placeholder       = placeholderBody,
-                    preview           = previewPart
+                    preview           = previewPart,
+                    tagIds            = selectedTagIds.value.toList()
                 )
 
                 // Кэшируем название локации

@@ -6,12 +6,19 @@ import com.events.app.data.remote.dto.EventAnalyticDto
 import com.events.app.data.remote.dto.EventDetailDto
 import com.events.app.data.remote.dto.EventFormatDto
 import com.events.app.data.remote.dto.EventTypeDto
+import com.events.app.data.remote.dto.EventsCountAnalyticsDto
+import com.events.app.data.remote.dto.FormatAnalyticsItemDto
+import com.events.app.data.remote.dto.LocationAnalyticsItemDto
 import com.events.app.data.remote.dto.LocationDto
 import com.events.app.data.remote.dto.ParticipantDto
+import com.events.app.data.remote.dto.PlaceAnalyticsItemDto
 import com.events.app.data.remote.dto.PlaceAvailabilityDto
 import com.events.app.data.remote.dto.PlaceDto
 import com.events.app.data.remote.dto.PlaceTypeDto
 import com.events.app.data.remote.dto.ShortEventDto
+import com.events.app.data.remote.dto.TagAnalyticsItemDto
+import com.events.app.data.remote.dto.TagDto
+import com.events.app.data.remote.dto.TypeAnalyticsItemDto
 import com.events.app.data.remote.dto.UserDetailDto
 import com.events.app.data.remote.dto.UserDto
 import okhttp3.MultipartBody
@@ -72,7 +79,8 @@ interface EventsApi {
         @Part("LocationId")        locationId: RequestBody? = null,
         @Part("PlaceId")           placeId: RequestBody? = null,
         @Part("Placeholder")       placeholder: RequestBody? = null,
-        @Part                      preview: MultipartBody.Part? = null
+        @Part                      preview: MultipartBody.Part? = null,
+        @Part                      tagIds: List<MultipartBody.Part> = emptyList()
     ): String
 
     @Multipart
@@ -88,8 +96,70 @@ interface EventsApi {
 
     // ── Analytics ─────────────────────────────────────────────────
 
+    @GET("api/v/1/events/analytics")
+    suspend fun getEventsAnalytics(): EventsCountAnalyticsDto
+
     @GET("api/v/1/events/{id}/analytics")
     suspend fun getEventAnalytics(@Path("id") id: String): EventAnalyticDto
+
+    @GET("api/v/1/events/tags/analytics")
+    suspend fun getTagsAnalytics(
+        @Query("from") from: String? = null,
+        @Query("to")   to: String? = null,
+        @Query("top")  top: Int? = null
+    ): List<TagAnalyticsItemDto>
+
+    @GET("api/v/1/events/types/analytics")
+    suspend fun getTypesAnalytics(
+        @Query("start") start: String? = null,
+        @Query("end")   end: String? = null
+    ): List<TypeAnalyticsItemDto>
+
+    @GET("api/v/1/events/formats/analytics")
+    suspend fun getFormatsAnalytics(
+        @Query("start") start: String? = null,
+        @Query("end")   end: String? = null
+    ): List<FormatAnalyticsItemDto>
+
+    @GET("api/v/1/events/locations/analytics")
+    suspend fun getLocationsAnalytics(
+        @Query("from") from: String? = null,
+        @Query("to")   to: String? = null
+    ): List<LocationAnalyticsItemDto>
+
+    @GET("api/v/1/events/places/analytics")
+    suspend fun getPlacesAnalytics(
+        @Query("from") from: String? = null,
+        @Query("to")   to: String? = null,
+        @Query("top")  top: Int? = null
+    ): List<PlaceAnalyticsItemDto>
+
+    // ── Tags ──────────────────────────────────────────────────────
+
+    @GET("api/v/1/tags")
+    suspend fun getTags(
+        @Query("TitleLike") titleLike: String? = null,
+        @Query("Size")      size: Int = 50,
+        @Query("Page")      page: Int = 1
+    ): List<TagDto>
+
+    @POST("api/v/1/tags")
+    suspend fun createTag(@Body name: RequestBody): Int
+
+    @DELETE("api/v/1/tags/{id}")
+    suspend fun deleteTag(@Path("id") id: Int)
+
+    @POST("api/v/1/events/{eventId}/tags/{tagId}")
+    suspend fun addTagToEvent(
+        @Path("eventId") eventId: String,
+        @Path("tagId")   tagId: Int
+    )
+
+    @DELETE("api/v/1/events/{eventId}/tags/{tagId}")
+    suspend fun removeTagFromEvent(
+        @Path("eventId") eventId: String,
+        @Path("tagId")   tagId: Int
+    )
 
     // ── Participants ──────────────────────────────────────────────
 
@@ -235,6 +305,17 @@ interface EventsApi {
 
     @DELETE("api/v/1/users/{id}")
     suspend fun deleteUser(@Path("id") id: String)
+
+    @Multipart
+    @PATCH("api/v/1/users/{id}")
+    suspend fun updateUser(
+        @Path("id")         id: String,
+        @Part("FirstName")  firstName: RequestBody? = null,
+        @Part("LastName")   lastName: RequestBody? = null,
+        @Part("Patronymic") patronymic: RequestBody? = null,
+        @Part("RoleId")     roleId: RequestBody? = null,
+        @Part              avatar: MultipartBody.Part? = null
+    )
 
     @Multipart
     @PATCH("api/v/1/users/{id}/password")

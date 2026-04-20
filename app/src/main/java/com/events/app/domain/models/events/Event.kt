@@ -2,6 +2,8 @@ package com.events.app.domain.models.events
 
 import java.time.LocalDateTime
 
+data class Tag(val id: Int, val value: String)
+
 data class Event(
     val id: String,
     val title: String,
@@ -29,4 +31,6 @@ data class Event(
     val userId: String? = null,
     val participantsCount: Int? = null,
     val viewsCount: Int? = null,
+    val finalParticipantsCount: Int? = null,
+    val tags: List<Tag> = emptyList()
 )

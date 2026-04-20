@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,8 +48,8 @@ private val ColorOrange = Color(0xFFFF6B35)
 private val MultiLineColors = listOf(ColorCyan, ColorGreen, ColorOrange)
 
 private enum class StatTab(val label: String, val icon: ImageVector) {
-    OVERVIEW ("Обзор",          Icons.Outlined.Dashboard),
-    TYPES    ("Типы",           Icons.Outlined.Category),
+    OVERVIEW ("Обзор",   Icons.Outlined.Dashboard),
+    TYPES    ("Типы",    Icons.Outlined.Category),
     PLAN     ("Локации", Icons.Outlined.Map)
 }
 
@@ -70,11 +71,18 @@ fun StatisticsScreen(
     val allEvents            by viewModel.allEvents.collectAsState()
     val selectedConversion   by viewModel.selectedEventConversion.collectAsState()
     val conversionLoading    by viewModel.conversionLoading.collectAsState()
+    val selectedPeriod       by viewModel.selectedPeriod.collectAsState()
+    val placeEquipment       by viewModel.placeEquipment.collectAsState()
+    val equipmentLoading     by viewModel.equipmentLoading.collectAsState()
+
+    // selectedTab живёт здесь — переживает перезагрузку данных
+    var selectedTab by remember { mutableStateOf(StatTab.OVERVIEW) }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when {
-            isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            error != null -> Column(
+            // Спиннер только при первом запуске (нет данных вообще)
+            isLoading && stats == null -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            error != null && stats == null -> Column(
                 modifier = Modifier.align(Alignment.Center).padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -89,7 +97,7 @@ fun StatisticsScreen(
                     Spacer(Modifier.width(8.dp)); Text("Повторить")
                 }
             }
-            stats != null && stats!!.total == 0 -> Column(
+            stats != null && stats!!.total == 0 && !isLoading -> Column(
                 modifier = Modifier.align(Alignment.Center).padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -104,9 +112,18 @@ fun StatisticsScreen(
                 allEvents          = allEvents,
                 selectedConversion = selectedConversion,
                 conversionLoading  = conversionLoading,
+                selectedPeriod     = selectedPeriod,
+                selectedTab        = selectedTab,
+                onTabChange        = { selectedTab = it },
+                onPeriodChange     = { viewModel.selectPeriod(it) },
                 onEventClick       = onEventClick,
                 onSelectEvent      = { viewModel.loadEventConversion(it) },
-                onClearEvent       = { viewModel.clearEventConversion() }
+                onClearEvent       = { viewModel.clearEventConversion() },
+                isRefreshing       = isLoading,
+                placeEquipment     = placeEquipment,
+                equipmentLoading   = equipmentLoading,
+                onLoadEquipment    = { viewModel.loadEquipmentForPlace(it) },
+                onClearEquipment   = { viewModel.clearPlaceEquipment() }
             )
         }
     }
@@ -122,12 +139,19 @@ private fun StatisticsContent(
     allEvents: List<com.events.app.domain.models.events.Event>,
     selectedConversion: EventConversion?,
     conversionLoading: Boolean,
+    selectedPeriod: StatPeriod,
+    selectedTab: StatTab,
+    onTabChange: (StatTab) -> Unit,
+    onPeriodChange: (StatPeriod) -> Unit,
     onEventClick: (String) -> Unit,
     onSelectEvent: (String) -> Unit,
-    onClearEvent: () -> Unit
+    onClearEvent: () -> Unit,
+    isRefreshing: Boolean = false,
+    placeEquipment: List<com.events.app.data.remote.dto.EquipmentDto> = emptyList(),
+    equipmentLoading: Boolean = false,
+    onLoadEquipment: (Int) -> Unit = {},
+    onClearEquipment: () -> Unit = {}
 ) {
-    var selectedTab by remember { mutableStateOf(StatTab.OVERVIEW) }
-
     Column(modifier = Modifier.fillMaxSize()) {
         // ── Вкладки ───────────────────────────────────────────────
         TabRow(
@@ -139,11 +163,36 @@ private fun StatisticsContent(
             StatTab.entries.forEach { tab ->
                 Tab(
                     selected = selectedTab == tab,
-                    onClick  = { selectedTab = tab },
+                    onClick  = { onTabChange(tab) },
                     icon = { Icon(tab.icon, null, modifier = Modifier.size(15.dp)) },
                     text = { Text(tab.label, fontSize = 11.sp, maxLines = 1) }
                 )
             }
+        }
+
+        // ── Фильтр периода ────────────────────────────────────────
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            StatPeriod.entries.forEach { period ->
+                FilterChip(
+                    selected = selectedPeriod == period,
+                    onClick  = { onPeriodChange(period) },
+                    label    = { Text(period.label, fontSize = 12.sp) },
+                    modifier = Modifier.height(32.dp)
+                )
+            }
+        }
+
+        // ── Тонкая полоска загрузки при обновлении периода ───────
+        if (isRefreshing) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        } else {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(0.1f))
         }
 
         // ── Содержимое вкладки ────────────────────────────────────
@@ -160,12 +209,19 @@ private fun StatisticsContent(
                     allEvents          = allEvents,
                     selectedConversion = selectedConversion,
                     conversionLoading  = conversionLoading,
+                    selectedPeriod     = selectedPeriod,
                     onEventClick       = onEventClick,
                     onSelectEvent      = onSelectEvent,
                     onClearEvent       = onClearEvent
                 )
-                StatTab.TYPES -> TypesTab(allEvents)
-                StatTab.PLAN  -> LocationTimeTab(stats, allEvents, onEventClick)
+                StatTab.TYPES -> TypesTab(allEvents, stats)
+                StatTab.PLAN  -> LocationTimeTab(
+                    stats, allEvents, onEventClick,
+                    placeEquipment   = placeEquipment,
+                    equipmentLoading = equipmentLoading,
+                    onLoadEquipment  = onLoadEquipment,
+                    onClearEquipment = onClearEquipment
+                )
             }
             Spacer(Modifier.height(32.dp))
         }
@@ -182,6 +238,7 @@ private fun OverviewTab(
     allEvents: List<com.events.app.domain.models.events.Event>,
     selectedConversion: EventConversion?,
     conversionLoading: Boolean,
+    selectedPeriod: StatPeriod,
     onEventClick: (String) -> Unit,
     onSelectEvent: (String) -> Unit,
     onClearEvent: () -> Unit
@@ -198,7 +255,7 @@ private fun OverviewTab(
     Spacer(Modifier.height(14.dp))
 
     // ── 2. Регистрация по месяцам ────────────────────────────────────
-    RegistrationByMonthCard(allEvents)
+    RegistrationByMonthCard(allEvents, selectedPeriod)
     Spacer(Modifier.height(14.dp))
 
     // ── 3. Конверсия просмотры → регистрации ────────────────────────
@@ -217,24 +274,24 @@ private fun OverviewTab(
 // ═══════════════════════════════════════════════════════════════════
 // Карточка: регистрация по месяцам
 // ═══════════════════════════════════════════════════════════════════
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RegistrationByMonthCard(
-    allEvents: List<com.events.app.domain.models.events.Event>
+    allEvents: List<com.events.app.domain.models.events.Event>,
+    selectedPeriod: StatPeriod
 ) {
-    var periodMonths by remember { mutableIntStateOf(3) }
-
     val monthNames = listOf("", "Янв", "Фев", "Мар", "Апр", "Май", "Июн",
                             "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек")
 
-    // Triple: метка / кол-во с регистрацией / кол-во без регистрации
-    val data: List<Triple<String, Int, Int>> = remember(allEvents, periodMonths) {
-        val cutoff = if (periodMonths == 1)
-            java.time.LocalDate.now().withDayOfMonth(1).atStartOfDay()
-        else
-            java.time.LocalDate.now().minusMonths(periodMonths.toLong()).withDayOfMonth(1).atStartOfDay()
-        allEvents
-            .filter { !it.startDate.isBefore(cutoff) }
+    val data: List<Triple<String, Int, Int>> = remember(allEvents, selectedPeriod) {
+        val cutoff: java.time.LocalDateTime? = when (selectedPeriod) {
+            StatPeriod.MONTH_1  -> java.time.LocalDate.now().minusMonths(1).withDayOfMonth(1).atStartOfDay()
+            StatPeriod.MONTHS_3 -> java.time.LocalDate.now().minusMonths(3).withDayOfMonth(1).atStartOfDay()
+            StatPeriod.MONTHS_6 -> java.time.LocalDate.now().minusMonths(6).withDayOfMonth(1).atStartOfDay()
+            StatPeriod.YEAR     -> java.time.LocalDate.now().minusYears(1).withDayOfMonth(1).atStartOfDay()
+            StatPeriod.ALL      -> null
+        }
+        val filtered = if (cutoff != null) allEvents.filter { !it.startDate.isBefore(cutoff) } else allEvents
+        filtered
             .groupBy { it.startDate.toLocalDate().withDayOfMonth(1) }
             .entries
             .sortedBy { it.key }
@@ -245,19 +302,6 @@ private fun RegistrationByMonthCard(
     }
 
     DashCard("Регистрация по месяцам", Icons.Outlined.HowToReg, ColorBlue) {
-        // Выбор периода
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(1 to "Месяц", 3 to "3 мес.", 6 to "6 мес.", 12 to "1 год").forEach { (m, label) ->
-                FilterChip(
-                    selected = periodMonths == m,
-                    onClick  = { periodMonths = m },
-                    label    = { Text(label, fontSize = 12.sp) },
-                    modifier = Modifier.height(32.dp)
-                )
-            }
-        }
-        Spacer(Modifier.height(14.dp))
-
         if (data.isEmpty()) {
             Text(
                 "Нет мероприятий за выбранный период",
@@ -265,11 +309,13 @@ private fun RegistrationByMonthCard(
                 color    = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
+            val totalWithReg    = data.sumOf { it.second }
+            val totalWithoutReg = data.sumOf { it.third }
             RegMonthBarChart(data)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                LegendDot(ColorBlue, "С регистрацией",    0)
-                LegendDot(ColorGray, "Без регистрации",   0)
+                LegendDot(ColorBlue, "С регистрацией",  totalWithReg)
+                LegendDot(ColorTeal, "Без регистрации", totalWithoutReg)
             }
         }
     }
@@ -279,56 +325,63 @@ private fun RegistrationByMonthCard(
 private fun RegMonthBarChart(data: List<Triple<String, Int, Int>>) {
     val maxVal = data.maxOfOrNull { maxOf(it.second, it.third) }
         ?.coerceAtLeast(1)?.toFloat() ?: 1f
-    val surfVar = MaterialTheme.colorScheme.surfaceVariant
 
-    Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
-        val groupW = size.width / data.size
-        val barW   = (groupW * 0.28f).coerceAtLeast(4.dp.toPx())
-        val gap    = groupW * 0.06f
+    val animProgress = remember { Animatable(0f) }
+    LaunchedEffect(data) {
+        animProgress.snapTo(0f)
+        animProgress.animateTo(1f, tween(600))
+    }
+    val progress = animProgress.value
+
+    val surfVar    = MaterialTheme.colorScheme.surfaceVariant
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Canvas(modifier = Modifier.fillMaxWidth().height(160.dp)) {
+        val labelAreaH = 20.dp.toPx()
+        val chartH     = size.height - labelAreaH
+        val groupW     = size.width / data.size
+        val barW       = (groupW * 0.30f).coerceIn(5.dp.toPx(), 22.dp.toPx())
+        val gap        = 2.5.dp.toPx()
+        val cornerR    = CornerRadius(4.dp.toPx())
 
         // Сетка
-        for (i in 1..3) {
-            val y = size.height * (1f - i / 4f)
-            drawLine(surfVar, Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
+        repeat(3) { i ->
+            val y = chartH * (1f - (i + 1) / 4f)
+            drawLine(surfVar, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
         }
 
-        data.forEachIndexed { idx, (_, withReg, withoutReg) ->
+        val labelPaint = android.graphics.Paint().apply {
+            textAlign = android.graphics.Paint.Align.CENTER
+            textSize  = 9.sp.toPx()
+            color     = labelColor.toArgb()
+            isAntiAlias = true
+        }
+
+        data.forEachIndexed { idx, (label, withReg, withoutReg) ->
             val cx = idx * groupW + groupW / 2f
 
             // Бар "с регистрацией"
-            val h1 = (withReg / maxVal * size.height)
+            val h1 = (withReg / maxVal * chartH * progress)
                 .coerceAtLeast(if (withReg > 0) 4.dp.toPx() else 0f)
             if (h1 > 0f) drawRoundRect(
-                color        = Color(0xFF3B5BDB),
-                topLeft      = Offset(cx - barW - gap / 2f, size.height - h1),
+                color        = ColorBlue,
+                topLeft      = Offset(cx - barW - gap / 2f, chartH - h1),
                 size         = Size(barW, h1),
-                cornerRadius = CornerRadius(3.dp.toPx())
+                cornerRadius = cornerR
             )
 
             // Бар "без регистрации"
-            val h2 = (withoutReg / maxVal * size.height)
+            val h2 = (withoutReg / maxVal * chartH * progress)
                 .coerceAtLeast(if (withoutReg > 0) 4.dp.toPx() else 0f)
             if (h2 > 0f) drawRoundRect(
-                color        = Color(0xFF9E9E9E).copy(alpha = 0.55f),
-                topLeft      = Offset(cx + gap / 2f, size.height - h2),
+                color        = ColorTeal,
+                topLeft      = Offset(cx + gap / 2f, chartH - h2),
                 size         = Size(barW, h2),
-                cornerRadius = CornerRadius(3.dp.toPx())
+                cornerRadius = cornerR
             )
-        }
-    }
 
-    // Метки месяцев
-    Row(modifier = Modifier.fillMaxWidth()) {
-        data.forEach { (label, _, _) ->
-            Text(
-                label,
-                modifier  = Modifier.weight(1f),
-                fontSize  = 9.sp,
-                textAlign = TextAlign.Center,
-                color     = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines  = 1,
-                overflow  = TextOverflow.Ellipsis
-            )
+            // Метка месяца — нарисована внутри Canvas, выравнивание гарантировано
+            drawContext.canvas.nativeCanvas.drawText(label, cx, size.height, labelPaint)
         }
     }
 }
@@ -336,54 +389,14 @@ private fun RegMonthBarChart(data: List<Triple<String, Int, Int>>) {
 // ═══════════════════════════════════════════════════════════════════
 // Вкладка 2: По типам
 // ═══════════════════════════════════════════════════════════════════
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TypesTab(
-    allEvents: List<com.events.app.domain.models.events.Event>
+    allEvents: List<com.events.app.domain.models.events.Event>,
+    stats: StatisticsData
 ) {
-    var periodMonths by remember { mutableIntStateOf(3) }
-
-    val filtered = remember(allEvents, periodMonths) {
-        when (periodMonths) {
-            0    -> allEvents
-            1    -> {
-                val cutoff = java.time.LocalDate.now().withDayOfMonth(1).atStartOfDay()
-                allEvents.filter { !it.startDate.isBefore(cutoff) }
-            }
-            else -> {
-                val cutoff = java.time.LocalDate.now()
-                    .minusMonths(periodMonths.toLong()).withDayOfMonth(1).atStartOfDay()
-                allEvents.filter { !it.startDate.isBefore(cutoff) }
-            }
-        }
-    }
-
-    val byType: List<PieSlice> = remember(filtered) {
-        filtered.groupBy { it.type.ifBlank { "Не указан" } }
-            .entries.mapIndexed { i, (label, list) ->
-                PieSlice(label, list.size, ScreenPalette[i % ScreenPalette.size])
-            }.sortedByDescending { it.count }
-    }
-
-    val byFormat: List<PieSlice> = remember(filtered) {
-        filtered.groupBy { it.format.ifBlank { "Не указан" } }
-            .entries.mapIndexed { i, (label, list) ->
-                PieSlice(label, list.size, ScreenPalette[(i + 3) % ScreenPalette.size])
-            }.sortedByDescending { it.count }
-    }
-
-    // ── Выбор периода (общий для обоих пирогов) ───────────────────────
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf(1 to "Месяц", 3 to "3 мес.", 6 to "6 мес.", 12 to "1 год", 0 to "Всё").forEach { (m, label) ->
-            FilterChip(
-                selected = periodMonths == m,
-                onClick  = { periodMonths = m },
-                label    = { Text(label, fontSize = 12.sp) },
-                modifier = Modifier.height(32.dp)
-            )
-        }
-    }
-    Spacer(Modifier.height(14.dp))
+    // Используем серверную аналитику — она уже отфильтрована по периоду
+    val byType: List<PieSlice>   = stats.byType
+    val byFormat: List<PieSlice> = stats.byFormat
 
     // ── Типы ─────────────────────────────────────────────────────────
     if (byType.isNotEmpty()) {
@@ -401,73 +414,10 @@ private fun TypesTab(
         Spacer(Modifier.height(14.dp))
     }
 
-    // ── Избыточность типов — только текущая неделя ────────────────────
-    CurrentWeekRedundancy(allEvents)
-}
-
-@Composable
-private fun CurrentWeekRedundancy(
-    allEvents: List<com.events.app.domain.models.events.Event>
-) {
-    val weekGroups = remember(allEvents) {
-        val today     = java.time.LocalDate.now()
-        val dow       = today.dayOfWeek.value          // 1=Пн … 7=Вс
-        val weekStart = today.minusDays((dow - 1).toLong())
-        val weekEnd   = weekStart.plusDays(6)
-        allEvents
-            .filter {
-                val d = it.startDate.toLocalDate()
-                !d.isBefore(weekStart) && !d.isAfter(weekEnd)
-            }
-            .groupBy { it.type.ifBlank { "Не указан" } }
-            .filter { (_, evs) -> evs.size >= 2 }
-            .entries
-            .sortedByDescending { it.value.size }
-    }
-
-    DashCard("Избыточность типов · эта неделя", Icons.Outlined.ContentCopy, ColorAmber) {
-        Text(
-            "Типы с 2+ мероприятиями на текущей неделе",
-            fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(10.dp))
-        if (weekGroups.isEmpty()) {
-            InsightText("✅ Избыточности не обнаружено")
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                weekGroups.forEach { (type, evs) ->
-                    Surface(
-                        shape    = RoundedCornerShape(10.dp),
-                        color    = ColorAmber.copy(0.07f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier              = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment     = Alignment.CenterVertically
-                            ) {
-                                Text(type, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.weight(1f), maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis)
-                                Surface(shape = RoundedCornerShape(8.dp), color = ColorAmber.copy(0.18f)) {
-                                    Text("${evs.size}×",
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                        fontSize = 11.sp, fontWeight = FontWeight.Bold, color = ColorAmber)
-                                }
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                evs.joinToString(" · ") { it.title.take(20) },
-                                fontSize = 10.sp,
-                                color    = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2, overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-            }
-        }
+    // ── Тэги ─────────────────────────────────────────────────────────
+    if (stats.tagStats.isNotEmpty()) {
+        Spacer(Modifier.height(14.dp))
+        TagAnalyticsCard(stats.tagStats)
     }
 }
 
@@ -478,9 +428,13 @@ private fun CurrentWeekRedundancy(
 private fun LocationTimeTab(
     stats: StatisticsData,
     allEvents: List<com.events.app.domain.models.events.Event>,
-    onEventClick: (String) -> Unit
+    onEventClick: (String) -> Unit,
+    placeEquipment: List<com.events.app.data.remote.dto.EquipmentDto> = emptyList(),
+    equipmentLoading: Boolean = false,
+    onLoadEquipment: (Int) -> Unit = {},
+    onClearEquipment: () -> Unit = {}
 ) {
-    LocationsTab(stats, allEvents, onEventClick)
+    LocationsTab(stats, allEvents, onEventClick, placeEquipment, equipmentLoading, onLoadEquipment, onClearEquipment)
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -491,8 +445,27 @@ private fun LocationTimeTab(
 private fun LocationsTab(
     stats: StatisticsData,
     allEvents: List<com.events.app.domain.models.events.Event>,
-    onEventClick: (String) -> Unit
+    onEventClick: (String) -> Unit,
+    placeEquipment: List<com.events.app.data.remote.dto.EquipmentDto> = emptyList(),
+    equipmentLoading: Boolean = false,
+    onLoadEquipment: (Int) -> Unit = {},
+    onClearEquipment: () -> Unit = {}
 ) {
+    // Выбранное помещение для показа деталей
+    var selectedPlace by remember { mutableStateOf<PlaceForDetail?>(null) }
+    if (selectedPlace != null) {
+        val p = selectedPlace!!
+        PlaceDetailSheet(
+            placeName    = p.name,
+            locationName = p.locationName,
+            capacity     = p.capacity,
+            eventCount   = p.eventCount,
+            equipment    = placeEquipment,
+            isLoading    = equipmentLoading,
+            onDismiss    = { selectedPlace = null; onClearEquipment() }
+        )
+        LaunchedEffect(p.placeId) { onLoadEquipment(p.placeId) }
+    }
     val allLocations = remember(stats.locationStats) {
         listOf("Все") + stats.locationStats
             .map { it.locationName }
@@ -507,14 +480,7 @@ private fun LocationsTab(
         else allEvents.filter { stats.eventLocationMap[it.id] == selectedLocation }
     }
 
-    // ── Мероприятия текущей недели (Пн–Вс) ───────────────────────────
-    val weekEvents = remember(locEvents) {
-        val today     = java.time.LocalDate.now()
-        val dow       = today.dayOfWeek.value
-        val weekStart = today.minusDays((dow - 1).toLong()).atStartOfDay()
-        val weekEnd   = weekStart.plusDays(7)
-        locEvents.filter { !it.startDate.isBefore(weekStart) && it.startDate.isBefore(weekEnd) }
-    }
+
 
     // ── Локации с количеством мероприятий (для топ/антитоп) ──────────
     val filteredLocStats = remember(stats.locationStats, selectedLocation) {
@@ -573,27 +539,25 @@ private fun LocationsTab(
             (if (selectedLocation == "Все") stats.placeStats
             else stats.placeStats.filter { it.locationName == selectedLocation })
                 .sortedByDescending { it.eventCount }.take(3)
-                .map { ps -> Triple(ps.placeName, ps.locationName, ps.eventCount) }
-        } else {
-            filteredLocStats.sortedByDescending { it.eventCount }.take(3)
-                .map { ls -> Triple(ls.locationName, "${ls.placeCount} помещений", ls.eventCount) }
-        }
+        } else emptyList()
     }
     DashCard("Топ-3 загруженных", Icons.Outlined.Whatshot, ColorRed) {
         if (busiest.isEmpty()) {
             InsightText("Нет данных")
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                busiest.forEachIndexed { i, (name, sub, count) ->
+                busiest.forEachIndexed { i, ps ->
                     val (medal, rankColor) = when (i) {
                         0    -> "🥇" to ColorRed
                         1    -> "🥈" to ColorAmber
                         else -> "🥉" to ColorGreen
                     }
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = rankColor.copy(0.07f),
-                        modifier = Modifier.fillMaxWidth()
+                        shape    = RoundedCornerShape(12.dp),
+                        color    = rankColor.copy(0.07f),
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            selectedPlace = PlaceForDetail(ps.placeId, ps.placeName, ps.locationName, ps.totalCapacity, ps.eventCount)
+                        }
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
@@ -605,13 +569,13 @@ private fun LocationsTab(
                                 contentAlignment = Alignment.Center
                             ) { Text(medal, fontSize = 18.sp) }
                             Column(Modifier.weight(1f)) {
-                                Text(name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                Text(ps.placeName, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(sub, fontSize = 11.sp,
+                                Text(ps.locationName, fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            Text("$count", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
+                            Text("${ps.eventCount}", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
                                 color = rankColor)
                         }
                     }
@@ -621,52 +585,44 @@ private fun LocationsTab(
     }
     Spacer(Modifier.height(14.dp))
 
-    // ── 3. Топ-3 незагруженных ────────────────────────────────────────
-    val leastBusy = remember(stats.placeStats, filteredLocStats, selectedLocation) {
-        if (stats.placeStats.isNotEmpty()) {
-            (if (selectedLocation == "Все") stats.placeStats
-            else stats.placeStats.filter { it.locationName == selectedLocation })
-                .filter { it.eventCount > 0 }
-                .sortedBy { it.eventCount }.take(3)
-                .map { ps -> Triple(ps.placeName, ps.locationName, ps.eventCount) }
-        } else {
-            filteredLocStats.filter { it.eventCount > 0 }
-                .sortedBy { it.eventCount }.take(3)
-                .map { ls -> Triple(ls.locationName, "${ls.placeCount} помещений", ls.eventCount) }
-        }
+    // ── 3. Пустые аудитории (0 мероприятий за всё время) ──────────────
+    val emptyPlaces = remember(stats.emptyPlaces, selectedLocation) {
+        (if (selectedLocation == "Все") stats.emptyPlaces
+        else stats.emptyPlaces.filter { it.locationName == selectedLocation })
+            .take(5)
     }
-    DashCard("Топ-3 незагруженных", Icons.Outlined.EventAvailable, ColorTeal) {
-        if (leastBusy.isEmpty()) {
-            InsightText("Нет данных")
+    DashCard("Пустые аудитории", Icons.Outlined.MeetingRoom, ColorGray) {
+        if (emptyPlaces.isEmpty()) {
+            InsightText("✅ Все помещения задействованы")
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                leastBusy.forEachIndexed { i, (name, sub, count) ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                emptyPlaces.forEach { ip ->
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = ColorTeal.copy(0.06f),
-                        modifier = Modifier.fillMaxWidth()
+                        shape    = RoundedCornerShape(12.dp),
+                        color    = MaterialTheme.colorScheme.surfaceVariant.copy(0.5f),
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            selectedPlace = PlaceForDetail(ip.placeId, ip.placeName, ip.locationName, ip.capacity, 0)
+                        }
                     ) {
                         Row(
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Box(
-                                Modifier.size(40.dp).background(ColorTeal.copy(0.15f), RoundedCornerShape(10.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("${i + 1}", fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold, color = ColorTeal)
-                            }
+                            Icon(Icons.Outlined.MeetingRoom, null,
+                                tint = ColorGray, modifier = Modifier.size(20.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                Text(ip.placeName, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(sub, fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(ip.locationName, fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text("$count", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
-                                color = ColorTeal)
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("${ip.capacity}", fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface)
+                                Text("мест", fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
@@ -675,14 +631,14 @@ private fun LocationsTab(
     }
     Spacer(Modifier.height(14.dp))
 
-    // ── 4. Конкуренция за аудиторию — эта неделя ─────────────────────
-    val competition = remember(weekEvents) {
-        weekEvents.groupBy { it.type.ifBlank { "Не указан" } }
+    // ── 4. Конкуренция за аудиторию — весь период ────────────────────
+    val competition = remember(locEvents) {
+        locEvents.groupBy { it.type.ifBlank { "Не указан" } }
             .filter { (_, evs) -> evs.size >= 2 }
             .entries.sortedByDescending { it.value.size }
     }
-    DashCard("Конкуренция за аудиторию · эта неделя", Icons.Outlined.CompareArrows, ColorViolet) {
-        Text("Мероприятия одного типа на одной неделе размывают аудиторию",
+    DashCard("Конкуренция за аудиторию", Icons.Outlined.CompareArrows, ColorViolet) {
+        Text("Мероприятия одного типа в выбранной локации",
             fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
         if (competition.isEmpty()) {
@@ -718,20 +674,20 @@ private fun LocationsTab(
     }
     Spacer(Modifier.height(14.dp))
 
-    // ── 5. Тепловая карта плотности — текущая неделя ─────────────────
-    val weekHeatmap = remember(weekEvents) {
+    // ── 5. Тепловая карта плотности — весь период ─────────────────────
+    val allPeriodHeatmap = remember(locEvents) {
         val map = mutableMapOf<Pair<Int, Int>, Int>()
-        weekEvents.forEach { ev ->
+        locEvents.forEach { ev ->
             val key = ev.startDate.dayOfWeek.value to ev.startDate.hour
             map[key] = (map[key] ?: 0) + 1
         }
         map.map { (k, v) -> HeatCell(k.first, k.second, v) }
     }
-    DashCard("Плотность мероприятий · эта неделя", Icons.Outlined.GridOn, ColorAmber) {
-        if (weekHeatmap.isEmpty()) {
-            InsightText("На этой неделе мероприятий нет")
+    DashCard("Плотность мероприятий", Icons.Outlined.GridOn, ColorAmber) {
+        if (allPeriodHeatmap.isEmpty()) {
+            InsightText("Нет данных")
         } else {
-            HeatmapGrid(weekHeatmap)
+            HeatmapGrid(allPeriodHeatmap)
         }
     }
 }
@@ -1920,6 +1876,108 @@ private fun SmallMetric(icon: ImageVector, label: String, value: String, color: 
     }
 }
 
+// ── Вспомогательная модель для bottom sheet помещения ────────────
+private data class PlaceForDetail(
+    val placeId: Int,
+    val name: String,
+    val locationName: String,
+    val capacity: Int,
+    val eventCount: Int
+)
+
+// ── Карточка-bottom sheet помещения ──────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PlaceDetailSheet(
+    placeName: String,
+    locationName: String,
+    capacity: Int,
+    eventCount: Int,
+    equipment: List<com.events.app.data.remote.dto.EquipmentDto>,
+    isLoading: Boolean,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState       = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
+            // Заголовок
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(
+                    Modifier.size(48.dp).background(ColorBlue.copy(0.12f), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) { Icon(Icons.Outlined.MeetingRoom, null, tint = ColorBlue, modifier = Modifier.size(24.dp)) }
+                Column(Modifier.weight(1f)) {
+                    Text(placeName, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(locationName, fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+
+            // Метрики
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PlaceMetricChip(Icons.Outlined.People, "$capacity мест", ColorBlue, Modifier.weight(1f))
+                PlaceMetricChip(Icons.Outlined.Event, "$eventCount мероприятий", ColorGreen, Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(20.dp))
+
+            // Оборудование
+            Text("Оборудование", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
+            when {
+                isLoading -> Box(Modifier.fillMaxWidth().height(60.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
+                }
+                equipment.isEmpty() -> Text("Оборудование не назначено", fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    equipment.forEach { eq ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(0.5f), RoundedCornerShape(10.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Outlined.Devices, null,
+                                tint = ColorAmber, modifier = Modifier.size(16.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(eq.title ?: "Без названия", fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (!eq.type.isNullOrBlank())
+                                    Text(eq.type, fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (!eq.inventoryNumber.isNullOrBlank())
+                                Text("№${eq.inventoryNumber}", fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaceMetricChip(icon: ImageVector, label: String, color: Color, modifier: Modifier = Modifier) {
+    Surface(shape = RoundedCornerShape(10.dp), color = color.copy(0.08f), modifier = modifier) {
+        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(icon, null, tint = color, modifier = Modifier.size(14.dp))
+            Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = color,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
 @Composable
 private fun LegendDot(color: Color, label: String, count: Int, suffix: String = "") {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1927,5 +1985,57 @@ private fun LegendDot(color: Color, label: String, count: Int, suffix: String = 
         Text(text = if (suffix.isNotEmpty()) "$label — $count ($suffix)" else "$label — $count",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+    }
+}
+
+@Composable
+private fun TagAnalyticsCard(tagStats: List<TagStat>) {
+    val maxCount = tagStats.maxOf { it.count }.coerceAtLeast(1)
+
+    DashCard("Популярность тэгов", Icons.Outlined.Tag, ColorBlue) {
+        Spacer(Modifier.height(8.dp))
+        tagStats.take(20).forEachIndexed { i, tag ->
+            val fraction = tag.count.toFloat() / maxCount
+            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                Row(
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "#${tag.tag}",
+                        fontSize   = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color      = MaterialTheme.colorScheme.onSurface,
+                        maxLines   = 1,
+                        overflow   = TextOverflow.Ellipsis,
+                        modifier   = Modifier.weight(1f)
+                    )
+                    Text(
+                        "${tag.count} меропр.",
+                        fontSize = 12.sp,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction)
+                            .fillMaxHeight()
+                            .background(
+                                Color(ScreenPalette[i % ScreenPalette.size]),
+                                RoundedCornerShape(4.dp)
+                            )
+                    )
+                }
+            }
+        }
     }
 }

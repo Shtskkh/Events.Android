@@ -1,6 +1,7 @@
 package com.events.app.ui.views.createevent
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -8,9 +9,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material3.FilterChip
+import com.events.app.data.remote.dto.TagDto
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -60,6 +64,9 @@ fun CreateEventStep2Screen(
     val selectedPlace     by viewModel.selectedPlaceId.collectAsState()
     val placeEquipment    by viewModel.placeEquipment.collectAsState()
     val equipmentLoading  by viewModel.equipmentLoading.collectAsState()
+    val availableTags     by viewModel.availableTags.collectAsState()
+    val selectedTagIds    by viewModel.selectedTagIds.collectAsState()
+    val tagSearchQuery    by viewModel.tagSearchQuery.collectAsState()
 
     var startDisplay by remember { mutableStateOf("") }
     var endDisplay   by remember { mutableStateOf("") }
@@ -505,6 +512,16 @@ fun CreateEventStep2Screen(
             }
         }
 
+        // ── Тэги ─────────────────────────────────────────────────
+        Spacer(modifier = Modifier.height(16.dp))
+        TagSelectionSection(
+            availableTags  = availableTags,
+            selectedTagIds = selectedTagIds,
+            tagSearchQuery = tagSearchQuery,
+            onSearchChange = { viewModel.searchTags(it) },
+            onToggleTag    = { viewModel.toggleTag(it) }
+        )
+
         // ── Регистрация ───────────────────────────────────────────
         Spacer(modifier = Modifier.height(16.dp))
         Surface(shape = RoundedCornerShape(12.dp),
@@ -632,6 +649,78 @@ fun CreateEventStep2Screen(
             },
             timePickerState = endTimePickerState
         )
+    }
+}
+
+// ── Выбор тэгов ───────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TagSelectionSection(
+    availableTags: List<com.events.app.data.remote.dto.TagDto>,
+    selectedTagIds: Set<Int>,
+    tagSearchQuery: String,
+    onSearchChange: (String) -> Unit,
+    onToggleTag: (Int) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape    = RoundedCornerShape(12.dp),
+        color    = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(Icons.Outlined.Tag, null,
+                    tint     = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp))
+                Text("Тэги",
+                    style      = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (selectedTagIds.isNotEmpty()) {
+                    Surface(shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer) {
+                        Text("${selectedTagIds.size}/5",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                            fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                            color    = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value         = tagSearchQuery,
+                onValueChange = onSearchChange,
+                placeholder   = { Text("Поиск тэгов...", fontSize = 13.sp) },
+                singleLine    = true,
+                modifier      = Modifier.fillMaxWidth(),
+                shape         = RoundedCornerShape(10.dp),
+                textStyle     = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
+            )
+
+            if (availableTags.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier              = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    availableTags.forEach { tag ->
+                        val isSelected = tag.id in selectedTagIds
+                        FilterChip(
+                            selected = isSelected,
+                            onClick  = { onToggleTag(tag.id) },
+                            label    = { Text(tag.value ?: "#${tag.id}", fontSize = 12.sp) }
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
